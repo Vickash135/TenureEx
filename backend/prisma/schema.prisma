@@ -1,0 +1,635 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+  runtime      = "nodejs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                       String                      @id @default(uuid())
+  firstName                String
+  lastName                 String
+  email                    String                      @unique
+  phone                    String?
+  passwordHash             String?
+  userType                 UserType
+  status                   UserStatus                  @default(PENDING_EMAIL_VERIFICATION)
+  emailVerified            Boolean                     @default(false)
+  phoneVerified            Boolean                     @default(false)
+  mustSetPassword          Boolean                     @default(false)
+  mustChangePassword       Boolean                     @default(false)
+  lastLoginAt              DateTime?
+  activatedAt              DateTime?
+  suspendedAt              DateTime?
+  disabledAt               DateTime?
+  createdAt                DateTime                    @default(now())
+  updatedAt                DateTime                    @updatedAt
+  agencyApplications       AgencyApplication[]         @relation("ApplicationApplicant")
+  applicationReviews       AgencyApplication[]         @relation("ApplicationReviewer")
+  agencyMemberships        AgencyUser[]
+  createdAgreements        Agreement[]                 @relation("AgreementCreator")
+  signedAgreements         Agreement[]                 @relation("AgreementSigner")
+  applicationStatusChanges ApplicationStatusHistory[]  @relation("StatusChangedBy")
+  auditLogs                AuditLog[]                  @relation("AuditActor")
+  councilProfile           CouncilProfile?
+  emailVerificationTokens  EmailVerificationToken[]
+  landlordProfile          LandlordProfile?
+  maintenanceProfile       MaintenanceProviderProfile?
+  passwordResetTokens      PasswordResetToken[]
+  phoneOtps                PhoneOtp[]
+  refreshTokens            RefreshToken[]
+  tenantProfile            TenantProfile?
+  globalRoles              UserRole[]
+
+  @@index([userType])
+  @@index([status])
+  @@index([emailVerified])
+}
+
+model LandlordProfile {
+  id                    String     @id @default(uuid())
+  userId                String     @unique
+  dateOfBirth           DateTime?
+  residentialAddress    String
+  postcode              String
+  identificationType    String?
+  identificationFileUrl String?
+  preferredLanguage     String?
+  voiceReadingEnabled   Boolean    @default(true)
+  agreementAcceptedAt   DateTime?
+  privacyAcceptedAt     DateTime?
+  digitalSignatureName  String?
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+  user                  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  properties            Property[]
+  agencyId              String?
+  agency                Agency?     @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+
+  @@index([agencyId])
+}
+
+model Property {
+  id                        String                 @id @default(uuid())
+  landlordProfileId         String
+  addressLine1              String
+  addressLine2              String?
+  townCity                  String
+  county                    String?
+  postcode                  String
+  propertyType              PropertyType
+  bedrooms                  Int
+  bathrooms                 Int
+  receptionRooms            Int                    @default(0)
+  monthlyRent               Decimal                @db.Decimal(12, 2)
+  depositAmount             Decimal?               @db.Decimal(12, 2)
+  councilTaxBand            String?
+  furnishingStatus          FurnishingStatus       @default(UNFURNISHED)
+  propertyStatus            PropertyStatus         @default(VACANT)
+  approvalStatus            PropertyApprovalStatus @default(PENDING)
+  tenantName                String?
+  tenantEmail               String?
+  tenantPhone               String?
+  availableFrom             DateTime?
+  petsAllowed               Boolean                @default(false)
+  smokingAllowed            Boolean                @default(false)
+  childrenAllowed           Boolean                @default(true)
+  hasParking                Boolean                @default(false)
+  hasGarden                 Boolean                @default(false)
+  hasLift                   Boolean                @default(false)
+  hasWheelchairAccess       Boolean                @default(false)
+  description               String?
+  specialNotes              String?
+  gasSupplier               String?
+  electricitySupplier       String?
+  waterSupplier             String?
+  councilName               String?
+  gasSafetyExpiry           DateTime?
+  epcExpiry                 DateTime?
+  eicrExpiry                DateTime?
+  maintenanceRoute          MaintenanceRoute       @default(CONTACT_LANDLORD_FIRST)
+  preferredContractor       String?
+  emergencyRepairPermission Boolean                @default(false)
+  emergencySpendingLimit    Decimal?               @db.Decimal(12, 2)
+  advertisingAllowed        Boolean                @default(false)
+  advertisingTitle          String?
+  photoNames                String[]               @default([])
+  submittedForReviewAt      DateTime?
+  approvedAt                DateTime?
+  rejectedAt                DateTime?
+  rejectionReason           String?
+  createdAt                 DateTime               @default(now())
+  updatedAt                 DateTime               @updatedAt
+  landlordProfile           LandlordProfile        @relation(fields: [landlordProfileId], references: [id], onDelete: Cascade)
+
+  @@index([landlordProfileId])
+  @@index([postcode])
+  @@index([propertyStatus])
+  @@index([approvalStatus])
+  @@index([createdAt])
+}
+
+model TenantProfile {
+  id                 String    @id @default(uuid())
+  userId             String    @unique
+  dateOfBirth        DateTime?
+  currentAddress     String?
+  postcode           String?
+  preferredLanguage  String?
+  accessibilityNotes String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MaintenanceProviderProfile {
+  id                 String    @id @default(uuid())
+  userId             String    @unique
+  businessName       String?
+  tradeType          String?
+  registrationNumber String?
+  insuranceExpiry    DateTime?
+  approved           Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CouncilProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  councilName String
+  department  String?
+  employeeId  String?
+  jobTitle    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AgencyApplication {
+  id                        String                  @id @default(uuid())
+  applicantUserId           String
+  reviewerUserId            String?
+  registrationType          RegistrationType
+  applicantName             String
+  businessName              String?
+  companyNumber             String?
+  hmrcLookupCompleted       Boolean                 @default(false)
+  hmrcVerified              Boolean                 @default(false)
+  contactEmail              String
+  contactPhone              String
+  businessDetails           String?
+  employeeCount             Int?
+  requiredLoginCount        Int?
+  propertyCount             Int?
+  branchCount               Int?
+  authorisedDeclaration     Boolean                 @default(false)
+  termsAcceptedAt           DateTime?
+  privacyAcceptedAt         DateTime?
+  status                    AgencyApplicationStatus @default(DRAFT)
+  submittedAt               DateTime?
+  reviewStartedAt           DateTime?
+  reviewedAt                DateTime?
+  approvedAt                DateTime?
+  rejectedAt                DateTime?
+  rejectionReason           String?
+
+  // More information workflow
+  additionalInfoRequest     String?
+  additionalInfoRequestedAt DateTime?
+  additionalInfoResponse    String?
+  additionalInfoRespondedAt DateTime?
+  additionalInfoResolvedAt  DateTime?
+
+  estimatedProcessingDays   Int?
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
+
+  agency                    Agency?
+  applicantUser             User                    @relation("ApplicationApplicant", fields: [applicantUserId], references: [id])
+  reviewerUser              User?                   @relation("ApplicationReviewer", fields: [reviewerUserId], references: [id])
+  agreements                Agreement[]
+  statusHistory             ApplicationStatusHistory[]
+  directDebitSetup          DirectDebitSetup?
+
+  @@index([applicantUserId])
+  @@index([reviewerUserId])
+  @@index([status])
+  @@index([submittedAt])
+  @@index([additionalInfoRespondedAt])
+}
+
+model ApplicationStatusHistory {
+  id              String                   @id @default(uuid())
+  applicationId   String
+  changedByUserId String?
+  previousStatus  AgencyApplicationStatus?
+  newStatus       AgencyApplicationStatus
+  note            String?
+  createdAt       DateTime                 @default(now())
+  application     AgencyApplication        @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  changedByUser   User?                    @relation("StatusChangedBy", fields: [changedByUserId], references: [id])
+
+  @@index([applicationId])
+  @@index([changedByUserId])
+  @@index([newStatus])
+}
+
+model Agency {
+  id               String            @id @default(uuid())
+  applicationId    String            @unique
+  name             String
+  registrationType RegistrationType
+  companyNumber    String?
+  contactEmail     String            @unique
+  contactPhone     String
+  businessDetails  String?
+  authorised       Boolean           @default(false)
+  active           Boolean           @default(false)
+  activatedAt      DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  application      AgencyApplication @relation(fields: [applicationId], references: [id])
+  branches         AgencyBranch[]
+  users            AgencyUser[]
+  roles            Role[]
+  landlords        LandlordProfile[]
+  landlordInvitations LandlordInvitation[]
+
+  @@index([active])
+}
+
+
+model LandlordInvitation {
+  id              String   @id @default(uuid())
+  agencyId        String
+  invitedByUserId String
+  firstName       String
+  lastName        String
+  email           String
+  phone           String?
+  tokenHash       String
+  status          String   @default("PENDING")
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  agency          Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  @@index([agencyId])
+  @@index([email])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model AgencyBranch {
+  id        String       @id @default(uuid())
+  agencyId  String
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  postcode  String?
+  active    Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  agency    Agency       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  users     AgencyUser[]
+
+  @@unique([agencyId, name])
+  @@index([agencyId])
+}
+
+model AgencyUser {
+  id        String           @id @default(uuid())
+  agencyId  String
+  userId    String
+  branchId  String?
+  jobTitle  String?
+  isPrimary Boolean          @default(false)
+  invitedAt DateTime?
+  joinedAt  DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  agency    Agency           @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  branch    AgencyBranch?    @relation(fields: [branchId], references: [id])
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roles     AgencyUserRole[]
+
+  @@unique([agencyId, userId])
+  @@index([agencyId])
+  @@index([userId])
+  @@index([branchId])
+}
+
+model Role {
+  id                String           @id @default(uuid())
+  agencyId          String?
+  code              String           @unique
+  name              String
+  description       String?
+  scope             RoleScope
+  isSystem          Boolean          @default(false)
+  enabled           Boolean          @default(true)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  agencyAssignments AgencyUserRole[]
+  agency            Agency?          @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  permissions       RolePermission[]
+  globalAssignments UserRole[]
+
+  @@unique([agencyId, name])
+  @@index([scope])
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  code        String           @unique
+  module      String
+  description String?
+  createdAt   DateTime         @default(now())
+  roles       RolePermission[]
+
+  @@index([module])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  accessLevel  AccessLevel @default(NONE)
+  permission   Permission  @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         Role        @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model UserRole {
+  userId String
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model AgencyUserRole {
+  agencyUserId String
+  roleId       String
+  agencyUser   AgencyUser @relation(fields: [agencyUserId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([agencyUserId, roleId])
+}
+
+model EmailVerificationToken {
+  id        String              @id @default(uuid())
+  userId    String
+  tokenHash String              @unique
+  purpose   VerificationPurpose @default(REGISTRATION)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime            @default(now())
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PhoneOtp {
+  id         String              @id @default(uuid())
+  userId     String
+  codeHash   String
+  purpose    VerificationPurpose @default(REGISTRATION)
+  attempts   Int                 @default(0)
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  createdAt  DateTime            @default(now())
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Agreement {
+  id                 String             @id @default(uuid())
+  applicationId      String?
+  createdByUserId    String
+  signerUserId       String?
+  agreementType      AgreementType
+  status             AgreementStatus    @default(DRAFT)
+  title              String
+  version            String
+  documentUrl        String?
+  termsSnapshot      Json?
+  sentAt             DateTime?
+  viewedAt           DateTime?
+  signedAt           DateTime?
+  expiresAt          DateTime?
+  signatureName      String?
+  signatureIp        String?
+  signatureUserAgent String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  application        AgencyApplication? @relation(fields: [applicationId], references: [id])
+  createdByUser      User               @relation("AgreementCreator", fields: [createdByUserId], references: [id])
+  signerUser         User?              @relation("AgreementSigner", fields: [signerUserId], references: [id])
+
+  @@index([applicationId])
+  @@index([createdByUserId])
+  @@index([signerUserId])
+  @@index([status])
+}
+
+model DirectDebitSetup {
+  id                        String            @id @default(uuid())
+  applicationId             String            @unique
+  provider                  String?
+  providerCustomerReference String?
+  providerMandateReference  String?
+  status                    DirectDebitStatus @default(NOT_STARTED)
+  submittedAt               DateTime?
+  validatedAt               DateTime?
+  failedAt                  DateTime?
+  failureReason             String?
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
+  application               AgencyApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  actorUserId String?
+  action      String
+  entityType  String
+  entityId    String?
+  description String?
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  actorUser   User?    @relation("AuditActor", fields: [actorUserId], references: [id])
+
+  @@index([actorUserId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+enum PropertyType {
+  HOUSE
+  FLAT
+  STUDIO
+  BUNGALOW
+  MAISONETTE
+  OTHER
+}
+
+enum FurnishingStatus {
+  FURNISHED
+  PART_FURNISHED
+  UNFURNISHED
+}
+
+enum PropertyStatus {
+  OCCUPIED
+  VACANT
+  PENDING_APPROVAL
+}
+
+enum PropertyApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum MaintenanceRoute {
+  CONTACT_LANDLORD_FIRST
+  AGENT_CAN_ARRANGE
+  USE_PREFERRED_CONTRACTOR
+}
+
+enum UserType {
+  TENUREEX_ADMIN
+  TENUREEX_STAFF
+  ESTATE_AGENT
+  LANDLORD
+  TENANT
+  MAINTENANCE_PROVIDER
+  COUNCIL_INSPECTOR
+}
+
+enum UserStatus {
+  PENDING_EMAIL_VERIFICATION
+  PENDING_PHONE_VERIFICATION
+  APPLICATION_INCOMPLETE
+  PENDING_REVIEW
+  MORE_INFORMATION_REQUIRED
+  AGREEMENT_PENDING
+  AGREEMENT_SIGNED
+  PAYMENT_SETUP_PENDING
+  FINAL_VALIDATION
+  ACTIVE
+  REJECTED
+  SUSPENDED
+  DISABLED
+}
+
+enum RegistrationType {
+  BUSINESS
+  INDIVIDUAL
+}
+
+enum AgencyApplicationStatus {
+  DRAFT
+  PENDING_EMAIL_VERIFICATION
+  PENDING_PHONE_VERIFICATION
+  PENDING_REVIEW
+  UNDER_REVIEW
+  MORE_INFORMATION_REQUIRED
+  AUTHORISED
+  AGREEMENT_PENDING
+  AGREEMENT_SENT
+  AGREEMENT_SIGNED
+  PAYMENT_SETUP_PENDING
+  FINAL_VALIDATION
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum VerificationPurpose {
+  REGISTRATION
+  LOGIN
+  CHANGE_EMAIL
+  CHANGE_PHONE
+}
+
+enum AgreementType {
+  ESTATE_AGENT_SERVICE
+  LANDLORD_PLATFORM
+  TENANCY
+  MAINTENANCE_PROVIDER
+  OTHER
+}
+
+enum AgreementStatus {
+  DRAFT
+  SENT
+  VIEWED
+  SIGNED
+  EXPIRED
+  CANCELLED
+}
+
+enum DirectDebitStatus {
+  NOT_STARTED
+  PENDING
+  SUBMITTED
+  UNDER_VALIDATION
+  ACTIVE
+  FAILED
+  CANCELLED
+}
+
+enum AccessLevel {
+  NONE
+  READ
+  WRITE
+  MANAGE
+}
+
+enum RoleScope {
+  GLOBAL
+  AGENCY
+}

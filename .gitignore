@@ -41,3 +41,14 @@ app-example
 # generated native folders
 /ios
 /android
+# Backend
+backend/node_modules/
+backend/dist/
+
+# Secrets - DO NOT upload
+.env
+.env.*
+backend/.env
+backend/.env.*
+# User uploaded files
+backend/uploads/
