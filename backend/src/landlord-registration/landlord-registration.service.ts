@@ -22,10 +22,6 @@ export class LandlordRegistrationService {
     private readonly mailService: MailService,
   ) {}
 
-  // =========================================================
-  // START LANDLORD REGISTRATION
-  // =========================================================
-
   async start(
     dto: StartLandlordRegistrationDto,
   ) {
@@ -34,66 +30,25 @@ export class LandlordRegistrationService {
         .trim()
         .toLowerCase();
 
-    let invitation: {
-      id: string;
-      agencyId: string;
-    } | null = null;
-
-    // =========================================================
-    // OPTIONAL LANDLORD INVITATION
-    // =========================================================
+    let invitation: { id: string; agencyId: string } | null = null;
 
     if (dto.invitationToken?.trim()) {
-      const candidates =
-        await this.prisma.$queryRawUnsafe<
-          Array<{
-            id: string;
-            agencyId: string;
-            tokenHash: string;
-          }>
-        >(
-          `
-          SELECT
-            "id",
-            "agencyId",
-            "tokenHash"
-          FROM "LandlordInvitation"
-          WHERE "email" = $1
-            AND "status" = 'PENDING'
-            AND "expiresAt" > NOW()
-          ORDER BY "createdAt" DESC
-          `,
-          email,
-        );
+      const candidates = await this.prisma.$queryRawUnsafe<Array<{ id: string; agencyId: string; tokenHash: string }>>(
+        `SELECT "id", "agencyId", "tokenHash" FROM "LandlordInvitation" WHERE "email" = $1 AND "status" = 'PENDING' AND "expiresAt" > NOW() ORDER BY "createdAt" DESC`,
+        email,
+      );
 
       for (const candidate of candidates) {
-        const valid =
-          await argon2.verify(
-            candidate.tokenHash,
-            dto.invitationToken.trim(),
-          );
-
-        if (valid) {
-          invitation = {
-            id: candidate.id,
-            agencyId:
-              candidate.agencyId,
-          };
-
+        if (await argon2.verify(candidate.tokenHash, dto.invitationToken.trim())) {
+          invitation = { id: candidate.id, agencyId: candidate.agencyId };
           break;
         }
       }
 
       if (!invitation) {
-        throw new BadRequestException(
-          "The landlord invitation is invalid or has expired.",
-        );
+        throw new BadRequestException("The landlord invitation is invalid or has expired.");
       }
     }
-
-    // =========================================================
-    // CHECK EXISTING USER
-    // =========================================================
 
     const existingUser =
       await this.prisma.user.findUnique({
@@ -108,29 +63,14 @@ export class LandlordRegistrationService {
       );
     }
 
-    // =========================================================
-    // PASSWORD
-    // =========================================================
-
     const passwordHash =
       await argon2.hash(
         dto.password,
       );
 
-    // =========================================================
-    // EMAIL OTP
-    // =========================================================
-
-    const rawEmailToken =
-      String(
-        randomInt(
-          0,
-          1000000,
-        ),
-      ).padStart(
-        6,
-        "0",
-      );
+    const rawEmailToken = String(
+      randomInt(0, 1000000),
+    ).padStart(6, "0");
 
     const emailTokenHash =
       await argon2.hash(
@@ -142,10 +82,6 @@ export class LandlordRegistrationService {
         Date.now() +
           30 * 60 * 1000,
       );
-
-    // =========================================================
-    // DATE OF BIRTH
-    // =========================================================
 
     const dateOfBirth =
       dto.dateOfBirth
@@ -165,18 +101,11 @@ export class LandlordRegistrationService {
       );
     }
 
-    const now =
-      new Date();
-
-    // =========================================================
-    // CREATE USER + LANDLORD PROFILE
-    // =========================================================
+    const now = new Date();
 
     const user =
       await this.prisma.$transaction(
-        async (
-          transaction,
-        ) => {
+        async (transaction) => {
           const createdUser =
             await transaction.user.create({
               data: {
@@ -206,10 +135,6 @@ export class LandlordRegistrationService {
                   false,
               },
             });
-
-          // =====================================================
-          // LANDLORD PROFILE
-          // =====================================================
 
           await transaction.landlordProfile.create({
             data: {
@@ -250,42 +175,21 @@ export class LandlordRegistrationService {
 
               digitalSignatureName:
                 dto.digitalSignatureName.trim(),
+
             },
           });
 
-          // =====================================================
-          // CONNECT INVITED LANDLORD TO AGENCY
-          // =====================================================
-
           if (invitation) {
             await transaction.$executeRawUnsafe(
-              `
-              UPDATE "LandlordProfile"
-              SET
-                "agencyId" = $1,
-                "updatedAt" = NOW()
-              WHERE "userId" = $2
-              `,
+              'UPDATE "LandlordProfile" SET "agencyId" = $1, "updatedAt" = NOW() WHERE "userId" = $2',
               invitation.agencyId,
               createdUser.id,
             );
-
             await transaction.$executeRawUnsafe(
-              `
-              UPDATE "LandlordInvitation"
-              SET
-                "status" = 'ACCEPTED',
-                "acceptedAt" = NOW(),
-                "updatedAt" = NOW()
-              WHERE "id" = $1
-              `,
+              `UPDATE "LandlordInvitation" SET "status" = 'ACCEPTED', "acceptedAt" = NOW(), "updatedAt" = NOW() WHERE "id" = $1`,
               invitation.id,
             );
           }
-
-          // =====================================================
-          // SAVE EMAIL VERIFICATION TOKEN
-          // =====================================================
 
           await transaction.emailVerificationToken.create({
             data: {
@@ -307,43 +211,20 @@ export class LandlordRegistrationService {
         },
       );
 
-    // =========================================================
-    // SEND EMAIL OTP
-    // =========================================================
-
     await this.mailService.sendLandlordEmailVerification({
-      email:
-        user.email,
-
-      firstName:
-        user.firstName,
-
-      verificationCode:
-        rawEmailToken,
+      email: user.email,
+      firstName: user.firstName,
+      verificationCode: rawEmailToken,
     });
-
-    // =========================================================
-    // RETURN REGISTRATION INFORMATION
-    // =========================================================
 
     return {
       message:
-        "Landlord registration started successfully. Please verify your email.",
-
-      userId:
-        user.id,
-
-      email:
-        user.email,
-
-      status:
-        user.status,
+        "Landlord registration started. A 6-digit verification code has been sent to your email address.",
+      userId: user.id,
+      email: user.email,
+      status: user.status,
     };
   }
-
-  // =========================================================
-  // VERIFY EMAIL
-  // =========================================================
 
   async verifyEmail(
     dto: VerifyLandlordEmailDto,
@@ -351,28 +232,20 @@ export class LandlordRegistrationService {
     const user =
       await this.prisma.user.findUnique({
         where: {
-          id:
-            dto.userId,
+          id: dto.userId,
         },
       });
 
     if (
       !user ||
-      user.userType !==
-        "LANDLORD"
+      user.userType !== "LANDLORD"
     ) {
       throw new NotFoundException(
         "Landlord account was not found.",
       );
     }
 
-    // =========================================================
-    // ALREADY VERIFIED
-    // =========================================================
-
-    if (
-      user.emailVerified
-    ) {
+    if (user.emailVerified) {
       return {
         message:
           "Email is already verified. Verify your phone number next.",
@@ -381,10 +254,6 @@ export class LandlordRegistrationService {
           user.id,
       };
     }
-
-    // =========================================================
-    // FIND ACTIVE EMAIL OTP TOKENS
-    // =========================================================
 
     const candidates =
       await this.prisma.emailVerificationToken.findMany({
@@ -399,8 +268,7 @@ export class LandlordRegistrationService {
             null,
 
           expiresAt: {
-            gt:
-              new Date(),
+            gt: new Date(),
           },
         },
 
@@ -412,8 +280,7 @@ export class LandlordRegistrationService {
 
     let verificationToken:
       | (typeof candidates)[number]
-      | null =
-      null;
+      | null = null;
 
     for (
       const candidate of
@@ -433,21 +300,11 @@ export class LandlordRegistrationService {
       }
     }
 
-    // =========================================================
-    // INVALID EMAIL OTP
-    // =========================================================
-
-    if (
-      !verificationToken
-    ) {
+    if (!verificationToken) {
       throw new BadRequestException(
         "Email verification code is invalid or expired.",
       );
     }
-
-    // =========================================================
-    // VERIFY EMAIL
-    // =========================================================
 
     await this.prisma.$transaction([
       this.prisma.emailVerificationToken.update({
@@ -487,10 +344,6 @@ export class LandlordRegistrationService {
     };
   }
 
-  // =========================================================
-  // GENERATE PHONE OTP
-  // =========================================================
-
   async sendPhoneOtp(
     userId: string,
   ) {
@@ -502,79 +355,45 @@ export class LandlordRegistrationService {
         },
       });
 
-    // =========================================================
-    // VALIDATE LANDLORD
-    // =========================================================
-
     if (
       !user ||
-      user.userType !==
-        "LANDLORD"
+      user.userType !== "LANDLORD"
     ) {
       throw new NotFoundException(
         "Landlord account was not found.",
       );
     }
 
-    // =========================================================
-    // EMAIL MUST BE VERIFIED FIRST
-    // =========================================================
-
-    if (
-      !user.emailVerified
-    ) {
+    if (!user.emailVerified) {
       throw new BadRequestException(
         "Verify your email address before requesting a phone verification code.",
       );
     }
 
-    // =========================================================
-    // PHONE ALREADY VERIFIED
-    // =========================================================
-
-    if (
-      user.phoneVerified
-    ) {
+    if (user.phoneVerified) {
       return {
         message:
           "Phone number is already verified.",
       };
     }
 
-    // =========================================================
-    // GENERATE 6-DIGIT PHONE OTP
-    // =========================================================
-
-    const rawOtp =
-      String(
-        randomInt(
-          100000,
-          1000000,
-        ),
-      );
-
-    // =========================================================
-    // HASH OTP BEFORE SAVING
-    // =========================================================
+    const rawOtp = String(
+      randomInt(
+        100000,
+        1000000,
+      ),
+    );
 
     const codeHash =
       await argon2.hash(
         rawOtp,
       );
 
-    // =========================================================
-    // OTP EXPIRES AFTER 10 MINUTES
-    // =========================================================
-
     const expiresAt =
       new Date(
         Date.now() +
           10 * 60 * 1000,
       );
-
-    // =========================================================
-    // SAVE PHONE OTP
-    // =========================================================
 
     await this.prisma.phoneOtp.create({
       data: {
@@ -590,27 +409,24 @@ export class LandlordRegistrationService {
       },
     });
 
-    // =========================================================
-    // TEMPORARY DEVELOPMENT OTP
-    //
-    // SMS/TWILIO IS NOT CONNECTED YET.
-    // RETURN THE OTP SO THE FRONTEND CAN DISPLAY IT.
-    //
-    // REMOVE developmentOtp WHEN REAL SMS IS CONNECTED.
-    // =========================================================
-
-    return {
+    const response = {
       message:
         "Landlord phone verification code generated.",
-
-      developmentOtp:
-        rawOtp,
     };
-  }
 
-  // =========================================================
-  // VERIFY PHONE OTP
-  // =========================================================
+    if (
+      process.env.NODE_ENV !==
+      "production"
+    ) {
+      return {
+        ...response,
+        developmentOtp:
+          rawOtp,
+      };
+    }
+
+    return response;
+  }
 
   async verifyPhone(
     dto: VerifyLandlordPhoneDto,
@@ -623,39 +439,22 @@ export class LandlordRegistrationService {
         },
       });
 
-    // =========================================================
-    // VALIDATE LANDLORD
-    // =========================================================
-
     if (
       !user ||
-      user.userType !==
-        "LANDLORD"
+      user.userType !== "LANDLORD"
     ) {
       throw new NotFoundException(
         "Landlord account was not found.",
       );
     }
 
-    // =========================================================
-    // EMAIL MUST BE VERIFIED
-    // =========================================================
-
-    if (
-      !user.emailVerified
-    ) {
+    if (!user.emailVerified) {
       throw new BadRequestException(
         "Verify your email address first.",
       );
     }
 
-    // =========================================================
-    // PHONE ALREADY VERIFIED
-    // =========================================================
-
-    if (
-      user.phoneVerified
-    ) {
+    if (user.phoneVerified) {
       return {
         message:
           "Landlord registration completed successfully. You can now sign in.",
@@ -667,10 +466,6 @@ export class LandlordRegistrationService {
           user.status,
       };
     }
-
-    // =========================================================
-    // FIND LATEST VALID PHONE OTP
-    // =========================================================
 
     const otp =
       await this.prisma.phoneOtp.findFirst({
@@ -685,8 +480,7 @@ export class LandlordRegistrationService {
             null,
 
           expiresAt: {
-            gt:
-              new Date(),
+            gt: new Date(),
           },
         },
 
@@ -696,42 +490,23 @@ export class LandlordRegistrationService {
         },
       });
 
-    // =========================================================
-    // NO VALID OTP
-    // =========================================================
-
     if (!otp) {
       throw new BadRequestException(
         "Phone verification code is invalid or expired.",
       );
     }
 
-    // =========================================================
-    // MAXIMUM 5 ATTEMPTS
-    // =========================================================
-
-    if (
-      otp.attempts >=
-      5
-    ) {
+    if (otp.attempts >= 5) {
       throw new BadRequestException(
         "Too many incorrect attempts. Request a new phone verification code.",
       );
     }
-
-    // =========================================================
-    // VERIFY OTP
-    // =========================================================
 
     const valid =
       await argon2.verify(
         otp.codeHash,
         dto.code,
       );
-
-    // =========================================================
-    // WRONG OTP
-    // =========================================================
 
     if (!valid) {
       await this.prisma.phoneOtp.update({
@@ -742,8 +517,7 @@ export class LandlordRegistrationService {
 
         data: {
           attempts: {
-            increment:
-              1,
+            increment: 1,
           },
         },
       });
@@ -756,15 +530,9 @@ export class LandlordRegistrationService {
     const activatedAt =
       new Date();
 
-    // =========================================================
-    // MARK OTP VERIFIED + ACTIVATE LANDLORD
-    // =========================================================
-
     const updatedUser =
       await this.prisma.$transaction(
-        async (
-          transaction,
-        ) => {
+        async (transaction) => {
           await transaction.phoneOtp.update({
             where: {
               id:
@@ -808,10 +576,6 @@ export class LandlordRegistrationService {
     };
   }
 
-  // =========================================================
-  // SAVE IDENTIFICATION DOCUMENT
-  // =========================================================
-
   async saveIdentificationDocument(
     userId: string,
     identificationFileUrl: string,
@@ -829,24 +593,15 @@ export class LandlordRegistrationService {
         },
       });
 
-    // =========================================================
-    // VALIDATE LANDLORD PROFILE
-    // =========================================================
-
     if (
       !user ||
-      user.userType !==
-        "LANDLORD" ||
+      user.userType !== "LANDLORD" ||
       !user.landlordProfile
     ) {
       throw new NotFoundException(
         "Landlord profile was not found.",
       );
     }
-
-    // =========================================================
-    // SAVE DOCUMENT URL
-    // =========================================================
 
     await this.prisma.landlordProfile.update({
       where: {
