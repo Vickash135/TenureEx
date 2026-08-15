@@ -409,25 +409,15 @@ export class LandlordRegistrationService {
       },
     });
 
-    const response = {
-      message:
-        "Landlord phone verification code generated.",
-    };
+return {
+  message:
+    "Landlord phone verification code generated.",
 
-    if (
-      process.env.NODE_ENV !==
-      "production"
-    ) {
-      return {
-        ...response,
-        developmentOtp:
-          rawOtp,
-      };
-    }
-
-    return response;
+  // TEMPORARY until SMS/Twilio is connected
+  developmentOtp:
+    rawOtp,
+};
   }
-
   async verifyPhone(
     dto: VerifyLandlordPhoneDto,
   ) {
