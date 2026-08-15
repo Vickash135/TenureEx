@@ -1,7 +1,7 @@
 import {
-    Injectable,
-    OnModuleDestroy,
-    OnModuleInit,
+  Injectable,
+  OnModuleDestroy,
+  OnModuleInit,
 } from "@nestjs/common";
 import { PrismaPg } from "@prisma/adapter-pg";
 
@@ -23,6 +23,10 @@ export class PrismaService
 
     const adapter = new PrismaPg({
       connectionString: databaseUrl,
+
+      ssl: {
+        rejectUnauthorized: false,
+      },
     });
 
     super({
