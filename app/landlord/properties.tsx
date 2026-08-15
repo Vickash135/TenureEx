@@ -135,8 +135,9 @@ type SelectedPropertyPhoto = {
 };
 
 const API_ORIGIN = (
-  process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000/api/v1"
-).replace(/\/api\/v1\/?$/, "");
+  process.env.EXPO_PUBLIC_API_URL ??
+  "http://localhost:3000/api/v1"
+).replace(/\/+$/, "")
 
 function getPropertyPhotoUrl(photoName: string): string {
   if (/^https?:\/\//i.test(photoName)) {

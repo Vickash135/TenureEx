@@ -45,11 +45,12 @@ const STATUS_ROUTE =
 const LOGIN_ROUTE =
     "/auth/agent/login" as Href;
 
-const API_BASE_URL =
-    Platform.OS === "android"
+const API_BASE_URL = (
+    process.env.EXPO_PUBLIC_API_URL ??
+    (Platform.OS === "android"
         ? "http://10.0.2.2:3000/api/v1"
-        : "http://localhost:3000/api/v1";
-
+        : "http://localhost:3000/api/v1")
+).replace(/\/+$/, "");
 type DirectDebit = {
     id: string;
 

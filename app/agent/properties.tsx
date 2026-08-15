@@ -32,7 +32,15 @@ type AgencyProperty = {
   landlord: { name: string; email: string; phone?: string | null };
 };
 
-const API_ORIGIN = "http://localhost:3000";
+const API_BASE_URL = (
+  process.env.EXPO_PUBLIC_API_URL ??
+  "http://localhost:3000/api/v1"
+).replace(/\/+$/, "");
+
+const API_ORIGIN = API_BASE_URL.replace(
+  /\/api\/v1$/,
+  "",
+);
 
 export default function PropertiesScreen() {
   const [properties, setProperties] = useState<AgencyProperty[]>([]);

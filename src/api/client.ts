@@ -24,6 +24,13 @@ import { Platform } from "react-native";
 */
 
 const getBaseURL = (): string => {
+  const configuredUrl =
+    process.env.EXPO_PUBLIC_API_URL?.trim();
+
+  if (configuredUrl) {
+    return configuredUrl.replace(/\/+$/, "");
+  }
+
   if (Platform.OS === "android") {
     return "http://10.0.2.2:3000/api/v1";
   }

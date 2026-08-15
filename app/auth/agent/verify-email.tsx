@@ -21,11 +21,12 @@ import {
   typography,
 } from "../../../src/theme";
 
-const API_BASE_URL =
-  Platform.OS === "android"
-    ? "http://10.0.2.2:3000/api/v1"
-    : "http://localhost:3000/api/v1";
-
+const API_BASE_URL = (
+    process.env.EXPO_PUBLIC_API_URL ??
+    (Platform.OS === "android"
+        ? "http://10.0.2.2:3000/api/v1"
+        : "http://localhost:3000/api/v1")
+).replace(/\/+$/, "");
 export default function VerifyAgentEmailRoute() {
   const params =
     useLocalSearchParams<{
