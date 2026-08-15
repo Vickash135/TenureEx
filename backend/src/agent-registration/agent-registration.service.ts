@@ -58,7 +58,7 @@ export class AgentRegistrationService {
 
     private readonly mailService:
       MailService,
-  ) {}
+  ) { }
 
   // =========================================================
   // START ESTATE AGENT REGISTRATION
@@ -139,13 +139,13 @@ export class AgentRegistrationService {
 
                 businessName:
                   dto.registrationType ===
-                  RegistrationType.BUSINESS
+                    RegistrationType.BUSINESS
                     ? dto.businessName?.trim()
                     : null,
 
                 companyNumber:
                   dto.registrationType ===
-                  RegistrationType.BUSINESS
+                    RegistrationType.BUSINESS
                     ? dto.companyNumber?.trim()
                     : null,
 
@@ -202,10 +202,10 @@ export class AgentRegistrationService {
           expiresAt:
             new Date(
               Date.now() +
-                24 *
-                  60 *
-                  60 *
-                  1000,
+              24 *
+              60 *
+              60 *
+              1000,
             ),
         },
       });
@@ -259,11 +259,11 @@ export class AgentRegistrationService {
       // Development convenience only.
       // Do not show this token in the frontend UI.
       ...(process.env.NODE_ENV !==
-      "production"
+        "production"
         ? {
-            developmentEmailVerificationToken:
-              rawToken,
-          }
+          developmentEmailVerificationToken:
+            rawToken,
+        }
         : {}),
     };
   }
@@ -286,7 +286,7 @@ export class AgentRegistrationService {
     if (
       !user ||
       user.userType !==
-        UserType.ESTATE_AGENT
+      UserType.ESTATE_AGENT
     ) {
       throw new NotFoundException(
         "Estate Agent registration was not found.",
@@ -420,7 +420,7 @@ export class AgentRegistrationService {
     if (
       !user ||
       user.userType !==
-        UserType.ESTATE_AGENT
+      UserType.ESTATE_AGENT
     ) {
       throw new NotFoundException(
         "Estate Agent registration was not found.",
@@ -486,9 +486,9 @@ export class AgentRegistrationService {
           expiresAt:
             new Date(
               Date.now() +
-                10 *
-                  60 *
-                  1000,
+              10 *
+              60 *
+              1000,
             ),
         },
       });
@@ -503,15 +503,13 @@ export class AgentRegistrationService {
 
     return {
       message:
-        "Verification code sent.",
+        "Phone verification code generated.",
 
-      ...(process.env.NODE_ENV !==
-      "production"
-        ? {
-            developmentOtp:
-              code,
-          }
-        : {}),
+      // TEMPORARY:
+      // SMS provider is not connected yet.
+      // Return the OTP so the frontend can display it.
+      // Remove this when Twilio/SMS is connected.
+      developmentOtp: code,
     };
   }
 
@@ -533,7 +531,7 @@ export class AgentRegistrationService {
     if (
       !user ||
       user.userType !==
-        UserType.ESTATE_AGENT
+      UserType.ESTATE_AGENT
     ) {
       throw new NotFoundException(
         "Estate Agent registration was not found.",
@@ -860,13 +858,13 @@ export class AgentRegistrationService {
     if (
       !application.businessDetails ||
       application.employeeCount ===
-        null ||
+      null ||
       application.requiredLoginCount ===
-        null ||
+      null ||
       application.propertyCount ===
-        null ||
+      null ||
       application.branchCount ===
-        null ||
+      null ||
       !application.authorisedDeclaration ||
       !application.termsAcceptedAt ||
       !application.privacyAcceptedAt
