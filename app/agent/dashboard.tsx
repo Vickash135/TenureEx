@@ -81,8 +81,8 @@ const statistics: StatisticItem[] = [
   },
   {
     title: "Maintenance",
-    value: "8",
-    change: "2 urgent",
+    value: "0",
+    change: "0 urgent",
     icon: "tools",
     permission: "MAINTENANCE_VIEW",
   },
@@ -888,7 +888,7 @@ export default function AgentDashboard() {
                     >
                       <CardHeader
                         title="Maintenance requests"
-                        subtitle="8 requests require attention"
+                        subtitle="0 requests require attention"
                         action="Open maintenance"
                         onPress={() =>
                           router.push("/agent/maintenance" as Href)
