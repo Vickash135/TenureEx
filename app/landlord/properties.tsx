@@ -139,18 +139,22 @@ const API_ORIGIN = (
   "http://localhost:3000/api/v1"
 ).replace(/\/+$/, "");
 
-// API requests use /api/v1, but uploaded files are served from
-// the backend root at /uploads.
-const FILE_ORIGIN = API_ORIGIN.replace(/\/api\/v1\/?$/, "");
-
 function getPropertyPhotoUrl(photoName: string): string {
+  if (!photoName) {
+    return "";
+  }
+
+  // If backend ever returns a complete URL, use it directly.
   if (/^https?:\/\//i.test(photoName)) {
     return photoName;
   }
 
-  const cleanPhotoName = photoName.replace(/^\/+/, "");
+  const cleanPhotoName = photoName
+    .replace(/^\/+/, "")
+    .replace(/^uploads\/properties\//, "")
+    .replace(/^properties\//, "");
 
-  return `${FILE_ORIGIN}/uploads/properties/${encodeURIComponent(
+  return `${API_ORIGIN}/uploads/properties/${encodeURIComponent(
     cleanPhotoName,
   )}`;
 }

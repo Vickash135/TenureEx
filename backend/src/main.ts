@@ -11,10 +11,14 @@ async function bootstrap(): Promise<void> {
       AppModule,
     );
 
-  // Global API prefix
+  // =====================================================
+  // GLOBAL API PREFIX
+  // =====================================================
   app.setGlobalPrefix("api/v1");
 
-  // Validation
+  // =====================================================
+  // VALIDATION
+  // =====================================================
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -23,7 +27,9 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
+  // =====================================================
   // CORS
+  // =====================================================
   app.enableCors({
     origin: true,
     credentials: true,
@@ -31,32 +37,46 @@ async function bootstrap(): Promise<void> {
 
   // =====================================================
   // STATIC UPLOADS
-  // Allows uploaded property photos to be displayed
   //
-  // Example:
-  // http://localhost:3000/uploads/properties/photo.jpg
+  // IMPORTANT:
+  // In production DigitalOcean routes /api/v1/* to
+  // the NestJS backend.
+  //
+  // Therefore uploaded files are also exposed through
+  // /api/v1/uploads/*
+  //
+  // Local example:
+  // http://localhost:3000/api/v1/uploads/properties/photo.jpg
+  //
+  // Production example:
+  // https://tenureex-api-24pj6.ondigitalocean.app/
+  // api/v1/uploads/properties/photo.jpg
   // =====================================================
-
   app.useStaticAssets(
     join(process.cwd(), "uploads"),
     {
-      prefix: "/uploads/",
+      prefix: "/api/v1/uploads/",
     },
   );
 
-  // Port
+  // =====================================================
+  // PORT
+  // =====================================================
   const port = Number(
     process.env.PORT ?? 3000,
   );
 
   await app.listen(port, "0.0.0.0");
 
+  // =====================================================
+  // STARTUP LOGS
+  // =====================================================
   console.log(
     `TenureEx API running on http://localhost:${port}/api/v1`,
   );
 
   console.log(
-    `TenureEx uploads available on http://localhost:${port}/uploads`,
+    `TenureEx uploads available on http://localhost:${port}/api/v1/uploads`,
   );
 }
 
