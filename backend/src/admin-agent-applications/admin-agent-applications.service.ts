@@ -8,10 +8,12 @@ import { randomBytes } from "crypto";
 
 import { PrismaService } from "../database/prisma.service";
 import {
+  AccessLevel,
   AgencyApplicationStatus,
   AgreementStatus,
   AgreementType,
   DirectDebitStatus,
+  RoleScope,
   UserStatus,
   UserType,
 } from "../generated/prisma/enums";
@@ -1675,39 +1677,277 @@ export class AdminAgentApplicationsService {
               });
           }
 
-          const membership =
+          // Every approved agency starts with one active main branch.
+          // The upsert also repairs agencies approved before this default
+          // provisioning logic was added.
+          const mainBranch =
+            await tx.agencyBranch.upsert({
+              where: {
+                agencyId_name: {
+                  agencyId: agency.id,
+                  name: "Main Branch",
+                },
+              },
+              update: {
+                active: true,
+                email: agency.contactEmail,
+                phone: agency.contactPhone,
+              },
+              create: {
+                agencyId: agency.id,
+                name: "Main Branch",
+                email: agency.contactEmail,
+                phone: agency.contactPhone,
+                active: true,
+              },
+            });
+
+          // Create the permission catalogue needed by the default agency
+          // roles. Permission codes are global, while the roles themselves
+          // belong to this agency.
+          const permissionSeeds = [
+            ["DASHBOARD_VIEW", "DASHBOARD", "View agency dashboard."],
+            ["USERS_VIEW", "USERS", "View agency users."],
+            ["USERS_CREATE", "USERS", "Create and invite agency users."],
+            ["USERS_UPDATE", "USERS", "Update agency users."],
+            ["USERS_MANAGE", "USERS", "Manage agency users and their status."],
+            ["ROLES_VIEW", "ROLES_PERMISSIONS", "View roles and permissions."],
+            ["ROLES_MANAGE", "ROLES_PERMISSIONS", "Manage roles and permissions."],
+            ["PROPERTIES_VIEW", "PROPERTIES", "View properties."],
+            ["PROPERTIES_CREATE", "PROPERTIES", "Create properties."],
+            ["PROPERTIES_UPDATE", "PROPERTIES", "Update properties."],
+            ["PROPERTIES_MANAGE", "PROPERTIES", "Fully manage properties."],
+            ["LANDLORDS_VIEW", "LANDLORDS", "View landlords."],
+            ["LANDLORDS_MANAGE", "LANDLORDS", "Manage landlords."],
+            ["TENANTS_VIEW", "TENANTS", "View tenants."],
+            ["TENANTS_MANAGE", "TENANTS", "Manage tenants."],
+            ["APPLICANTS_VIEW", "APPLICANTS", "View applicants."],
+            ["APPLICANTS_MANAGE", "APPLICANTS", "Manage applicants and applications."],
+            ["MAINTENANCE_VIEW", "MAINTENANCE", "View maintenance requests."],
+            ["MAINTENANCE_MANAGE", "MAINTENANCE", "Manage maintenance requests."],
+            ["CONTRACTORS_VIEW", "CONTRACTORS", "View contractors."],
+            ["CONTRACTORS_MANAGE", "CONTRACTORS", "Manage contractors."],
+            ["COMPLIANCE_VIEW", "COMPLIANCE", "View compliance information."],
+            ["COMPLIANCE_MANAGE", "COMPLIANCE", "Manage compliance information."],
+            ["REPORTS_VIEW", "REPORTS", "View agency reports."],
+            ["REPORTS_MANAGE", "REPORTS", "Create and manage agency reports."],
+            ["MESSAGES_VIEW", "MESSAGES", "View messages."],
+            ["MESSAGES_SEND", "MESSAGES", "Send messages."],
+            ["SETTINGS_VIEW", "SETTINGS", "View agency settings."],
+            ["SETTINGS_MANAGE", "SETTINGS", "Manage agency settings."],
+            ["DOCUMENTS_VIEW", "DOCUMENTS", "View documents."],
+            ["DOCUMENTS_MANAGE", "DOCUMENTS", "Manage documents."],
+          ] as const;
+
+          const permissionsByCode = new Map<string, string>();
+
+          for (const [code, module, description] of permissionSeeds) {
+            const permission = await tx.permission.upsert({
+              where: { code },
+              update: { module, description },
+              create: { code, module, description },
+            });
+
+            permissionsByCode.set(code, permission.id);
+          }
+
+          const defaultRoles = [
+            {
+              key: "AGENCY_ADMINISTRATOR",
+              name: "Agency Administrator",
+              description: "Full control of the agency workspace.",
+              permissions: permissionSeeds.map(([code]) => [code, AccessLevel.MANAGE] as const),
+            },
+            {
+              key: "BRANCH_MANAGER",
+              name: "Branch Manager",
+              description: "Manages day-to-day branch operations and staff.",
+              permissions: [
+                ["DASHBOARD_VIEW", AccessLevel.READ],
+                ["PROPERTIES_VIEW", AccessLevel.MANAGE],
+                ["PROPERTIES_CREATE", AccessLevel.MANAGE],
+                ["PROPERTIES_UPDATE", AccessLevel.MANAGE],
+                ["LANDLORDS_VIEW", AccessLevel.MANAGE],
+                ["LANDLORDS_MANAGE", AccessLevel.MANAGE],
+                ["TENANTS_VIEW", AccessLevel.MANAGE],
+                ["TENANTS_MANAGE", AccessLevel.MANAGE],
+                ["APPLICANTS_VIEW", AccessLevel.MANAGE],
+                ["APPLICANTS_MANAGE", AccessLevel.MANAGE],
+                ["MAINTENANCE_VIEW", AccessLevel.MANAGE],
+                ["MAINTENANCE_MANAGE", AccessLevel.MANAGE],
+                ["COMPLIANCE_VIEW", AccessLevel.READ],
+                ["REPORTS_VIEW", AccessLevel.READ],
+                ["USERS_VIEW", AccessLevel.READ],
+                ["MESSAGES_VIEW", AccessLevel.READ],
+                ["MESSAGES_SEND", AccessLevel.WRITE],
+                ["DOCUMENTS_VIEW", AccessLevel.READ],
+              ] as const,
+            },
+            {
+              key: "PROPERTY_MANAGER",
+              name: "Property Manager",
+              description: "Manages properties, tenancies, maintenance and compliance.",
+              permissions: [
+                ["DASHBOARD_VIEW", AccessLevel.READ],
+                ["PROPERTIES_VIEW", AccessLevel.MANAGE],
+                ["PROPERTIES_CREATE", AccessLevel.MANAGE],
+                ["PROPERTIES_UPDATE", AccessLevel.MANAGE],
+                ["PROPERTIES_MANAGE", AccessLevel.MANAGE],
+                ["LANDLORDS_VIEW", AccessLevel.READ],
+                ["TENANTS_VIEW", AccessLevel.MANAGE],
+                ["TENANTS_MANAGE", AccessLevel.MANAGE],
+                ["APPLICANTS_VIEW", AccessLevel.MANAGE],
+                ["APPLICANTS_MANAGE", AccessLevel.MANAGE],
+                ["MAINTENANCE_VIEW", AccessLevel.MANAGE],
+                ["MAINTENANCE_MANAGE", AccessLevel.MANAGE],
+                ["CONTRACTORS_VIEW", AccessLevel.MANAGE],
+                ["CONTRACTORS_MANAGE", AccessLevel.MANAGE],
+                ["COMPLIANCE_VIEW", AccessLevel.MANAGE],
+                ["COMPLIANCE_MANAGE", AccessLevel.MANAGE],
+                ["REPORTS_VIEW", AccessLevel.READ],
+                ["MESSAGES_VIEW", AccessLevel.READ],
+                ["MESSAGES_SEND", AccessLevel.WRITE],
+                ["DOCUMENTS_VIEW", AccessLevel.MANAGE],
+                ["DOCUMENTS_MANAGE", AccessLevel.MANAGE],
+              ] as const,
+            },
+            {
+              key: "LETTINGS_AGENT",
+              name: "Lettings Agent",
+              description: "Handles applicants, lettings and tenant onboarding.",
+              permissions: [
+                ["DASHBOARD_VIEW", AccessLevel.READ],
+                ["PROPERTIES_VIEW", AccessLevel.READ],
+                ["LANDLORDS_VIEW", AccessLevel.READ],
+                ["TENANTS_VIEW", AccessLevel.MANAGE],
+                ["TENANTS_MANAGE", AccessLevel.MANAGE],
+                ["APPLICANTS_VIEW", AccessLevel.MANAGE],
+                ["APPLICANTS_MANAGE", AccessLevel.MANAGE],
+                ["MAINTENANCE_VIEW", AccessLevel.READ],
+                ["COMPLIANCE_VIEW", AccessLevel.READ],
+                ["REPORTS_VIEW", AccessLevel.READ],
+                ["MESSAGES_VIEW", AccessLevel.READ],
+                ["MESSAGES_SEND", AccessLevel.WRITE],
+                ["DOCUMENTS_VIEW", AccessLevel.READ],
+              ] as const,
+            },
+            {
+              key: "MAINTENANCE_COORDINATOR",
+              name: "Maintenance Coordinator",
+              description: "Coordinates maintenance requests and contractors.",
+              permissions: [
+                ["DASHBOARD_VIEW", AccessLevel.READ],
+                ["PROPERTIES_VIEW", AccessLevel.READ],
+                ["LANDLORDS_VIEW", AccessLevel.READ],
+                ["TENANTS_VIEW", AccessLevel.READ],
+                ["MAINTENANCE_VIEW", AccessLevel.MANAGE],
+                ["MAINTENANCE_MANAGE", AccessLevel.MANAGE],
+                ["CONTRACTORS_VIEW", AccessLevel.MANAGE],
+                ["CONTRACTORS_MANAGE", AccessLevel.MANAGE],
+                ["COMPLIANCE_VIEW", AccessLevel.READ],
+                ["REPORTS_VIEW", AccessLevel.READ],
+                ["MESSAGES_VIEW", AccessLevel.READ],
+                ["MESSAGES_SEND", AccessLevel.WRITE],
+                ["DOCUMENTS_VIEW", AccessLevel.READ],
+              ] as const,
+            },
+          ];
+
+          let administratorRoleId = "";
+
+          for (const roleSeed of defaultRoles) {
+            const role = await tx.role.upsert({
+              where: {
+                code: `${roleSeed.key}_${agency.id}`,
+              },
+              update: {
+                agencyId: agency.id,
+                name: roleSeed.name,
+                description: roleSeed.description,
+                scope: RoleScope.AGENCY,
+                enabled: true,
+              },
+              create: {
+                agencyId: agency.id,
+                code: `${roleSeed.key}_${agency.id}`,
+                name: roleSeed.name,
+                description: roleSeed.description,
+                scope: RoleScope.AGENCY,
+                isSystem: true,
+                enabled: true,
+              },
+            });
+
+            if (roleSeed.key === "AGENCY_ADMINISTRATOR") {
+              administratorRoleId = role.id;
+            }
+
+            // Rebuild the role's default permissions so an approval/re-approval
+            // always leaves the system in a predictable state.
+            await tx.rolePermission.deleteMany({
+              where: { roleId: role.id },
+            });
+
+            for (const [permissionCode, accessLevel] of roleSeed.permissions) {
+              const permissionId = permissionsByCode.get(permissionCode);
+
+              if (!permissionId) continue;
+
+              await tx.rolePermission.create({
+                data: {
+                  roleId: role.id,
+                  permissionId,
+                  accessLevel,
+                },
+              });
+            }
+          }
+
+          let membership =
             await tx.agencyUser.findUnique({
               where: {
                 agencyId_userId: {
-                  agencyId:
-                    agency.id,
-
-                  userId:
-                    user.id,
+                  agencyId: agency.id,
+                  userId: user.id,
                 },
               },
             });
 
           if (!membership) {
-            await tx.agencyUser.create({
+            membership = await tx.agencyUser.create({
               data: {
-                agencyId:
-                  agency.id,
+                agencyId: agency.id,
+                userId: user.id,
+                branchId: mainBranch.id,
+                jobTitle: "Agency Administrator",
+                isPrimary: true,
+                invitedAt: now,
+                joinedAt: null,
+              },
+            });
+          } else {
+            membership = await tx.agencyUser.update({
+              where: { id: membership.id },
+              data: {
+                branchId: membership.branchId ?? mainBranch.id,
+                jobTitle: membership.jobTitle ?? "Agency Administrator",
+                isPrimary: true,
+              },
+            });
+          }
 
-                userId:
-                  user.id,
-
-                jobTitle:
-                  "Agency Administrator",
-
-                isPrimary:
-                  true,
-
-                invitedAt:
-                  now,
-
-                joinedAt:
-                  null,
+          if (administratorRoleId) {
+            await tx.agencyUserRole.upsert({
+              where: {
+                agencyUserId_roleId: {
+                  agencyUserId: membership.id,
+                  roleId: administratorRoleId,
+                },
+              },
+              update: {},
+              create: {
+                agencyUserId: membership.id,
+                roleId: administratorRoleId,
               },
             });
           }

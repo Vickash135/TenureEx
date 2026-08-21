@@ -2,292 +2,252 @@ import { NestFactory } from "@nestjs/core";
 
 import { AppModule } from "./app.module";
 import { PrismaService } from "./database/prisma.service";
+import { AccessLevel, RoleScope } from "./generated/prisma/enums";
+
+const defaultRoles = [
+  {
+    key: "AGENCY_ADMINISTRATOR",
+    name: "Agency Administrator",
+    description: "Full control of the agency workspace.",
+    permissionCodes: null,
+    accessLevel: AccessLevel.MANAGE,
+  },
+  {
+    key: "BRANCH_MANAGER",
+    name: "Branch Manager",
+    description: "Manages day-to-day branch operations and staff.",
+    permissionCodes: [
+      "DASHBOARD_VIEW",
+      "PROPERTIES_VIEW",
+      "PROPERTIES_CREATE",
+      "PROPERTIES_UPDATE",
+      "LANDLORDS_VIEW",
+      "LANDLORDS_MANAGE",
+      "TENANTS_VIEW",
+      "TENANTS_MANAGE",
+      "APPLICANTS_VIEW",
+      "APPLICANTS_MANAGE",
+      "MAINTENANCE_VIEW",
+      "MAINTENANCE_MANAGE",
+      "COMPLIANCE_VIEW",
+      "REPORTS_VIEW",
+      "USERS_VIEW",
+      "MESSAGES_VIEW",
+      "MESSAGES_SEND",
+      "DOCUMENTS_VIEW",
+    ],
+    accessLevel: AccessLevel.MANAGE,
+  },
+  {
+    key: "PROPERTY_MANAGER",
+    name: "Property Manager",
+    description: "Manages properties, tenancies, maintenance and compliance.",
+    permissionCodes: [
+      "DASHBOARD_VIEW",
+      "PROPERTIES_VIEW",
+      "PROPERTIES_CREATE",
+      "PROPERTIES_UPDATE",
+      "PROPERTIES_MANAGE",
+      "LANDLORDS_VIEW",
+      "TENANTS_VIEW",
+      "TENANTS_MANAGE",
+      "APPLICANTS_VIEW",
+      "APPLICANTS_MANAGE",
+      "MAINTENANCE_VIEW",
+      "MAINTENANCE_MANAGE",
+      "CONTRACTORS_VIEW",
+      "CONTRACTORS_MANAGE",
+      "COMPLIANCE_VIEW",
+      "COMPLIANCE_MANAGE",
+      "REPORTS_VIEW",
+      "MESSAGES_VIEW",
+      "MESSAGES_SEND",
+      "DOCUMENTS_VIEW",
+      "DOCUMENTS_MANAGE",
+    ],
+    accessLevel: AccessLevel.MANAGE,
+  },
+  {
+    key: "LETTINGS_AGENT",
+    name: "Lettings Agent",
+    description: "Handles applicants, lettings and tenant onboarding.",
+    permissionCodes: [
+      "DASHBOARD_VIEW",
+      "PROPERTIES_VIEW",
+      "LANDLORDS_VIEW",
+      "TENANTS_VIEW",
+      "TENANTS_MANAGE",
+      "APPLICANTS_VIEW",
+      "APPLICANTS_MANAGE",
+      "MAINTENANCE_VIEW",
+      "COMPLIANCE_VIEW",
+      "REPORTS_VIEW",
+      "MESSAGES_VIEW",
+      "MESSAGES_SEND",
+      "DOCUMENTS_VIEW",
+    ],
+    accessLevel: AccessLevel.MANAGE,
+  },
+  {
+    key: "MAINTENANCE_COORDINATOR",
+    name: "Maintenance Coordinator",
+    description: "Coordinates maintenance requests and contractors.",
+    permissionCodes: [
+      "DASHBOARD_VIEW",
+      "PROPERTIES_VIEW",
+      "LANDLORDS_VIEW",
+      "TENANTS_VIEW",
+      "MAINTENANCE_VIEW",
+      "MAINTENANCE_MANAGE",
+      "CONTRACTORS_VIEW",
+      "CONTRACTORS_MANAGE",
+      "COMPLIANCE_VIEW",
+      "REPORTS_VIEW",
+      "MESSAGES_VIEW",
+      "MESSAGES_SEND",
+      "DOCUMENTS_VIEW",
+    ],
+    accessLevel: AccessLevel.MANAGE,
+  },
+] as const;
 
 async function main() {
-  const app = await NestFactory.createApplicationContext(
-    AppModule,
-    {
-      logger: ["error", "warn", "log"],
-    },
-  );
+  const app = await NestFactory.createApplicationContext(AppModule, {
+    logger: ["error", "warn", "log"],
+  });
 
   const prisma = app.get(PrismaService);
 
   try {
-    const primaryAgencyUser =
-      await prisma.agencyUser.findFirst({
-        where: {
-          isPrimary: true,
-          user: {
-            email: "shamini@gmail.com",
-          },
+    const agencies = await prisma.agency.findMany({
+      where: { active: true },
+      include: {
+        users: {
+          where: { isPrimary: true },
+          orderBy: { createdAt: "asc" },
+          take: 1,
         },
-        include: {
-          agency: true,
-          user: true,
-          roles: {
-            include: {
-              role: true,
-            },
-          },
-        },
-      });
+      },
+    });
 
-    if (!primaryAgencyUser) {
+    if (agencies.length === 0) {
+      console.log("No active agencies found.");
+      return;
+    }
+
+    const allPermissions = await prisma.permission.findMany();
+
+    if (allPermissions.length === 0) {
       throw new Error(
-        "Primary agency user for shamini@gmail.com was not found.",
+        "No permissions exist. Run: npx ts-node src/seed-permissions.ts first.",
       );
     }
 
-    const agencyId = primaryAgencyUser.agencyId;
-
-    console.log(
-      "Agency:",
-      primaryAgencyUser.agency.name,
-    );
-
-    console.log(
-      "Agency ID:",
-      agencyId,
-    );
-
-    /*
-     * ---------------------------------------------------------
-     * BRANCHES
-     * ---------------------------------------------------------
-     */
-
-    const branchData = [
-      {
-        name: "Head Office",
-        email: "shamini@gmail.com",
-        phone: primaryAgencyUser.user.phone,
-        address: "Main Office",
-        postcode: null,
-      },
-      {
-        name: "Branch 2",
-        email: null,
-        phone: null,
-        address: null,
-        postcode: null,
-      },
-      {
-        name: "Branch 3",
-        email: null,
-        phone: null,
-        address: null,
-        postcode: null,
-      },
-      {
-        name: "Branch 4",
-        email: null,
-        phone: null,
-        address: null,
-        postcode: null,
-      },
-      {
-        name: "Branch 5",
-        email: null,
-        phone: null,
-        address: null,
-        postcode: null,
-      },
-      {
-        name: "Branch 6",
-        email: null,
-        phone: null,
-        address: null,
-        postcode: null,
-      },
-      {
-        name: "Branch 7",
-        email: null,
-        phone: null,
-        address: null,
-        postcode: null,
-      },
-    ];
-
-    for (const branch of branchData) {
-      await prisma.agencyBranch.upsert({
+    for (const agency of agencies) {
+      const mainBranch = await prisma.agencyBranch.upsert({
         where: {
           agencyId_name: {
-            agencyId,
-            name: branch.name,
+            agencyId: agency.id,
+            name: "Main Branch",
           },
         },
         update: {
-          email: branch.email,
-          phone: branch.phone,
-          address: branch.address,
-          postcode: branch.postcode,
           active: true,
+          email: agency.contactEmail,
+          phone: agency.contactPhone,
         },
         create: {
-          agencyId,
-          name: branch.name,
-          email: branch.email,
-          phone: branch.phone,
-          address: branch.address,
-          postcode: branch.postcode,
+          agencyId: agency.id,
+          name: "Main Branch",
+          email: agency.contactEmail,
+          phone: agency.contactPhone,
           active: true,
         },
       });
-    }
 
-    /*
-     * ---------------------------------------------------------
-     * ROLES
-     * ---------------------------------------------------------
-     */
+      const roleIds = new Map<string, string>();
 
-    const roleData = [
-      {
-        code: `AGENCY_ADMIN_${agencyId}`,
-        name: "Agency Administrator",
-        description:
-          "Full agency administration access.",
-      },
-      {
-        code: `PROPERTY_MANAGER_${agencyId}`,
-        name: "Property Manager",
-        description:
-          "Manage properties, landlords, tenants and maintenance.",
-      },
-      {
-        code: `LETTINGS_MANAGER_${agencyId}`,
-        name: "Lettings Manager",
-        description:
-          "Manage applicants, tenancies and lettings.",
-      },
-      {
-        code: `FINANCE_MANAGER_${agencyId}`,
-        name: "Finance Manager",
-        description:
-          "Manage payments and financial information.",
-      },
-      {
-        code: `AGENCY_STAFF_${agencyId}`,
-        name: "Agency Staff",
-        description:
-          "Standard agency staff access.",
-      },
-    ];
-
-    const createdRoles = [];
-
-    for (const role of roleData) {
-      const createdRole =
-        await prisma.role.upsert({
+      for (const roleSeed of defaultRoles) {
+        const role = await prisma.role.upsert({
           where: {
-            code: role.code,
+            code: `${roleSeed.key}_${agency.id}`,
           },
           update: {
-            name: role.name,
-            description: role.description,
-            agencyId,
-            scope: "AGENCY",
+            agencyId: agency.id,
+            name: roleSeed.name,
+            description: roleSeed.description,
+            scope: RoleScope.AGENCY,
             enabled: true,
           },
           create: {
-            agencyId,
-            code: role.code,
-            name: role.name,
-            description: role.description,
-            scope: "AGENCY",
-            isSystem: false,
+            agencyId: agency.id,
+            code: `${roleSeed.key}_${agency.id}`,
+            name: roleSeed.name,
+            description: roleSeed.description,
+            scope: RoleScope.AGENCY,
+            isSystem: true,
             enabled: true,
           },
         });
 
-      createdRoles.push(createdRole);
-    }
+        roleIds.set(roleSeed.key, role.id);
 
-    /*
-     * ---------------------------------------------------------
-     * ASSIGN ADMIN ROLE TO PRIMARY USER
-     * ---------------------------------------------------------
-     */
+        await prisma.rolePermission.deleteMany({
+          where: { roleId: role.id },
+        });
 
-    const adminRole = createdRoles.find(
-      (role) =>
-        role.name === "Agency Administrator",
-    );
+        const permissions = roleSeed.permissionCodes
+          ? allPermissions.filter((permission) =>
+              roleSeed.permissionCodes.includes(permission.code as never),
+            )
+          : allPermissions;
 
-    if (!adminRole) {
-      throw new Error(
-        "Agency Administrator role was not created.",
+        for (const permission of permissions) {
+          await prisma.rolePermission.create({
+            data: {
+              roleId: role.id,
+              permissionId: permission.id,
+              accessLevel: roleSeed.accessLevel,
+            },
+          });
+        }
+      }
+
+      const primaryUser = agency.users[0];
+      const adminRoleId = roleIds.get("AGENCY_ADMINISTRATOR");
+
+      if (primaryUser) {
+        await prisma.agencyUser.update({
+          where: { id: primaryUser.id },
+          data: {
+            branchId: primaryUser.branchId ?? mainBranch.id,
+            jobTitle: primaryUser.jobTitle ?? "Agency Administrator",
+          },
+        });
+
+        if (adminRoleId) {
+          await prisma.agencyUserRole.upsert({
+            where: {
+              agencyUserId_roleId: {
+                agencyUserId: primaryUser.id,
+                roleId: adminRoleId,
+              },
+            },
+            update: {},
+            create: {
+              agencyUserId: primaryUser.id,
+              roleId: adminRoleId,
+            },
+          });
+        }
+      }
+
+      console.log(
+        `Provisioned ${agency.name}: Main Branch + ${defaultRoles.length} roles.`,
       );
     }
 
-    await prisma.agencyUserRole.upsert({
-      where: {
-        agencyUserId_roleId: {
-          agencyUserId: primaryAgencyUser.id,
-          roleId: adminRole.id,
-        },
-      },
-      update: {},
-      create: {
-        agencyUserId: primaryAgencyUser.id,
-        roleId: adminRole.id,
-      },
-    });
-
-    /*
-     * ---------------------------------------------------------
-     * ASSIGN PRIMARY USER TO HEAD OFFICE
-     * ---------------------------------------------------------
-     */
-
-    const headOffice =
-      await prisma.agencyBranch.findUnique({
-        where: {
-          agencyId_name: {
-            agencyId,
-            name: "Head Office",
-          },
-        },
-      });
-
-    if (headOffice) {
-      await prisma.agencyUser.update({
-        where: {
-          id: primaryAgencyUser.id,
-        },
-        data: {
-          branchId: headOffice.id,
-          jobTitle: "Agency Administrator",
-        },
-      });
-    }
-
-    console.log("");
-    console.log("================================");
-    console.log("Agency setup completed");
-    console.log("================================");
-    console.log(
-      "Agency:",
-      primaryAgencyUser.agency.name,
-    );
-    console.log(
-      "Primary user:",
-      primaryAgencyUser.user.email,
-    );
-    console.log(
-      "Primary role:",
-      adminRole.name,
-    );
-    console.log(
-      "Branches created:",
-      branchData.length,
-    );
-    console.log(
-      "Roles created:",
-      createdRoles.length,
-    );
-    console.log("================================");
+    console.log("Agency provisioning completed successfully.");
   } finally {
     await app.close();
   }
