@@ -139,12 +139,22 @@ const API_ORIGIN = (
   "http://localhost:3000/api/v1"
 ).replace(/\/+$/, "");
 
+// Static uploaded files are served from the backend root,
+// not from the /api/v1 API prefix.
+const FILE_ORIGIN = API_ORIGIN.replace(/\/api\/v1\/?$/, "");
+
 function getPropertyPhotoUrl(photoName: string): string {
+  // If the backend already returns a complete URL, use it directly.
   if (/^https?:\/\//i.test(photoName)) {
     return photoName;
   }
 
-  return `${API_ORIGIN}/uploads/properties/${encodeURIComponent(photoName)}`;
+  // Remove accidental leading slashes before building the file URL.
+  const cleanPhotoName = photoName.replace(/^\/+/, "");
+
+  return `${FILE_ORIGIN}/uploads/properties/${encodeURIComponent(
+    cleanPhotoName,
+  )}`;
 }
 
 const emptyProperty: Property = {
