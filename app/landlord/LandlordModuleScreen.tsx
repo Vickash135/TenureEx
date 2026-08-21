@@ -1,23 +1,23 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import {
-    Pressable,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import { Avatar, Button } from "react-native-paper";
 
 import TenureExLogo from "../../src/components/Logo/TenureExLogo";
 import {
-    colors,
-    radius,
-    spacing,
-    typography,
+  colors,
+  radius,
+  spacing,
+  typography,
 } from "../../src/theme";
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
@@ -96,10 +96,17 @@ export default function LandlordModuleScreen({
 }: LandlordModuleScreenProps) {
   const { width } = useWindowDimensions();
 
-  const isDesktop = width >= 1050;
-  const isTablet = width >= 700;
-
+  const [isMounted, setIsMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Keep SSR and the first browser render identical.
+  // Width-dependent layout is enabled only after hydration.
+  const isDesktop = isMounted && width >= 1050;
+  const isTablet = isMounted && width >= 700;
 
   const navigateTo = (route: Href) => {
     setMenuOpen(false);
