@@ -139,17 +139,15 @@ const API_ORIGIN = (
   "http://localhost:3000/api/v1"
 ).replace(/\/+$/, "");
 
-// Static uploaded files are served from the backend root,
-// not from the /api/v1 API prefix.
+// API requests use /api/v1, but uploaded files are served from
+// the backend root at /uploads.
 const FILE_ORIGIN = API_ORIGIN.replace(/\/api\/v1\/?$/, "");
 
 function getPropertyPhotoUrl(photoName: string): string {
-  // If the backend already returns a complete URL, use it directly.
   if (/^https?:\/\//i.test(photoName)) {
     return photoName;
   }
 
-  // Remove accidental leading slashes before building the file URL.
   const cleanPhotoName = photoName.replace(/^\/+/, "");
 
   return `${FILE_ORIGIN}/uploads/properties/${encodeURIComponent(
@@ -620,6 +618,14 @@ function getApiErrorMessage(error: unknown): string {
 export default function LandlordPropertiesScreen() {
   const { width } = useWindowDimensions();
 
+  // Keep the first server render and first browser render identical.
+  // Responsive/date-dependent UI is rendered only after hydration.
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const isDesktop = width >= 1050;
   const isTablet = width >= 720;
 
@@ -672,7 +678,7 @@ export default function LandlordPropertiesScreen() {
   const [
     availableCalendarMonth,
     setAvailableCalendarMonth,
-  ] = useState<Date>(
+  ] = useState<Date>(() =>
     startOfMonth(new Date()),
   );
 
@@ -1289,6 +1295,18 @@ export default function LandlordPropertiesScreen() {
     setStatusFilter("All");
     setApprovalFilter("All");
   };
+
+  // Prevent React web hydration mismatch (#418).
+  // The server and the browser both render this stable placeholder first.
+  if (!isMounted) {
+    return (
+      <View style={styles.loadingCard}>
+        <Text style={styles.loadingText}>
+          Loading properties...
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <>
