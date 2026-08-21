@@ -13,6 +13,7 @@ import { AuthModule } from "./auth/auth.module";
 import { DatabaseModule } from "./database/database.module";
 import { LandlordRegistrationModule } from "./landlord-registration/landlord-registration.module";
 import { PropertiesModule } from "./properties/properties.module";
+import { TenantRegistrationModule } from "./tenant-registration/tenant-registration.module";
 import { UsersModule } from "./users/users.module";
 
 @Module({
@@ -33,6 +34,7 @@ import { UsersModule } from "./users/users.module";
     LandlordRegistrationModule,
     AddressLookupModule,
     PropertiesModule,
+    TenantRegistrationModule,
   ],
 
   controllers: [

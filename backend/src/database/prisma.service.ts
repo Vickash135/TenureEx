@@ -21,12 +21,17 @@ export class PrismaService
       );
     }
 
+    const isProduction =
+      process.env.NODE_ENV === "production";
+
     const adapter = new PrismaPg({
       connectionString: databaseUrl,
 
-      ssl: {
-        rejectUnauthorized: false,
-      },
+      ssl: isProduction
+        ? {
+            rejectUnauthorized: false,
+          }
+        : false,
     });
 
     super({

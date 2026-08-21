@@ -26,6 +26,105 @@ export class PropertiesService {
     private readonly mailService: MailService,
   ) {}
 
+
+  // =========================================================
+  // PUBLIC RENTAL SEARCH - APPROVED ESTATE AGENT LISTINGS ONLY
+  // =========================================================
+
+  async findApprovedPublic(filters: {
+    location?: string;
+    minBedrooms?: string;
+    maxRent?: string;
+    propertyType?: string;
+  }) {
+    const location = filters.location?.trim();
+    const minimumBedrooms = filters.minBedrooms ? Number(filters.minBedrooms) : undefined;
+    const maximumRent = filters.maxRent ? Number(filters.maxRent) : undefined;
+    const propertyType = filters.propertyType?.trim().toUpperCase();
+
+    const properties = await this.prisma.property.findMany({
+      where: {
+        approvalStatus: "APPROVED",
+        propertyStatus: { not: "OCCUPIED" },
+        ...(Number.isFinite(minimumBedrooms) ? { bedrooms: { gte: minimumBedrooms } } : {}),
+        ...(Number.isFinite(maximumRent) ? { monthlyRent: { lte: maximumRent } } : {}),
+        ...(propertyType && propertyType !== "ANY" ? { propertyType: propertyType as any } : {}),
+        ...(location ? {
+          OR: [
+            { townCity: { contains: location, mode: "insensitive" } },
+            { county: { contains: location, mode: "insensitive" } },
+            { postcode: { contains: location, mode: "insensitive" } },
+            { addressLine1: { contains: location, mode: "insensitive" } },
+          ],
+        } : {}),
+      },
+      include: {
+        landlordProfile: {
+          include: {
+            agency: { select: { id: true, name: true } },
+          },
+        },
+      },
+      orderBy: [{ approvedAt: "desc" }, { createdAt: "desc" }],
+    });
+
+    return properties.map((property) => this.presentPublicProperty(property));
+  }
+
+  async findApprovedPublicOne(propertyId: string) {
+    const property = await this.prisma.property.findFirst({
+      where: { id: propertyId, approvalStatus: "APPROVED", propertyStatus: { not: "OCCUPIED" } },
+      include: {
+        landlordProfile: {
+          include: {
+            agency: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+
+    if (!property) throw new NotFoundException("This rental property is not available.");
+    return this.presentPublicProperty(property);
+  }
+
+  private presentPublicProperty(property: any) {
+    return {
+      id: property.id,
+      title: property.advertisingTitle || `${this.toTitleCase(property.propertyType)} to rent in ${property.townCity}`,
+      addressLine1: property.addressLine1,
+      addressLine2: property.addressLine2,
+      townCity: property.townCity,
+      county: property.county,
+      postcode: property.postcode,
+      propertyType: property.propertyType,
+      bedrooms: property.bedrooms,
+      bathrooms: property.bathrooms,
+      receptionRooms: property.receptionRooms,
+      monthlyRent: property.monthlyRent,
+      depositAmount: property.depositAmount,
+      furnishingStatus: property.furnishingStatus,
+      availableFrom: property.availableFrom,
+      petsAllowed: property.petsAllowed,
+      childrenAllowed: property.childrenAllowed,
+      hasParking: property.hasParking,
+      hasGarden: property.hasGarden,
+      hasLift: property.hasLift,
+      hasWheelchairAccess: property.hasWheelchairAccess,
+      description: property.description,
+      councilTaxBand: property.councilTaxBand,
+      approvedAt: property.approvedAt,
+      agency: property.landlordProfile?.agency ? {
+        id: property.landlordProfile.agency.id,
+        name: property.landlordProfile.agency.name,
+      } : null,
+      photoUrls: (property.photoNames ?? []).map((name: string) => `/uploads/properties/${encodeURIComponent(name)}`),
+    };
+  }
+
+  private toTitleCase(value: string) {
+    return value.toLowerCase().split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+  }
+
   // =========================================================
   // CREATE PROPERTY
   // =========================================================

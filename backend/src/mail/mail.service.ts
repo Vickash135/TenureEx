@@ -138,6 +138,36 @@ Enter this code on the Estate Agent registration page. The code is valid for 24 
   }
 
   // =========================================================
+  // TENANT EMAIL VERIFICATION
+  // =========================================================
+
+  async sendTenantEmailVerification(
+    params: {
+      email: string;
+      verificationCode: string;
+    },
+  ) {
+    await this.sendMail({
+      to: params.email,
+      subject: "Your TenureEx tenant verification code",
+      heading: "Verify your email",
+      greeting: "Hello,",
+      message: `
+Use the 6-digit code below to continue creating your TenureEx tenant account.
+
+${params.verificationCode}
+
+This code will expire in 10 minutes.
+      `.trim(),
+      footer: "If you did not start a tenant registration with TenureEx, you can safely ignore this email.",
+    });
+
+    return {
+      message: "Tenant verification code sent successfully.",
+    };
+  }
+
+  // =========================================================
   // REQUEST MORE INFORMATION
   // ADMIN -> ESTATE AGENT
   // =========================================================

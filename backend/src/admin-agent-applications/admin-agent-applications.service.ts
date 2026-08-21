@@ -13,6 +13,7 @@ import {
   AgreementType,
   DirectDebitStatus,
   UserStatus,
+  UserType,
 } from "../generated/prisma/enums";
 import { MailService } from "../mail/mail.service";
 
@@ -120,6 +121,150 @@ export class AdminAgentApplicationsService {
     }
 
     return application;
+  }
+
+  // =========================================================
+  // DELETE ESTATE AGENT APPLICATION + USER
+  // ADMIN ONLY
+  // =========================================================
+
+  async remove(id: string) {
+    const application =
+      await this.prisma.agencyApplication.findUnique({
+        where: {
+          id,
+        },
+
+        include: {
+          applicantUser: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              userType: true,
+            },
+          },
+
+          agency: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
+
+    if (!application) {
+      throw new NotFoundException(
+        "Estate Agent application was not found.",
+      );
+    }
+
+    if (
+      application.applicantUser.userType !==
+      UserType.ESTATE_AGENT
+    ) {
+      throw new BadRequestException(
+        "Only Estate Agent accounts can be deleted from this admin screen.",
+      );
+    }
+
+    const userId =
+      application.applicantUser.id;
+
+    await this.prisma.$transaction(
+      async (tx) => {
+        // Optional references to the user must be cleared first.
+        await tx.auditLog.updateMany({
+          where: {
+            actorUserId: userId,
+          },
+          data: {
+            actorUserId: null,
+          },
+        });
+
+        await tx.applicationStatusHistory.updateMany({
+          where: {
+            changedByUserId: userId,
+          },
+          data: {
+            changedByUserId: null,
+          },
+        });
+
+        await tx.agencyApplication.updateMany({
+          where: {
+            reviewerUserId: userId,
+          },
+          data: {
+            reviewerUserId: null,
+          },
+        });
+
+        // Agreement.createdByUserId is required, so agreements
+        // referencing the deleted Estate Agent must be removed.
+        await tx.agreement.deleteMany({
+          where: {
+            OR: [
+              {
+                applicationId: id,
+              },
+              {
+                createdByUserId: userId,
+              },
+              {
+                signerUserId: userId,
+              },
+            ],
+          },
+        });
+
+        // If onboarding already created an Agency, removing it
+        // cascades through agency memberships, branches, roles,
+        // invitations and other agency-owned setup records.
+        if (application.agency) {
+          await tx.agency.delete({
+            where: {
+              id: application.agency.id,
+            },
+          });
+        }
+
+        // Direct Debit setup and status history cascade from the
+        // AgencyApplication according to the Prisma schema.
+        await tx.agencyApplication.delete({
+          where: {
+            id,
+          },
+        });
+
+        // User-owned verification tokens, OTPs, refresh tokens
+        // and agency memberships configured with Cascade are
+        // removed automatically.
+        await tx.user.delete({
+          where: {
+            id: userId,
+          },
+        });
+      },
+    );
+
+    return {
+      message:
+        "Estate Agent account and application deleted successfully.",
+
+      deleted: {
+        applicationId: id,
+        userId,
+        email:
+          application.applicantUser.email,
+        agencyId:
+          application.agency?.id ??
+          null,
+      },
+    };
   }
 
   // =========================================================

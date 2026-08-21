@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -53,6 +54,28 @@ export class AdminAgentApplicationsController {
     id: string,
   ) {
     return this.service.findOne(
+      id,
+    );
+  }
+
+  // =========================================================
+  // DELETE ESTATE AGENT APPLICATION + USER
+  // ADMIN ONLY
+  //
+  // Removes the application, its onboarding records, any
+  // agency created from the application, and the Estate Agent
+  // user account in one database transaction.
+  // =========================================================
+
+  @Delete(":id")
+  remove(
+    @Param(
+      "id",
+      ParseUUIDPipe,
+    )
+    id: string,
+  ) {
+    return this.service.remove(
       id,
     );
   }

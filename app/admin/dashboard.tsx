@@ -2,42 +2,42 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import axios from "axios";
 import { router, type Href } from "expo-router";
 import {
-    ReactNode,
-    useEffect,
-    useMemo,
-    useState,
+  ReactNode,
+  useEffect,
+  useMemo,
+  useState,
 } from "react";
 
 import {
-    ActivityIndicator,
-    Modal,
-    TextInput as NativeTextInput,
-    Pressable,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  ActivityIndicator,
+  Modal,
+  TextInput as NativeTextInput,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 
 import {
-    Button,
-    Chip,
-    Divider,
+  Button,
+  Chip,
+  Divider,
 } from "react-native-paper";
 
 import {
-    api,
-    clearAuthSession,
+  api,
+  clearAuthSession,
 } from "../../src/api/client";
 
 import TenureExLogo from "../../src/components/Logo/TenureExLogo";
 
 import {
-    colors,
-    radius,
-    spacing,
+  colors,
+  radius,
+  spacing,
 } from "../../src/theme";
 
 type AdminUser = {
@@ -375,6 +375,11 @@ export default function AdminDashboardScreen() {
     setFinalApprovalNote,
   ] = useState("");
 
+  const [
+    deleteConfirmOpen,
+    setDeleteConfirmOpen,
+  ] = useState(false);
+
   const loadAdmin =
     async () => {
       const response =
@@ -640,6 +645,53 @@ export default function AdminDashboardScreen() {
       setMessage(
         successMessage,
       );
+    };
+
+  const deleteEstateAgent =
+    async () => {
+      if (!selectedApplication) {
+        return;
+      }
+
+      const applicationId =
+        selectedApplication.id;
+
+      const deletedEmail =
+        selectedApplication.applicantUser.email;
+
+      setActionLoading(true);
+      setError("");
+      setMessage("");
+
+      try {
+        const response =
+          await api.delete<{
+            message: string;
+          }>(
+            `/admin/agent-applications/${applicationId}`,
+          );
+
+        setDeleteConfirmOpen(
+          false,
+        );
+
+        setSelectedApplication(
+          null,
+        );
+
+        await loadApplications();
+
+        setMessage(
+          response.data.message ||
+            `${deletedEmail} has been deleted.`,
+        );
+      } catch (err) {
+        setError(
+          apiMessage(err),
+        );
+      } finally {
+        setActionLoading(false);
+      }
     };
 
   const performAction =
@@ -2119,9 +2171,127 @@ export default function AdminDashboardScreen() {
                       </View>
                     </View>
                   ) : null}
+
+                  <ActionSection
+                    title="Danger zone"
+                    description="Permanently delete this Estate Agent account, application and onboarding records. This action cannot be undone."
+                  >
+                    <Button
+                      mode="outlined"
+                      icon="trash-can-outline"
+                      textColor={
+                        colors.error
+                      }
+                      disabled={
+                        actionLoading
+                      }
+                      onPress={() =>
+                        setDeleteConfirmOpen(
+                          true,
+                        )
+                      }
+                    >
+                      Delete Estate Agent
+                    </Button>
+                  </ActionSection>
                 </ScrollView>
               </>
             ) : null}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={
+          deleteConfirmOpen
+        }
+        transparent
+        animationType="fade"
+        onRequestClose={() =>
+          !actionLoading &&
+          setDeleteConfirmOpen(
+            false,
+          )
+        }
+      >
+        <View
+          style={
+            styles.modalBackdrop
+          }
+        >
+          <View
+            style={
+              styles.deleteConfirmCard
+            }
+          >
+            <View
+              style={
+                styles.deleteConfirmIcon
+              }
+            >
+              <MaterialCommunityIcons
+                name="alert-outline"
+                size={28}
+                color={
+                  colors.error
+                }
+              />
+            </View>
+
+            <Text
+              style={
+                styles.deleteConfirmTitle
+              }
+            >
+              Delete Estate Agent?
+            </Text>
+
+            <Text
+              style={
+                styles.deleteConfirmText
+              }
+            >
+              This permanently removes {selectedApplication?.applicantUser.email || "this Estate Agent"}, the application, agreement, Direct Debit setup and any agency created from this onboarding record. This cannot be undone.
+            </Text>
+
+            <View
+              style={
+                styles.deleteConfirmActions
+              }
+            >
+              <Button
+                mode="outlined"
+                disabled={
+                  actionLoading
+                }
+                onPress={() =>
+                  setDeleteConfirmOpen(
+                    false,
+                  )
+                }
+              >
+                Cancel
+              </Button>
+
+              <Button
+                mode="contained"
+                buttonColor={
+                  colors.error
+                }
+                icon="trash-can-outline"
+                loading={
+                  actionLoading
+                }
+                disabled={
+                  actionLoading
+                }
+                onPress={() =>
+                  void deleteEstateAgent()
+                }
+              >
+                Delete permanently
+              </Button>
+            </View>
           </View>
         </View>
       </Modal>
@@ -3068,6 +3238,47 @@ const styles =
       fontSize: 13,
       backgroundColor:
         colors.white,
+    },
+
+    deleteConfirmCard: {
+      width: "100%",
+      maxWidth: 520,
+      padding: spacing.xl,
+      borderWidth: 1,
+      borderColor: "#FDA29B",
+      borderRadius: radius.lg,
+      backgroundColor: colors.white,
+    },
+
+    deleteConfirmIcon: {
+      width: 52,
+      height: 52,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 26,
+      backgroundColor: "#FEF3F2",
+    },
+
+    deleteConfirmTitle: {
+      marginTop: spacing.md,
+      color: colors.textPrimary,
+      fontSize: 20,
+      fontWeight: "800",
+    },
+
+    deleteConfirmText: {
+      marginTop: spacing.sm,
+      color: colors.textSecondary,
+      fontSize: 13,
+      lineHeight: 20,
+    },
+
+    deleteConfirmActions: {
+      marginTop: spacing.lg,
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      gap: spacing.sm,
+      flexWrap: "wrap",
     },
 
     approvedBox: {

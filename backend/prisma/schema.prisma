@@ -139,9 +139,12 @@ model TenantProfile {
   dateOfBirth        DateTime?
   currentAddress     String?
   postcode           String?
-  preferredLanguage  String?
-  accessibilityNotes String?
-  createdAt          DateTime  @default(now())
+  preferredLanguage       String?
+  accessibilityNotes      String?
+  mainReason              String?
+  idealTimeframe          String?
+  currentLivingSituation  String?
+  createdAt               DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
