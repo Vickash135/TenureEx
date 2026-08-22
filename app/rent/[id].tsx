@@ -8,8 +8,29 @@ import PublicHeader from "../../src/components/PublicHeader";
 import { colors } from "../../src/theme";
 
 type Property = any;
-const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000/api/v1").replace(/\/+$/, "");
-const API_ORIGIN = API_BASE_URL.replace(/\/api\/v1$/, "");
+const API_BASE_URL = (
+  process.env.EXPO_PUBLIC_API_URL ??
+  "http://localhost:3000/api/v1"
+).replace(/\/+$/, "");
+
+function getPropertyPhotoUrl(photoUrl: string): string {
+  if (!photoUrl) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(photoUrl)) {
+    return photoUrl;
+  }
+
+  let clean = photoUrl.trim().replace(/^\/+/, "");
+
+  clean = clean
+    .replace(/^api\/v1\/uploads\/properties\//, "")
+    .replace(/^uploads\/properties\//, "")
+    .replace(/^properties\//, "");
+
+  return `${API_BASE_URL}/uploads/properties/${encodeURIComponent(clean)}`;
+}
 
 export default function PublicPropertyDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -33,13 +54,58 @@ export default function PublicPropertyDetails() {
   if (loading) return <View style={styles.screen}><PublicHeader/><ActivityIndicator style={{marginTop:100}}/></View>;
   if (!property || error) return <View style={styles.screen}><PublicHeader/><View style={styles.errorBox}><Text style={styles.errorTitle}>Property unavailable</Text><Text style={styles.errorText}>{error || "This rental is no longer available."}</Text><Pressable onPress={() => router.push("/rent" as never)}><Text style={styles.back}>Back to rental search</Text></Pressable></View></View>;
 
-  const photos = (property.photoUrls ?? []).map((url: string) => url.startsWith("http") ? url : `${API_ORIGIN}${url}`);
+  const photos = (property.photoUrls ?? []).map(
+    (url: string) => getPropertyPhotoUrl(url),
+  );
   return <View style={styles.screen}><PublicHeader/><ScrollView>
     <View style={styles.max}>
       <Pressable style={styles.backRow} onPress={() => router.back()}><MaterialCommunityIcons name="arrow-left" size={18} color={colors.primary}/><Text style={styles.back}>Back to rentals</Text></Pressable>
       <View style={[styles.gallery, !desktop && styles.galleryMobile]}>
-        {photos[0] ? <Image source={{uri:photos[0]}} style={styles.mainPhoto}/> : <View style={styles.mainFallback}><MaterialCommunityIcons name="home-outline" size={70} color={colors.primary}/></View>}
-        {desktop ? <View style={styles.sidePhotos}>{photos.slice(1,3).map((p:string)=><Image key={p} source={{uri:p}} style={styles.sidePhoto}/>)}{photos.length < 2 ? <View style={styles.sideFallback}/>:null}</View> : null}
+        {photos[0] ? (
+          <Image
+            source={{ uri: photos[0] }}
+            style={styles.mainPhoto}
+            resizeMode="cover"
+            onError={(event) => {
+              console.error(
+                "RENT PROPERTY MAIN IMAGE ERROR:",
+                photos[0],
+                event.nativeEvent,
+              );
+            }}
+          />
+        ) : (
+          <View style={styles.mainFallback}>
+            <MaterialCommunityIcons
+              name="home-outline"
+              size={70}
+              color={colors.primary}
+            />
+          </View>
+        )}
+        {desktop ? (
+          <View style={styles.sidePhotos}>
+            {photos.slice(1, 3).map((photo: string) => (
+              <Image
+                key={photo}
+                source={{ uri: photo }}
+                style={styles.sidePhoto}
+                resizeMode="cover"
+                onError={(event) => {
+                  console.error(
+                    "RENT PROPERTY SIDE IMAGE ERROR:",
+                    photo,
+                    event.nativeEvent,
+                  );
+                }}
+              />
+            ))}
+
+            {photos.length < 2 ? (
+              <View style={styles.sideFallback} />
+            ) : null}
+          </View>
+        ) : null}
       </View>
       <View style={[styles.layout, !desktop && styles.layoutMobile]}>
         <View style={styles.main}>

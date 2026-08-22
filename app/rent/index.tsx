@@ -14,8 +14,30 @@ type Property = {
   photoUrls?: string[]; agency?: { name: string } | null;
 };
 
-const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000/api/v1").replace(/\/+$/, "");
-const API_ORIGIN = API_BASE_URL.replace(/\/api\/v1$/, "");
+const API_BASE_URL = (
+  process.env.EXPO_PUBLIC_API_URL ??
+  "http://localhost:3000/api/v1"
+).replace(/\/+$/, "");
+
+function getPropertyPhotoUrl(photoUrl: string): string {
+  if (!photoUrl) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(photoUrl)) {
+    return photoUrl;
+  }
+
+  let clean = photoUrl.trim().replace(/^\/+/, "");
+
+  clean = clean
+    .replace(/^api\/v1\/uploads\/properties\//, "")
+    .replace(/^uploads\/properties\//, "")
+    .replace(/^properties\//, "");
+
+  return `${API_BASE_URL}/uploads/properties/${encodeURIComponent(clean)}`;
+}
+
 const types = ["Any", "House", "Flat", "Studio", "Bungalow", "Maisonette"];
 
 export default function RentSearchPage() {
@@ -91,19 +113,96 @@ export default function RentSearchPage() {
 
 function RentalResult({ property }: { property: Property }) {
   const photo = property.photoUrls?.[0];
-  const uri = photo ? (photo.startsWith("http") ? photo : `${API_ORIGIN}${photo}`) : null;
-  return <Pressable style={styles.resultCard} onPress={() => router.push(`/rent/${property.id}` as never)}>
-    {uri ? <Image source={{ uri }} style={styles.resultImage}/> : <View style={styles.resultFallback}><MaterialCommunityIcons name="home-outline" size={58} color={colors.primary}/></View>}
-    <View style={styles.resultBody}>
-      <View style={styles.approved}><MaterialCommunityIcons name="shield-check" size={15} color={colors.success}/><Text style={styles.approvedText}>Estate-agent approved</Text></View>
-      <Text style={styles.price}>£{Number(property.monthlyRent).toLocaleString()} pcm</Text>
-      <Text style={styles.propertyTitle}>{property.title}</Text>
-      <Text style={styles.address}>{[property.addressLine1, property.townCity, property.postcode].join(", ")}</Text>
-      <View style={styles.meta}><Meta icon="bed-outline" text={`${property.bedrooms} bed`} /><Meta icon="shower" text={`${property.bathrooms} bath`} /><Meta icon="home-outline" text={friendly(property.propertyType)} /></View>
-      <View style={styles.tags}>{property.hasParking && <Tag text="Parking"/>}{property.hasGarden && <Tag text="Garden"/>}{property.petsAllowed && <Tag text="Pets considered"/>}{property.hasWheelchairAccess && <Tag text="Accessible"/>}</View>
-      {property.agency?.name ? <Text style={styles.agent}>Marketed through {property.agency.name}</Text> : null}
-    </View>
-  </Pressable>;
+  const uri = photo ? getPropertyPhotoUrl(photo) : null;
+
+  return (
+    <Pressable
+      style={styles.resultCard}
+      onPress={() =>
+        router.push(`/rent/${property.id}` as never)
+      }
+    >
+      {uri ? (
+        <Image
+          source={{ uri }}
+          style={styles.resultImage}
+          resizeMode="cover"
+          onError={(event) => {
+            console.error(
+              "RENT PROPERTY IMAGE ERROR:",
+              uri,
+              event.nativeEvent,
+            );
+          }}
+        />
+      ) : (
+        <View style={styles.resultFallback}>
+          <MaterialCommunityIcons
+            name="home-outline"
+            size={58}
+            color={colors.primary}
+          />
+        </View>
+      )}
+
+      <View style={styles.resultBody}>
+        <View style={styles.approved}>
+          <MaterialCommunityIcons
+            name="shield-check"
+            size={15}
+            color={colors.success}
+          />
+          <Text style={styles.approvedText}>
+            Estate-agent approved
+          </Text>
+        </View>
+
+        <Text style={styles.price}>
+          £{Number(property.monthlyRent).toLocaleString()} pcm
+        </Text>
+
+        <Text style={styles.propertyTitle}>
+          {property.title}
+        </Text>
+
+        <Text style={styles.address}>
+          {[
+            property.addressLine1,
+            property.townCity,
+            property.postcode,
+          ].join(", ")}
+        </Text>
+
+        <View style={styles.meta}>
+          <Meta
+            icon="bed-outline"
+            text={`${property.bedrooms} bed`}
+          />
+          <Meta
+            icon="shower"
+            text={`${property.bathrooms} bath`}
+          />
+          <Meta
+            icon="home-outline"
+            text={friendly(property.propertyType)}
+          />
+        </View>
+
+        <View style={styles.tags}>
+          {property.hasParking && <Tag text="Parking" />}
+          {property.hasGarden && <Tag text="Garden" />}
+          {property.petsAllowed && <Tag text="Pets considered" />}
+          {property.hasWheelchairAccess && <Tag text="Accessible" />}
+        </View>
+
+        {property.agency?.name ? (
+          <Text style={styles.agent}>
+            Marketed through {property.agency.name}
+          </Text>
+        ) : null}
+      </View>
+    </Pressable>
+  );
 }
 function Meta({ icon, text }: any) { return <View style={styles.metaItem}><MaterialCommunityIcons name={icon} size={18} color={colors.textPrimary}/><Text style={styles.metaText}>{text}</Text></View>; }
 function Tag({ text }: { text: string }) { return <View style={styles.tag}><Text style={styles.tagText}>{text}</Text></View>; }

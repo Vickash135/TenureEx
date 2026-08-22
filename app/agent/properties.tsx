@@ -17,6 +17,7 @@ import {
   Dialog,
   Divider,
   Portal,
+  SegmentedButtons,
   Snackbar,
   Text,
   TextInput,
@@ -47,6 +48,12 @@ type AgencyProperty = {
   bathrooms: number;
 
   monthlyRent: string | number;
+
+  commissionType?: "FIXED" | "PERCENTAGE" | null;
+  commissionValue?: string | number | null;
+  commissionAmount?: string | number | null;
+  tenantMonthlyRent?: string | number | null;
+
   depositAmount?: string | number | null;
 
   propertyStatus: string;
@@ -140,6 +147,12 @@ export default function PropertiesScreen() {
   const [message, setMessage] =
     useState("");
 
+  const [commissionType, setCommissionType] =
+    useState<"FIXED" | "PERCENTAGE">("FIXED");
+
+  const [commissionValue, setCommissionValue] =
+    useState("");
+
   const load = useCallback(async () => {
     try {
       setLoading(true);
@@ -230,12 +243,57 @@ export default function PropertiesScreen() {
         setSelected(property);
         setRejecting(false);
         setReason("");
+        setCommissionType(
+          property.commissionType === "PERCENTAGE"
+            ? "PERCENTAGE"
+            : "FIXED",
+        );
+        setCommissionValue(
+          property.commissionValue !== null &&
+          property.commissionValue !== undefined
+            ? String(property.commissionValue)
+            : "",
+        );
       },
     }),
   );
 
+  const landlordRent =
+    Number(selected?.monthlyRent ?? 0);
+
+  const parsedCommissionValue =
+    Number(commissionValue);
+
+  const validCommissionValue =
+    commissionValue.trim() !== "" &&
+    Number.isFinite(parsedCommissionValue) &&
+    parsedCommissionValue >= 0 &&
+    !(
+      commissionType === "PERCENTAGE" &&
+      parsedCommissionValue > 100
+    );
+
+  const calculatedCommission =
+    validCommissionValue
+      ? commissionType === "PERCENTAGE"
+        ? landlordRent * (parsedCommissionValue / 100)
+        : parsedCommissionValue
+      : 0;
+
+  const calculatedTenantRent =
+    landlordRent + calculatedCommission;
+
   const approve = async () => {
     if (!selected) {
+      return;
+    }
+
+    if (!validCommissionValue) {
+      setMessage(
+        commissionType === "PERCENTAGE"
+          ? "Enter a valid commission percentage between 0 and 100."
+          : "Enter a valid commission amount.",
+      );
       return;
     }
 
@@ -245,6 +303,10 @@ export default function PropertiesScreen() {
       const response =
         await api.patch(
           `/agency-landlords/properties/${selected.id}/approve`,
+          {
+            commissionType,
+            commissionValue: parsedCommissionValue,
+          },
         );
 
       setMessage(
@@ -441,49 +503,121 @@ export default function PropertiesScreen() {
 
                   <Divider />
 
-                  <Text variant="titleSmall">
-                    Property information
-                  </Text>
+                  <View style={styles.infoCommissionRow}>
+                    <View style={styles.propertyInfoColumn}>
+                      <Text variant="titleSmall">
+                        Property information
+                      </Text>
 
-                  <Text>
-                    Type:{" "}
-                    {
-                      selected.propertyType
-                    }
-                  </Text>
+                      <Text>Type: {selected.propertyType}</Text>
 
-                  <Text>
-                    Bedrooms:{" "}
-                    {
-                      selected.bedrooms
-                    }{" "}
-                    · Bathrooms:{" "}
-                    {
-                      selected.bathrooms
-                    }
-                  </Text>
+                      <Text>
+                        Bedrooms: {selected.bedrooms} · Bathrooms:{" "}
+                        {selected.bathrooms}
+                      </Text>
 
-                  <Text>
-                    Rent: £
-                    {Number(
-                      selected.monthlyRent,
-                    ).toLocaleString()}{" "}
-                    per month
-                  </Text>
+                      <Text>
+                        Landlord rent: £
+                        {Number(selected.monthlyRent).toLocaleString()}{" "}
+                        per month
+                      </Text>
 
-                  <Text>
-                    Property status:{" "}
-                    {
-                      selected.propertyStatus
-                    }
-                  </Text>
+                      <Text>
+                        Property status: {selected.propertyStatus}
+                      </Text>
 
-                  <Text>
-                    Approval status:{" "}
-                    {
-                      selected.approvalStatus
-                    }
-                  </Text>
+                      <Text>
+                        Approval status: {selected.approvalStatus}
+                      </Text>
+                    </View>
+
+                    <View style={styles.commissionColumn}>
+                      <Text variant="titleSmall">
+                        Estate agent commission
+                      </Text>
+
+                      {selected.approvalStatus === "PENDING" ? (
+                        <>
+                          <SegmentedButtons
+                            value={commissionType}
+                            onValueChange={(value) =>
+                              setCommissionType(
+                                value as "FIXED" | "PERCENTAGE",
+                              )
+                            }
+                            buttons={[
+                              { value: "FIXED", label: "Amount" },
+                              { value: "PERCENTAGE", label: "Percentage" },
+                            ]}
+                          />
+
+                          <TextInput
+                            mode="outlined"
+                            keyboardType="decimal-pad"
+                            label={
+                              commissionType === "PERCENTAGE"
+                                ? "Commission percentage"
+                                : "Commission amount"
+                            }
+                            left={
+                              commissionType === "FIXED" ? (
+                                <TextInput.Affix text="£" />
+                              ) : undefined
+                            }
+                            right={
+                              commissionType === "PERCENTAGE" ? (
+                                <TextInput.Affix text="%" />
+                              ) : undefined
+                            }
+                            value={commissionValue}
+                            onChangeText={setCommissionValue}
+                          />
+
+                          <Text>
+                            Commission: £
+                            {calculatedCommission.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </Text>
+
+                          <Text style={styles.finalRent}>
+                            Tenant rent: £
+                            {calculatedTenantRent.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}{" "}
+                            per month
+                          </Text>
+                        </>
+                      ) : (
+                        <>
+                          <Text>
+                            Type:{" "}
+                            {selected.commissionType === "PERCENTAGE"
+                              ? "Percentage"
+                              : "Fixed amount"}
+                          </Text>
+
+                          <Text>
+                            Commission: £
+                            {Number(
+                              selected.commissionAmount ?? 0,
+                            ).toLocaleString()}
+                          </Text>
+
+                          <Text style={styles.finalRent}>
+                            Tenant rent: £
+                            {Number(
+                              selected.tenantMonthlyRent ??
+                                selected.monthlyRent,
+                            ).toLocaleString()}{" "}
+                            per month
+                          </Text>
+                        </>
+                      )}
+                    </View>
+                  </View>
 
                   {selected.description ? (
                     <Text>
@@ -668,7 +802,8 @@ export default function PropertiesScreen() {
                       processing
                     }
                     disabled={
-                      processing
+                      processing ||
+                      !validCommissionValue
                     }
                     onPress={() =>
                       void approve()
@@ -708,6 +843,31 @@ const styles =
     content: {
       padding: spacing.lg,
       gap: spacing.sm,
+    },
+
+    infoCommissionRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing.xl,
+    },
+
+    propertyInfoColumn: {
+      flex: 1,
+      minWidth: 250,
+      gap: spacing.sm,
+    },
+
+    commissionColumn: {
+      flex: 1,
+      minWidth: 280,
+      gap: spacing.sm,
+      padding: spacing.md,
+      borderRadius: radius.md,
+      backgroundColor: colors.surfaceSoft,
+    },
+
+    finalRent: {
+      fontWeight: "700",
     },
 
     photos: {

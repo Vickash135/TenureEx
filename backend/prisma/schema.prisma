@@ -68,24 +68,35 @@ model LandlordProfile {
   user                  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   properties            Property[]
   agencyId              String?
-  agency                Agency?     @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  agency                Agency?    @relation(fields: [agencyId], references: [id], onDelete: SetNull)
 
   @@index([agencyId])
 }
 
 model Property {
-  id                        String                 @id @default(uuid())
-  landlordProfileId         String
-  addressLine1              String
-  addressLine2              String?
-  townCity                  String
-  county                    String?
-  postcode                  String
-  propertyType              PropertyType
-  bedrooms                  Int
-  bathrooms                 Int
-  receptionRooms            Int                    @default(0)
-  monthlyRent               Decimal                @db.Decimal(12, 2)
+  id                String       @id @default(uuid())
+  landlordProfileId String
+  addressLine1      String
+  addressLine2      String?
+  townCity          String
+  county            String?
+  postcode          String
+  propertyType      PropertyType
+  bedrooms          Int
+  bathrooms         Int
+  receptionRooms    Int          @default(0)
+
+  // Original monthly rent entered by landlord
+  monthlyRent Decimal @db.Decimal(12, 2)
+
+  // Estate agent commission
+  commissionType   CommissionType?
+  commissionValue  Decimal?        @db.Decimal(12, 2)
+  commissionAmount Decimal?        @db.Decimal(12, 2)
+
+  // Final monthly rent shown to tenants
+  tenantMonthlyRent Decimal? @db.Decimal(12, 2)
+
   depositAmount             Decimal?               @db.Decimal(12, 2)
   councilTaxBand            String?
   furnishingStatus          FurnishingStatus       @default(UNFURNISHED)
@@ -124,7 +135,8 @@ model Property {
   rejectionReason           String?
   createdAt                 DateTime               @default(now())
   updatedAt                 DateTime               @updatedAt
-  landlordProfile           LandlordProfile        @relation(fields: [landlordProfileId], references: [id], onDelete: Cascade)
+
+  landlordProfile LandlordProfile @relation(fields: [landlordProfileId], references: [id], onDelete: Cascade)
 
   @@index([landlordProfileId])
   @@index([postcode])
@@ -134,19 +146,19 @@ model Property {
 }
 
 model TenantProfile {
-  id                 String    @id @default(uuid())
-  userId             String    @unique
-  dateOfBirth        DateTime?
-  currentAddress     String?
-  postcode           String?
-  preferredLanguage       String?
-  accessibilityNotes      String?
-  mainReason              String?
-  idealTimeframe          String?
-  currentLivingSituation  String?
-  createdAt               DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                     String    @id @default(uuid())
+  userId                 String    @unique
+  dateOfBirth            DateTime?
+  currentAddress         String?
+  postcode               String?
+  preferredLanguage      String?
+  accessibilityNotes     String?
+  mainReason             String?
+  idealTimeframe         String?
+  currentLivingSituation String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model MaintenanceProviderProfile {
@@ -175,50 +187,49 @@ model CouncilProfile {
 }
 
 model AgencyApplication {
-  id                        String                  @id @default(uuid())
-  applicantUserId           String
-  reviewerUserId            String?
-  registrationType          RegistrationType
-  applicantName             String
-  businessName              String?
-  companyNumber             String?
-  hmrcLookupCompleted       Boolean                 @default(false)
-  hmrcVerified              Boolean                 @default(false)
-  contactEmail              String
-  contactPhone              String
-  businessDetails           String?
-  employeeCount             Int?
-  requiredLoginCount        Int?
-  propertyCount             Int?
-  branchCount               Int?
-  authorisedDeclaration     Boolean                 @default(false)
-  termsAcceptedAt           DateTime?
-  privacyAcceptedAt         DateTime?
-  status                    AgencyApplicationStatus @default(DRAFT)
-  submittedAt               DateTime?
-  reviewStartedAt           DateTime?
-  reviewedAt                DateTime?
-  approvedAt                DateTime?
-  rejectedAt                DateTime?
-  rejectionReason           String?
+  id                    String                  @id @default(uuid())
+  applicantUserId       String
+  reviewerUserId        String?
+  registrationType      RegistrationType
+  applicantName         String
+  businessName          String?
+  companyNumber         String?
+  hmrcLookupCompleted   Boolean                 @default(false)
+  hmrcVerified          Boolean                 @default(false)
+  contactEmail          String
+  contactPhone          String
+  businessDetails       String?
+  employeeCount         Int?
+  requiredLoginCount    Int?
+  propertyCount         Int?
+  branchCount           Int?
+  authorisedDeclaration Boolean                 @default(false)
+  termsAcceptedAt       DateTime?
+  privacyAcceptedAt     DateTime?
+  status                AgencyApplicationStatus @default(DRAFT)
+  submittedAt           DateTime?
+  reviewStartedAt       DateTime?
+  reviewedAt            DateTime?
+  approvedAt            DateTime?
+  rejectedAt            DateTime?
+  rejectionReason       String?
 
-  // More information workflow
   additionalInfoRequest     String?
   additionalInfoRequestedAt DateTime?
   additionalInfoResponse    String?
   additionalInfoRespondedAt DateTime?
   additionalInfoResolvedAt  DateTime?
 
-  estimatedProcessingDays   Int?
-  createdAt                 DateTime                @default(now())
-  updatedAt                 DateTime                @updatedAt
+  estimatedProcessingDays Int?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
-  agency                    Agency?
-  applicantUser             User                    @relation("ApplicationApplicant", fields: [applicantUserId], references: [id])
-  reviewerUser              User?                   @relation("ApplicationReviewer", fields: [reviewerUserId], references: [id])
-  agreements                Agreement[]
-  statusHistory             ApplicationStatusHistory[]
-  directDebitSetup          DirectDebitSetup?
+  agency           Agency?
+  applicantUser    User                       @relation("ApplicationApplicant", fields: [applicantUserId], references: [id])
+  reviewerUser     User?                      @relation("ApplicationReviewer", fields: [reviewerUserId], references: [id])
+  agreements       Agreement[]
+  statusHistory    ApplicationStatusHistory[]
+  directDebitSetup DirectDebitSetup?
 
   @@index([applicantUserId])
   @@index([reviewerUserId])
@@ -244,32 +255,31 @@ model ApplicationStatusHistory {
 }
 
 model Agency {
-  id               String            @id @default(uuid())
-  applicationId    String            @unique
-  name             String
-  registrationType RegistrationType
-  companyNumber    String?
-  contactEmail     String            @unique
-  contactPhone     String
-  businessDetails  String?
-  authorised       Boolean           @default(false)
-  active           Boolean           @default(false)
-  activatedAt      DateTime?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  application      AgencyApplication @relation(fields: [applicationId], references: [id])
-  branches         AgencyBranch[]
-  users            AgencyUser[]
-  roles            Role[]
-  landlords        LandlordProfile[]
+  id                  String               @id @default(uuid())
+  applicationId       String               @unique
+  name                String
+  registrationType    RegistrationType
+  companyNumber       String?
+  contactEmail        String               @unique
+  contactPhone        String
+  businessDetails     String?
+  authorised          Boolean              @default(false)
+  active              Boolean              @default(false)
+  activatedAt         DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  application         AgencyApplication    @relation(fields: [applicationId], references: [id])
+  branches            AgencyBranch[]
+  users               AgencyUser[]
+  roles               Role[]
+  landlords           LandlordProfile[]
   landlordInvitations LandlordInvitation[]
 
   @@index([active])
 }
 
-
 model LandlordInvitation {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   agencyId        String
   invitedByUserId String
   firstName       String
@@ -277,12 +287,12 @@ model LandlordInvitation {
   email           String
   phone           String?
   tokenHash       String
-  status          String   @default("PENDING")
+  status          String    @default("PENDING")
   expiresAt       DateTime
   acceptedAt      DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  agency          Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  agency          Agency    @relation(fields: [agencyId], references: [id], onDelete: Cascade)
 
   @@index([agencyId])
   @@index([email])
@@ -534,6 +544,11 @@ enum PropertyApprovalStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum CommissionType {
+  FIXED
+  PERCENTAGE
 }
 
 enum MaintenanceRoute {

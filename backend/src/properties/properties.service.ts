@@ -47,7 +47,23 @@ export class PropertiesService {
         approvalStatus: "APPROVED",
         propertyStatus: { not: "OCCUPIED" },
         ...(Number.isFinite(minimumBedrooms) ? { bedrooms: { gte: minimumBedrooms } } : {}),
-        ...(Number.isFinite(maximumRent) ? { monthlyRent: { lte: maximumRent } } : {}),
+        ...(Number.isFinite(maximumRent)
+          ? {
+              OR: [
+                {
+                  tenantMonthlyRent: {
+                    lte: maximumRent,
+                  },
+                },
+                {
+                  tenantMonthlyRent: null,
+                  monthlyRent: {
+                    lte: maximumRent,
+                  },
+                },
+              ],
+            }
+          : {}),
         ...(propertyType && propertyType !== "ANY" ? { propertyType: propertyType as any } : {}),
         ...(location ? {
           OR: [
@@ -100,7 +116,18 @@ export class PropertiesService {
       bedrooms: property.bedrooms,
       bathrooms: property.bathrooms,
       receptionRooms: property.receptionRooms,
-      monthlyRent: property.monthlyRent,
+      monthlyRent:
+        property.tenantMonthlyRent ??
+        property.monthlyRent,
+
+      // Keep the original landlord rent available internally in the
+      // response without exposing the commission calculation itself.
+      landlordMonthlyRent:
+        property.monthlyRent,
+
+      tenantMonthlyRent:
+        property.tenantMonthlyRent ??
+        property.monthlyRent,
       depositAmount: property.depositAmount,
       furnishingStatus: property.furnishingStatus,
       availableFrom: property.availableFrom,
@@ -117,7 +144,13 @@ export class PropertiesService {
         id: property.landlordProfile.agency.id,
         name: property.landlordProfile.agency.name,
       } : null,
-      photoUrls: (property.photoNames ?? []).map((name: string) => `/uploads/properties/${encodeURIComponent(name)}`),
+      photoUrls:
+        (property.photoNames ?? []).map(
+          (name: string) =>
+            `/api/v1/uploads/properties/${encodeURIComponent(
+              name,
+            )}`,
+        ),
     };
   }
 
@@ -363,6 +396,20 @@ export class PropertiesService {
             null,
 
           rejectionReason:
+            null,
+
+          // Any landlord-side change requires the estate agent
+          // to review and set/reconfirm commission again.
+          commissionType:
+            null,
+
+          commissionValue:
+            null,
+
+          commissionAmount:
+            null,
+
+          tenantMonthlyRent:
             null,
         },
       });
@@ -613,6 +660,21 @@ export class PropertiesService {
       null;
 
     data.rejectionReason =
+      null;
+
+    // Any landlord edit returns the property for estate-agent review.
+    // Remove the previous commission/final tenant rent so the agent
+    // must set or reconfirm it before approving again.
+    data.commissionType =
+      null;
+
+    data.commissionValue =
+      null;
+
+    data.commissionAmount =
+      null;
+
+    data.tenantMonthlyRent =
       null;
 
     const updated =
@@ -897,7 +959,9 @@ export class PropertiesService {
           []
         ).map(
           (photoName) =>
-            `/uploads/properties/${photoName}`,
+            `/api/v1/uploads/properties/${encodeURIComponent(
+              photoName,
+            )}`,
         ),
     };
   }
