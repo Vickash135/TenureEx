@@ -1,21 +1,21 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
 import {
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import {
-    Button,
-    Dialog,
-    Divider,
-    Menu,
-    Portal,
-    Searchbar,
-    TextInput,
+  Button,
+  Dialog,
+  Divider,
+  Menu,
+  Portal,
+  Searchbar,
+  TextInput,
 } from "react-native-paper";
 
 import { colors, radius, spacing } from "../../src/theme";
@@ -150,202 +150,7 @@ const emptyRequest: MaintenanceRequest = {
   tenantFeedback: "",
 };
 
-const initialRequests: MaintenanceRequest[] = [
-  {
-    id: "M001",
-    propertyId: "P001",
-    propertyAddress:
-      "18 Victoria Road, Manchester, M14 6BT",
-
-    tenantName: "Olivia Harris",
-    tenantEmail: "olivia.harris@example.com",
-    tenantPhone: "07123 456789",
-
-    title: "Boiler not producing hot water",
-    description:
-      "The boiler turns on but the taps are only producing cold water.",
-    category: "Heating",
-    roomLocation: "Kitchen",
-    priority: "High",
-    status: "Contractor assigned",
-
-    dateReported: "22 July 2026",
-    tenantAvailability:
-      "Weekdays after 5:30 PM or Saturday morning",
-    accessPermission: false,
-
-    maintenanceRoute: "Use preferred contractor",
-    landlordDecision:
-      "Approved. Use the preferred heating contractor.",
-
-    contractorName: "NorthWest Heating Ltd",
-    contractorPhone: "0161 555 0140",
-    contractorEmail: "repairs@northwestheating.co.uk",
-
-    appointmentDate: "27 July 2026",
-    appointmentTime: "10:30 AM",
-
-    estimatedCost: "180",
-    finalCost: "",
-
-    emergencyApproval: true,
-    spendingLimit: "250",
-
-    reportedPhotos: [
-      "boiler-display.jpg",
-      "boiler-pressure.jpg",
-    ],
-    completionPhotos: [],
-
-    contractorNotes:
-      "Initial checks suggest a faulty diverter valve.",
-    completionNotes: "",
-    tenantFeedback: "",
-  },
-  {
-    id: "M002",
-    propertyId: "P002",
-    propertyAddress:
-      "Apartment 7, 42 King Street, Leeds, LS1 2HQ",
-
-    tenantName: "James Wilson",
-    tenantEmail: "james.wilson@example.com",
-    tenantPhone: "07234 567890",
-
-    title: "Kitchen tap leaking",
-    description:
-      "The kitchen tap continues dripping after it is turned off.",
-    category: "Plumbing",
-    roomLocation: "Kitchen",
-    priority: "Medium",
-    status: "Awaiting landlord",
-
-    dateReported: "23 July 2026",
-    tenantAvailability:
-      "Monday, Wednesday or Friday after 3:00 PM",
-    accessPermission: true,
-
-    maintenanceRoute: "Contact landlord first",
-    landlordDecision: "",
-
-    contractorName: "",
-    contractorPhone: "",
-    contractorEmail: "",
-
-    appointmentDate: "",
-    appointmentTime: "",
-
-    estimatedCost: "85",
-    finalCost: "",
-
-    emergencyApproval: false,
-    spendingLimit: "150",
-
-    reportedPhotos: ["leaking-tap.jpg"],
-    completionPhotos: [],
-
-    contractorNotes: "",
-    completionNotes: "",
-    tenantFeedback: "",
-  },
-  {
-    id: "M003",
-    propertyId: "P003",
-    propertyAddress:
-      "7 Park Avenue, Liverpool, L17 4JP",
-
-    tenantName: "Previous tenant",
-    tenantEmail: "",
-    tenantPhone: "",
-
-    title: "Bedroom window lock damaged",
-    description:
-      "The lock does not close securely and needs replacing before the next tenancy.",
-    category: "Security",
-    roomLocation: "Main bedroom",
-    priority: "High",
-    status: "Appointment booked",
-
-    dateReported: "18 July 2026",
-    tenantAvailability:
-      "Property currently vacant",
-    accessPermission: true,
-
-    maintenanceRoute: "Agent can arrange",
-    landlordDecision:
-      "Approved. Agent may arrange the repair.",
-
-    contractorName: "City Property Repairs",
-    contractorPhone: "0151 555 0178",
-    contractorEmail: "bookings@citypropertyrepairs.co.uk",
-
-    appointmentDate: "29 July 2026",
-    appointmentTime: "9:00 AM",
-
-    estimatedCost: "120",
-    finalCost: "",
-
-    emergencyApproval: true,
-    spendingLimit: "200",
-
-    reportedPhotos: ["window-lock.jpg"],
-    completionPhotos: [],
-
-    contractorNotes:
-      "Replacement lock ordered.",
-    completionNotes: "",
-    tenantFeedback: "",
-  },
-  {
-    id: "M004",
-    propertyId: "P001",
-    propertyAddress:
-      "18 Victoria Road, Manchester, M14 6BT",
-
-    tenantName: "Olivia Harris",
-    tenantEmail: "olivia.harris@example.com",
-    tenantPhone: "07123 456789",
-
-    title: "Loose bathroom extractor fan cover",
-    description:
-      "The extractor fan cover was loose and making noise.",
-    category: "Electrical",
-    roomLocation: "Upstairs bathroom",
-    priority: "Low",
-    status: "Completed",
-
-    dateReported: "05 July 2026",
-    tenantAvailability:
-      "Weekdays after 5:30 PM",
-    accessPermission: true,
-
-    maintenanceRoute: "Agent can arrange",
-    landlordDecision: "Approved.",
-
-    contractorName: "Manchester Electrical Services",
-    contractorPhone: "0161 555 0194",
-    contractorEmail: "service@mes.co.uk",
-
-    appointmentDate: "10 July 2026",
-    appointmentTime: "2:00 PM",
-
-    estimatedCost: "65",
-    finalCost: "60",
-
-    emergencyApproval: false,
-    spendingLimit: "100",
-
-    reportedPhotos: ["fan-cover-before.jpg"],
-    completionPhotos: ["fan-cover-after.jpg"],
-
-    contractorNotes:
-      "Cover refitted and fan tested.",
-    completionNotes:
-      "The extractor fan is secure and working normally.",
-    tenantFeedback:
-      "Confirmed complete. No further issue.",
-  },
-];
+const initialRequests: MaintenanceRequest[]= [];
 
 const statusOptions: MaintenanceStatus[] = [
   "Reported",

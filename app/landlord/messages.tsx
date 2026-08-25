@@ -1,13 +1,13 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
 import {
-    TextInput as NativeTextInput,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  TextInput as NativeTextInput,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import { Button, Searchbar } from "react-native-paper";
 
@@ -30,71 +30,7 @@ type Conversation = {
   messages: Message[];
 };
 
-const initialConversations: Conversation[] = [
-  {
-    id: "C001",
-    personName: "Olivia Harris",
-    role: "Tenant",
-    property: "18 Victoria Road",
-    unread: 2,
-    messages: [
-      {
-        id: "M1",
-        sender: "Other",
-        text: "The boiler is still not producing hot water.",
-        time: "10:15 AM",
-      },
-      {
-        id: "M2",
-        sender: "Landlord",
-        text: "I have approved the repair and assigned the heating contractor.",
-        time: "10:28 AM",
-      },
-      {
-        id: "M3",
-        sender: "Other",
-        text: "Thank you. Please ask them to visit after 5:30 PM.",
-        time: "10:32 AM",
-      },
-    ],
-  },
-  {
-    id: "C002",
-    personName: "NorthWest Heating Ltd",
-    role: "Maintenance Provider",
-    property: "18 Victoria Road",
-    unread: 0,
-    messages: [
-      {
-        id: "M1",
-        sender: "Other",
-        text: "We can attend on Monday at 5:45 PM.",
-        time: "Yesterday",
-      },
-      {
-        id: "M2",
-        sender: "Landlord",
-        text: "The appointment is approved.",
-        time: "Yesterday",
-      },
-    ],
-  },
-  {
-    id: "C003",
-    personName: "Sarah Mitchell",
-    role: "Estate Agent",
-    property: "91 High Street",
-    unread: 1,
-    messages: [
-      {
-        id: "M1",
-        sender: "Other",
-        text: "The property documents are currently under review.",
-        time: "Monday",
-      },
-    ],
-  },
-];
+const initialConversations: Conversation[] = [];
 
 export default function LandlordMessagesScreen() {
   const { width } = useWindowDimensions();
@@ -104,7 +40,7 @@ export default function LandlordMessagesScreen() {
     useState(initialConversations);
 
   const [selectedId, setSelectedId] =
-    useState(initialConversations[0].id);
+    useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [messageText, setMessageText] =
@@ -114,7 +50,7 @@ export default function LandlordMessagesScreen() {
     conversations.find(
       (conversation) =>
         conversation.id === selectedId,
-    ) || conversations[0];
+    ) ?? null;
 
   const filteredConversations = useMemo(() => {
     const value = search.trim().toLowerCase();
@@ -316,6 +252,8 @@ export default function LandlordMessagesScreen() {
         </View>
 
         <View style={styles.chat}>
+          {selectedConversation ? (
+            <>
           <View style={styles.chatHeader}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>
@@ -418,6 +356,20 @@ export default function LandlordMessagesScreen() {
               />
             </Pressable>
           </View>
+            </>
+          ) : (
+            <View style={styles.emptyChat}>
+              <MaterialCommunityIcons
+                name="message-text-outline"
+                size={42}
+                color={colors.textMuted}
+              />
+              <Text style={styles.emptyChatTitle}>No conversations</Text>
+              <Text style={styles.emptyChatText}>
+                Your messages will appear here when a conversation is created.
+              </Text>
+            </View>
+          )}
         </View>
       </View>
     </LandlordModuleScreen>
@@ -539,6 +491,30 @@ const styles = StyleSheet.create({
   chat: {
     flex: 1,
     minWidth: 0,
+  },
+
+  emptyChat: {
+    flex: 1,
+    minHeight: 420,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: spacing.xl,
+  },
+
+  emptyChatTitle: {
+    marginTop: spacing.md,
+    color: colors.textPrimary,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+
+  emptyChatText: {
+    marginTop: spacing.sm,
+    maxWidth: 320,
+    color: colors.textMuted,
+    fontSize: 11,
+    lineHeight: 18,
+    textAlign: "center",
   },
 
   chatHeader: {

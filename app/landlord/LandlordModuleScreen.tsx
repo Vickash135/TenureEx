@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   SafeAreaView,
@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { Avatar, Button } from "react-native-paper";
 
+import { api, clearAuthSession, getStoredUser, saveCurrentUser } from "../../src/api/client";
 import TenureExLogo from "../../src/components/Logo/TenureExLogo";
 import {
   colors,
@@ -21,6 +22,23 @@ import {
 } from "../../src/theme";
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
+
+type LandlordUser = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string | null;
+  userType: string;
+  status: string;
+  emailVerified: boolean;
+  phoneVerified: boolean;
+};
+
+type LandlordPropertySummary = {
+  id: string;
+};
+
 
 export type LandlordStatistic = {
   label: string;
@@ -98,10 +116,86 @@ export default function LandlordModuleScreen({
 
   const [isMounted, setIsMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<LandlordUser | null>(null);
+  const [propertyCount, setPropertyCount] = useState(0);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadLandlordSession = async () => {
+      try {
+        // Show the locally stored user immediately, then refresh it from
+        // the backend so the header always represents the active JWT user.
+        const storedUser = await getStoredUser<LandlordUser>();
+
+        if (active && storedUser?.userType === "LANDLORD") {
+          setCurrentUser(storedUser);
+        }
+
+        const [meResponse, propertiesResponse] = await Promise.all([
+          api.get<LandlordUser>("/auth/me"),
+          api.get<LandlordPropertySummary[]>("/landlord-properties"),
+        ]);
+
+        if (!active) {
+          return;
+        }
+
+        if (
+          meResponse.data.userType !== "LANDLORD" ||
+          meResponse.data.status !== "ACTIVE"
+        ) {
+          await clearAuthSession();
+          router.replace("/auth/landlord/login" as Href);
+          return;
+        }
+
+        setCurrentUser(meResponse.data);
+        setPropertyCount(propertiesResponse.data?.length ?? 0);
+        await saveCurrentUser(meResponse.data);
+      } catch (error) {
+        console.error("Failed to load landlord session:", error);
+
+        if (!active) {
+          return;
+        }
+
+        // If the JWT is invalid/expired, clear the old identity instead of
+        // continuing to display somebody else's cached name.
+        setCurrentUser(null);
+        setPropertyCount(0);
+      }
+    };
+
+    void loadLandlordSession();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const displayName = useMemo(() => {
+    if (!currentUser) {
+      return "Landlord";
+    }
+
+    return `${currentUser.firstName} ${currentUser.lastName}`.trim() || "Landlord";
+  }, [currentUser]);
+
+  const initials = useMemo(() => {
+    if (!currentUser) {
+      return "L";
+    }
+
+    const first = currentUser.firstName?.trim().charAt(0) ?? "";
+    const last = currentUser.lastName?.trim().charAt(0) ?? "";
+
+    return `${first}${last}`.toUpperCase() || "L";
+  }, [currentUser]);
 
   // Keep SSR and the first browser render identical.
   // Width-dependent layout is enabled only after hydration.
@@ -113,7 +207,8 @@ export default function LandlordModuleScreen({
     router.push(route);
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    await clearAuthSession();
     router.replace("/auth/landlord/login" as Href);
   };
 
@@ -123,8 +218,11 @@ export default function LandlordModuleScreen({
         {isDesktop ? (
           <LandlordSidebar
             activePage={activePage}
+            displayName={displayName}
+            initials={initials}
+            propertyCount={propertyCount}
             onNavigate={navigateTo}
-            onSignOut={handleSignOut}
+            onSignOut={() => void handleSignOut()}
           />
         ) : null}
 
@@ -172,14 +270,14 @@ export default function LandlordModuleScreen({
                 <View style={styles.profile}>
                   <Avatar.Text
                     size={38}
-                    label="DT"
+                    label={initials}
                     style={styles.avatar}
                     labelStyle={styles.avatarLabel}
                   />
 
                   <View>
                     <Text style={styles.profileName}>
-                      Daniel Thompson
+                      {displayName}
                     </Text>
 
                     <Text style={styles.profileRole}>
@@ -206,7 +304,7 @@ export default function LandlordModuleScreen({
                 />
 
                 <Pressable
-                  onPress={handleSignOut}
+                  onPress={() => void handleSignOut()}
                   style={styles.mobileSignOut}
                 >
                   <MaterialCommunityIcons
@@ -308,10 +406,16 @@ export default function LandlordModuleScreen({
 
 function LandlordSidebar({
   activePage,
+  displayName,
+  initials,
+  propertyCount,
   onNavigate,
   onSignOut,
 }: {
   activePage: string;
+  displayName: string;
+  initials: string;
+  propertyCount: number;
   onNavigate: (route: Href) => void;
   onSignOut: () => void;
 }) {
@@ -330,11 +434,11 @@ function LandlordSidebar({
 
         <View style={styles.portfolioDetails}>
           <Text style={styles.portfolioName}>
-            Thompson Portfolio
+            Property Portfolio
           </Text>
 
           <Text style={styles.portfolioPlan}>
-            12 managed properties
+            {propertyCount} managed {propertyCount === 1 ? "property" : "properties"}
           </Text>
         </View>
 
@@ -362,14 +466,14 @@ function LandlordSidebar({
       <View style={styles.sidebarFooter}>
         <Avatar.Text
           size={39}
-          label="DT"
+          label={initials}
           style={styles.sidebarAvatar}
           labelStyle={styles.sidebarAvatarLabel}
         />
 
         <View style={styles.sidebarUser}>
           <Text style={styles.sidebarUserName}>
-            Daniel Thompson
+            {displayName}
           </Text>
 
           <Text style={styles.sidebarUserRole}>
@@ -438,7 +542,7 @@ function LandlordNavigation({
             {item.label === "Messages" ? (
               <View style={styles.messageBadge}>
                 <Text style={styles.messageBadgeText}>
-                  3
+                  0
                 </Text>
               </View>
             ) : null}

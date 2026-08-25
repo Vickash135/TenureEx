@@ -1,21 +1,21 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
 import {
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import {
-    Button,
-    Dialog,
-    Menu,
-    Portal,
-    Searchbar,
-    Switch,
-    TextInput,
+  Button,
+  Dialog,
+  Menu,
+  Portal,
+  Searchbar,
+  Switch,
+  TextInput,
 } from "react-native-paper";
 
 import { colors, radius, spacing } from "../../src/theme";
@@ -126,199 +126,7 @@ const emptyDocument: DocumentRecord = {
   rejectionReason: "",
 };
 
-const initialDocuments: DocumentRecord[] = [
-  {
-    id: "D001",
-
-    title: "Gas Safety Certificate 2026",
-    category: "Gas Safety Certificate",
-    description:
-      "Annual Gas Safety Record for all gas appliances and installations.",
-
-    propertyId: "P001",
-    propertyAddress:
-      "18 Victoria Road, Manchester, M14 6BT",
-
-    tenantName: "Olivia Harris",
-
-    documentNumber: "GSC-2026-1847",
-    issuingOrganisation: "NorthWest Heating Ltd",
-
-    issueDate: "03 August 2026",
-    expiryDate: "03 August 2027",
-    hasExpiryDate: true,
-
-    status: "Valid",
-    approvalStatus: "Approved",
-
-    fileName: "gas-safety-p001-2026.pdf",
-    fileType: "PDF",
-    fileSize: "1.4 MB",
-
-    uploadedDate: "04 August 2026",
-    uploadedBy: "Landlord",
-
-    reminderEnabled: true,
-    reminderDays: "30",
-
-    agentNotes:
-      "Certificate checked and approved.",
-    rejectionReason: "",
-  },
-  {
-    id: "D002",
-
-    title: "Energy Performance Certificate",
-    category: "EPC",
-    description:
-      "Energy Performance Certificate showing energy efficiency rating C.",
-
-    propertyId: "P003",
-    propertyAddress:
-      "7 Park Avenue, Liverpool, L17 4JP",
-
-    tenantName: "",
-
-    documentNumber: "EPC-9274-1630-2841",
-    issuingOrganisation:
-      "UK Energy Assessment Services",
-
-    issueDate: "12 September 2016",
-    expiryDate: "12 September 2026",
-    hasExpiryDate: true,
-
-    status: "Expiring soon",
-    approvalStatus: "Approved",
-
-    fileName: "epc-p003.pdf",
-    fileType: "PDF",
-    fileSize: "920 KB",
-
-    uploadedDate: "20 July 2026",
-    uploadedBy: "Landlord",
-
-    reminderEnabled: true,
-    reminderDays: "60",
-
-    agentNotes:
-      "Renew before the property is advertised.",
-    rejectionReason: "",
-  },
-  {
-    id: "D003",
-
-    title: "Electrical Installation Condition Report",
-    category: "EICR",
-    description:
-      "Five-year electrical safety inspection report.",
-
-    propertyId: "P002",
-    propertyAddress:
-      "Apartment 7, 42 King Street, Leeds, LS1 2HQ",
-
-    tenantName: "James Wilson",
-
-    documentNumber: "EICR-LDS-88301",
-    issuingOrganisation:
-      "Leeds Electrical Testing Services",
-
-    issueDate: "20 March 2023",
-    expiryDate: "20 March 2028",
-    hasExpiryDate: true,
-
-    status: "Valid",
-    approvalStatus: "Approved",
-
-    fileName: "eicr-p002.pdf",
-    fileType: "PDF",
-    fileSize: "2.1 MB",
-
-    uploadedDate: "18 July 2026",
-    uploadedBy: "Agent",
-
-    reminderEnabled: true,
-    reminderDays: "90",
-
-    agentNotes:
-      "Satisfactory report.",
-    rejectionReason: "",
-  },
-  {
-    id: "D004",
-
-    title: "Property Insurance Policy",
-    category: "Insurance",
-    description:
-      "Buildings insurance policy for the property.",
-
-    propertyId: "P004",
-    propertyAddress:
-      "91 High Street, Birmingham, B4 7SL",
-
-    tenantName: "",
-
-    documentNumber: "INS-5572091",
-    issuingOrganisation: "SecureHome Insurance",
-
-    issueDate: "01 June 2026",
-    expiryDate: "31 May 2027",
-    hasExpiryDate: true,
-
-    status: "Pending review",
-    approvalStatus: "Pending",
-
-    fileName: "insurance-p004.pdf",
-    fileType: "PDF",
-    fileSize: "780 KB",
-
-    uploadedDate: "23 July 2026",
-    uploadedBy: "Landlord",
-
-    reminderEnabled: true,
-    reminderDays: "30",
-
-    agentNotes: "",
-    rejectionReason: "",
-  },
-  {
-    id: "D005",
-
-    title: "Signed Tenancy Agreement",
-    category: "Tenancy Agreement",
-    description:
-      "Signed tenancy agreement between landlord and tenant.",
-
-    propertyId: "P001",
-    propertyAddress:
-      "18 Victoria Road, Manchester, M14 6BT",
-
-    tenantName: "Olivia Harris",
-
-    documentNumber: "TA-P001-2026",
-    issuingOrganisation: "TenureEx",
-
-    issueDate: "15 January 2026",
-    expiryDate: "",
-    hasExpiryDate: false,
-
-    status: "No expiry",
-    approvalStatus: "Approved",
-
-    fileName: "tenancy-agreement-p001.pdf",
-    fileType: "PDF",
-    fileSize: "3.3 MB",
-
-    uploadedDate: "15 January 2026",
-    uploadedBy: "Agent",
-
-    reminderEnabled: false,
-    reminderDays: "",
-
-    agentNotes:
-      "Digitally signed by all parties.",
-    rejectionReason: "",
-  },
-];
+const initialDocuments: DocumentRecord[]= [];
 
 const categoryOptions: DocumentCategory[] = [
   "Gas Safety Certificate",
