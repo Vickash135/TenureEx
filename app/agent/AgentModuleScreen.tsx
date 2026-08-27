@@ -1,37 +1,37 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-    Pressable,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    useWindowDimensions,
-    View,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import { Avatar, Button } from "react-native-paper";
 
 import { clearAuthSession, getStoredUser } from "../../src/api/client";
 import {
-    getAllowedAgentNavigation,
-    getPageCreatePermission,
-    getPageManagePermission,
-    getPageViewPermission,
-    getPrimaryRoleName,
-    getUserDisplayName,
-    getUserInitials,
-    hasAgentPermission,
-    type AgentCurrentUser,
-    type AgentNavigationItem,
+  getAllowedAgentNavigation,
+  getPageCreatePermission,
+  getPageManagePermission,
+  getPageViewPermission,
+  getPrimaryRoleName,
+  getUserDisplayName,
+  getUserInitials,
+  hasAgentPermission,
+  type AgentCurrentUser,
+  type AgentNavigationItem,
 } from "../../src/auth/agent-permissions";
 import TenureExLogo from "../../src/components/Logo/TenureExLogo";
 import {
-    colors,
-    radius,
-    spacing,
-    typography,
+  colors,
+  radius,
+  spacing,
+  typography,
 } from "../../src/theme";
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
@@ -68,6 +68,8 @@ type AgentModuleScreenProps = {
   emptyMessage?: string;
   filterOptions?: string[];
   onPrimaryAction?: () => void;
+  customContent?: ReactNode;
+  hideRecords?: boolean;
 };
 
 export default function AgentModuleScreen({
@@ -82,6 +84,8 @@ export default function AgentModuleScreen({
   emptyMessage = "No records found.",
   filterOptions = ["All", "Active", "Pending", "Completed"],
   onPrimaryAction,
+  customContent,
+  hideRecords = false,
 }: AgentModuleScreenProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1050;
@@ -304,6 +308,9 @@ export default function AgentModuleScreen({
                 ))}
               </View>
 
+              {customContent ? <View style={styles.customContent}>{customContent}</View> : null}
+
+              {!hideRecords ? (
               <View style={styles.recordsCard}>
                 <View style={styles.recordsHeader}>
                   <View>
@@ -348,6 +355,7 @@ export default function AgentModuleScreen({
                   </View>
                 )}
               </View>
+              ) : null}
             </View>
           </ScrollView>
         </View>
@@ -940,6 +948,10 @@ const styles = StyleSheet.create({
         marginTop: spacing.sm,
         color: colors.textMuted,
         fontSize: 9,
+    },
+
+    customContent: {
+        gap: spacing.lg,
     },
 
     recordsCard: {

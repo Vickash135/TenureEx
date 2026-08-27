@@ -41,6 +41,7 @@ type LandlordUser = {
   email: string;
   phone: string | null;
   userType: string;
+  accountRoles?: string[];
   status: string;
   emailVerified: boolean;
   phoneVerified: boolean;
@@ -111,7 +112,7 @@ export default function LandlordLoginScreen() {
     setApiError("");
 
     try {
-      await clearAuthSession();
+      await clearAuthSession("landlord");
 
       const response =
         await api.post<LoginResponse>(
@@ -132,10 +133,9 @@ export default function LandlordLoginScreen() {
       } = response.data;
 
       if (
-        user.userType !==
-        "LANDLORD"
+        !(user.accountRoles ?? [user.userType]).includes("LANDLORD")
       ) {
-        await clearAuthSession();
+        await clearAuthSession("landlord");
 
         setApiError(
           "This account is not registered as a Landlord account.",
@@ -148,7 +148,7 @@ export default function LandlordLoginScreen() {
         user.status !==
         "ACTIVE"
       ) {
-        await clearAuthSession();
+        await clearAuthSession("landlord");
 
         setApiError(
           `Your Landlord account is not active. Current status: ${user.status}.`,
@@ -158,7 +158,7 @@ export default function LandlordLoginScreen() {
       }
 
       if (!user.emailVerified) {
-        await clearAuthSession();
+        await clearAuthSession("landlord");
 
         setApiError(
           "Please verify your email address before signing in.",
@@ -168,7 +168,7 @@ export default function LandlordLoginScreen() {
       }
 
       if (!user.phoneVerified) {
-        await clearAuthSession();
+        await clearAuthSession("landlord");
 
         setApiError(
           "Please verify your phone number before signing in.",
@@ -180,6 +180,7 @@ export default function LandlordLoginScreen() {
       await saveAuthTokens(
         accessToken,
         refreshToken,
+        "landlord",
       );
 
       const meResponse =
@@ -188,10 +189,9 @@ export default function LandlordLoginScreen() {
         );
 
       if (
-        meResponse.data.userType !==
-        "LANDLORD"
+        !(meResponse.data.accountRoles ?? [meResponse.data.userType]).includes("LANDLORD")
       ) {
-        await clearAuthSession();
+        await clearAuthSession("landlord");
 
         setApiError(
           "You do not have permission to access the Landlord portal.",
@@ -204,7 +204,7 @@ export default function LandlordLoginScreen() {
         meResponse.data.status !==
         "ACTIVE"
       ) {
-        await clearAuthSession();
+        await clearAuthSession("landlord");
 
         setApiError(
           "Your Landlord account is currently not active.",
@@ -215,13 +215,14 @@ export default function LandlordLoginScreen() {
 
       await saveCurrentUser(
         meResponse.data,
+        "landlord",
       );
 
       router.replace(
         "/landlord/dashboard" as Href,
       );
     } catch (error: unknown) {
-      await clearAuthSession();
+      await clearAuthSession("landlord");
 
       if (
         axios.isAxiosError(

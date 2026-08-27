@@ -754,15 +754,9 @@ export class PropertiesService {
       );
     }
 
-    if (
-      user.userType !==
-      "LANDLORD"
-    ) {
-      throw new ForbiddenException(
-        "Only landlords can manage landlord properties.",
-      );
-    }
-
+    // A TenureEx account can hold more than one role.
+    // Landlord access is therefore determined by the presence
+    // of a LandlordProfile, not by the legacy User.userType field.
     if (
       user.status !==
       "ACTIVE"

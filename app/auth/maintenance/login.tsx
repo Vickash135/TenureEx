@@ -2,29 +2,30 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-    Pressable,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import {
-    Button,
-    Checkbox,
-    Snackbar,
-    TextInput,
+  Button,
+  Checkbox,
+  Snackbar,
+  TextInput,
 } from "react-native-paper";
 import Animated, {
-    FadeInDown,
-    FadeInUp,
+  FadeInDown,
+  FadeInUp,
 } from "react-native-reanimated";
 
+import { api, clearAuthSession, saveAuthTokens, saveCurrentUser } from "../../../src/api/client";
 import ScreenContainer from "../../../src/components/ScreenContainer";
 import {
-    colors,
-    radius,
-    spacing,
-    typography,
+  colors,
+  radius,
+  spacing,
+  typography,
 } from "../../../src/theme";
 
 export default function MaintenanceLoginScreen() {
@@ -33,10 +34,8 @@ export default function MaintenanceLoginScreen() {
   const isDesktop = width >= 950;
   const isSmallPhone = width < 390;
 
-  const [email, setEmail] = useState(
-    "maintenance@tenureex.co.uk"
-  );
-  const [password, setPassword] = useState("Password123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [passwordVisible, setPasswordVisible] =
     useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -46,8 +45,8 @@ export default function MaintenanceLoginScreen() {
     useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const handleLogin = () => {
-    const cleanEmail = email.trim();
+  const handleLogin = async () => {
+    const cleanEmail = email.trim().toLowerCase();
 
     if (!cleanEmail) {
       setErrorMessage("Please enter your email address.");
@@ -68,11 +67,66 @@ export default function MaintenanceLoginScreen() {
     }
 
     setLoading(true);
+    setErrorMessage("");
 
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await clearAuthSession("maintenance");
+      const response = await api.post("/auth/login", {
+        email: cleanEmail,
+        password,
+      });
+      const { user, accessToken, refreshToken } = response.data;
+      const accountRoles: string[] = user?.accountRoles ?? [user?.userType];
+
+      if (!accountRoles.includes("MAINTENANCE_PROVIDER")) {
+        await clearAuthSession("maintenance");
+        setErrorMessage("This account is not registered as a Maintenance Provider.");
+        setSnackbarVisible(true);
+        return;
+      }
+
+      await saveAuthTokens(accessToken, refreshToken, "maintenance");
+      const [meResponse, propertiesResponse] = await Promise.all([
+        api.get("/auth/me"),
+        api.get("/property-workflows/maintenance/my-properties"),
+      ]);
+
+      const roles: string[] = meResponse.data?.accountRoles ?? [meResponse.data?.userType];
+      if (!roles.includes("MAINTENANCE_PROVIDER")) {
+        await clearAuthSession("maintenance");
+        setErrorMessage("You do not have permission to access the Maintenance portal.");
+        setSnackbarVisible(true);
+        return;
+      }
+
+      const approvedProperties = Array.isArray(propertiesResponse.data)
+        ? propertiesResponse.data
+        : [];
+      if (approvedProperties.length === 0) {
+        await clearAuthSession("maintenance");
+        setErrorMessage(
+          "Your maintenance registration is waiting for Estate Agent approval or is not assigned to an active property.",
+        );
+        setSnackbarVisible(true);
+        return;
+      }
+
+      await saveCurrentUser(meResponse.data, "maintenance");
       router.replace("/maintenance/dashboard" as never);
-    }, 700);
+    } catch (error: any) {
+      await clearAuthSession("maintenance");
+      const backendMessage = error?.response?.data?.message;
+      setErrorMessage(
+        Array.isArray(backendMessage)
+          ? backendMessage.join("\n")
+          : typeof backendMessage === "string"
+            ? backendMessage
+            : "Unable to log in. Please check your email and password.",
+      );
+      setSnackbarVisible(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

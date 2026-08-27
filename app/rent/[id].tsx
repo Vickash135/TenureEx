@@ -48,7 +48,7 @@ export default function PublicPropertyDetails() {
   const enquire = async () => {
     const user = await getStoredUser<any>();
     if (user?.userType === "TENANT") router.push("/tenant/dashboard" as never);
-    else router.push(`/auth/tenant/register?returnTo=${encodeURIComponent(`/rent/${id}`)}` as never);
+    else router.push(`/auth/tenant/register?propertyId=${encodeURIComponent(String(id))}&returnTo=${encodeURIComponent(`/rent/${id}`)}` as never);
   };
 
   if (loading) return <View style={styles.screen}><PublicHeader/><ActivityIndicator style={{marginTop:100}}/></View>;

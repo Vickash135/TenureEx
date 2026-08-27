@@ -810,6 +810,127 @@ Enter this code on the Landlord registration page to continue. The code is valid
   // INTERNAL EMAIL TEMPLATE
   // =========================================================
 
+
+  // =========================================================
+  // TENANT PROPERTY INVITATION
+  // =========================================================
+  async sendTenantPropertyInvitation(params: {
+    email: string;
+    firstName: string;
+    propertyAddress: string;
+    agencyName: string;
+    token: string;
+  }) {
+    const url = `${this.frontendUrl}/auth/tenant/property-invitation?token=${encodeURIComponent(params.token)}`;
+    await this.sendMail({
+      to: params.email,
+      subject: "Complete your TenureEx tenant registration",
+      heading: "You have been invited to complete your tenancy",
+      greeting: `Hello ${params.firstName},`,
+      message: `${params.agencyName} has invited you to complete your TenureEx tenant registration for ${params.propertyAddress}.\n\nComplete your personal details, review the tenancy agreement and sign it online. Your Estate Agent will review the application before tenant dashboard access is enabled.`,
+      buttonText: "Complete tenant registration",
+      buttonUrl: url,
+      footer: "This invitation expires in 7 days.",
+    });
+  }
+
+  async sendTenantApplicationSubmittedToAgent(params: {
+    email: string;
+    tenantName: string;
+    propertyAddress: string;
+  }) {
+    await this.sendMail({
+      to: params.email,
+      subject: "Tenant application ready for review",
+      heading: "Tenant application submitted",
+      greeting: "Hello,",
+      message: `${params.tenantName} has completed their tenant details and signed the agreement for ${params.propertyAddress}. Please review the application in the Estate Agent dashboard.`,
+      buttonText: "Open tenant applications",
+      buttonUrl: `${this.frontendUrl}/agent/tenants`,
+      footer: "TenureEx tenant onboarding",
+    });
+  }
+
+  async sendTenantMoreInformationRequest(params: {
+    email: string;
+    firstName: string;
+    propertyAddress: string;
+    message: string;
+    token: string;
+  }) {
+    const url = `${this.frontendUrl}/auth/tenant/application-update?token=${encodeURIComponent(params.token)}`;
+    await this.sendMail({
+      to: params.email,
+      subject: "More information required for your TenureEx tenant application",
+      heading: "More information required",
+      greeting: `Hello ${params.firstName},`,
+      message: `Your Estate Agent needs some additional information before they can approve your tenancy for ${params.propertyAddress}.\n\nInformation requested:\n${params.message}\n\nUse the secure button below to review your existing details, upload an updated identification document if needed, and resubmit your response.`,
+      buttonText: "Update tenant application",
+      buttonUrl: url,
+      footer: "This secure update link expires in 7 days.",
+    });
+  }
+
+  async sendTenantApplicationDecision(params: {
+    email: string;
+    approved: boolean;
+    propertyAddress: string;
+  }) {
+    await this.sendMail({
+      to: params.email,
+      subject: params.approved ? "Your TenureEx tenancy has been approved" : "Update on your TenureEx tenancy application",
+      heading: params.approved ? "Tenant application approved" : "Tenant application update",
+      greeting: "Hello,",
+      message: params.approved
+        ? `Your Estate Agent has approved your tenancy for ${params.propertyAddress}. You can now sign in and access your tenant dashboard.`
+        : `There has been an update to your tenancy application for ${params.propertyAddress}. Please sign in to view the details.`,
+      buttonText: "Open TenureEx",
+      buttonUrl: `${this.frontendUrl}/auth/tenant/login`,
+      footer: "TenureEx",
+    });
+  }
+
+  // =========================================================
+  // MAINTENANCE INVITATIONS / JOBS
+  // =========================================================
+  async sendMaintenancePropertyInvitation(params: {
+    email: string;
+    firstName: string;
+    propertyAddress: string;
+    invitedByRole: string;
+    token: string;
+  }) {
+    const url = `${this.frontendUrl}/auth/maintenance/property-invitation?token=${encodeURIComponent(params.token)}`;
+    await this.sendMail({
+      to: params.email,
+      subject: "TenureEx maintenance provider invitation",
+      heading: "You have been invited as a maintenance provider",
+      greeting: `Hello ${params.firstName},`,
+      message: `You have been invited by a ${params.invitedByRole.replaceAll("_", " ").toLowerCase()} to provide maintenance services for ${params.propertyAddress}. Complete your TenureEx registration to continue.`,
+      buttonText: "Complete maintenance registration",
+      buttonUrl: url,
+      footer: params.invitedByRole === "TENANT" ? "Estate Agent approval will be required after registration." : "This invitation expires in 7 days.",
+    });
+  }
+
+  async sendMaintenanceJobAvailable(params: {
+    email: string;
+    title: string;
+    propertyAddress: string;
+    requestId: string;
+  }) {
+    await this.sendMail({
+      to: params.email,
+      subject: `Maintenance work available: ${params.title}`,
+      heading: "New maintenance work available",
+      greeting: "Hello,",
+      message: `A tenant has reported a maintenance issue at ${params.propertyAddress}: ${params.title}. Open TenureEx to review the issue and the tenant's available time slots.`,
+      buttonText: "View maintenance job",
+      buttonUrl: `${this.frontendUrl}/maintenance/job-details?id=${encodeURIComponent(params.requestId)}`,
+      footer: "Only approved maintenance providers for this property receive these job notifications.",
+    });
+  }
+
   private async sendMail(
     params: {
       to: string;

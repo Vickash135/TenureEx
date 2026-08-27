@@ -101,6 +101,11 @@ export class AuthService {
       user.id,
     );
 
+    const accountRoles = await this.getAccountRoles(
+      user.id,
+      user.userType,
+    );
+
     return {
       message:
         "Login successful.",
@@ -115,6 +120,7 @@ export class AuthService {
         phone: user.phone,
         userType:
           user.userType,
+        accountRoles,
         status: user.status,
         emailVerified:
           user.emailVerified,
@@ -762,6 +768,11 @@ export class AuthService {
       }
     }
 
+    const accountRoles = await this.getAccountRoles(
+      user.id,
+      user.userType,
+    );
+
     return {
       id: user.id,
 
@@ -779,6 +790,8 @@ export class AuthService {
 
       userType:
         user.userType,
+
+      accountRoles,
 
       status:
         user.status,
@@ -1063,6 +1076,37 @@ export class AuthService {
       message:
         "Password has been set successfully. You can now sign in.",
     };
+  }
+
+  private async getAccountRoles(
+    userId: string,
+    legacyUserType: string,
+  ): Promise<string[]> {
+    const assignments = await this.prisma.userRole.findMany({
+      where: {
+        userId,
+        role: {
+          scope: RoleScope.GLOBAL,
+          enabled: true,
+        },
+      },
+      include: {
+        role: true,
+      },
+    });
+
+    const roles = new Set<string>([legacyUserType]);
+
+    for (const assignment of assignments) {
+      const code = assignment.role.code;
+      roles.add(
+        code.startsWith("GLOBAL_")
+          ? code.slice("GLOBAL_".length)
+          : code,
+      );
+    }
+
+    return Array.from(roles);
   }
 
   // =========================================================

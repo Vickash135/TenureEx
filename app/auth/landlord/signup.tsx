@@ -51,6 +51,10 @@ type StartRegistrationResponse = {
   userId: string;
   email: string;
   status: string;
+  existingAccount?: boolean;
+  registrationComplete?: boolean;
+  emailVerificationRequired?: boolean;
+  phoneVerificationRequired?: boolean;
 };
 
 type VerifyEmailResponse = {
@@ -770,6 +774,11 @@ export default function LandlordSignupScreen() {
       );
 
       setEmailVerificationToken("");
+
+      if (response.data.registrationComplete) {
+        setEmailVerified(true);
+        setPhoneVerified(true);
+      }
 
       if (identificationDocument) {
         try {

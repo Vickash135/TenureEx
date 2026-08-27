@@ -1,34 +1,37 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import {
-    router,
-    useLocalSearchParams,
+  router,
+  useLocalSearchParams,
 } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-    Pressable,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import {
-    Button,
-    Divider,
-    Menu,
-    Snackbar,
-    TextInput,
+  Button,
+  Divider,
+  Menu,
+  Snackbar,
+  TextInput,
 } from "react-native-paper";
 import Animated, {
-    FadeInDown,
-    FadeInUp,
+  FadeInDown,
+  FadeInUp,
 } from "react-native-reanimated";
 
+import { api } from "../../src/api/client";
 import ScreenContainer from "../../src/components/ScreenContainer";
+import WorkflowNotifications from "../../src/components/WorkflowNotifications";
 import {
-    colors,
-    radius,
-    spacing,
-    typography,
+  colors,
+  radius,
+  spacing,
+  typography,
 } from "../../src/theme";
 
 type IconName =
@@ -39,6 +42,7 @@ type JobStatus =
   | "Accepted"
   | "Scheduled"
   | "In progress"
+  | "Awaiting tenant confirmation"
   | "Completed";
 
 type JobPriority = "Urgent" | "High" | "Normal";
@@ -160,6 +164,7 @@ const statusOptions: JobStatus[] = [
   "Accepted",
   "Scheduled",
   "In progress",
+  "Awaiting tenant confirmation",
   "Completed",
 ];
 
@@ -177,25 +182,84 @@ export default function JobDetailsScreen() {
     ? params.jobId[0]
     : params.jobId;
 
-  const selectedJob = useMemo(() => {
-    return (
-      jobs.find((job) => job.id === requestedJobId) ??
-      jobs[0]
-    );
-  }, [requestedJobId]);
-
-  const [status, setStatus] = useState<JobStatus>(
-    selectedJob.status
-  );
-  const [statusMenuVisible, setStatusMenuVisible] =
-    useState(false);
-  const [providerNotes, setProviderNotes] =
-    useState("");
-  const [appointmentDate, setAppointmentDate] =
-    useState(selectedJob.appointmentDate);
-  const [appointmentTime, setAppointmentTime] =
-    useState(selectedJob.appointmentTime);
+  const fallbackJob = jobs[0];
+  const [selectedJob, setSelectedJob] = useState<MaintenanceJob>(fallbackJob);
+  const [rawJob, setRawJob] = useState<any>(null);
+  const [status, setStatus] = useState<JobStatus>(fallbackJob.status);
+  const [statusMenuVisible, setStatusMenuVisible] = useState(false);
+  const [providerNotes, setProviderNotes] = useState("");
+  const [appointmentDate, setAppointmentDate] = useState(fallbackJob.appointmentDate);
+  const [appointmentTime, setAppointmentTime] = useState(fallbackJob.appointmentTime);
   const [loading, setLoading] = useState(false);
+
+  const toStatus = (value: string): JobStatus =>
+    value === "COMPLETED"
+      ? "Completed"
+      : value === "IN_PROGRESS"
+        ? "In progress"
+        : value === "SCHEDULED"
+          ? "Scheduled"
+          : value === "AWAITING_TENANT_CONFIRMATION"
+            ? "Awaiting tenant confirmation"
+            : value === "OPEN" || value === "REOPENED"
+              ? "New"
+              : "Accepted";
+
+  const mapJob = (row: any): MaintenanceJob => ({
+    id: row.id,
+    title: row.title,
+    category: row.category || "Maintenance",
+    property: [row.property?.addressLine1, row.property?.townCity].filter(Boolean).join(", "),
+    postcode: row.property?.postcode || "",
+    tenant: [row.tenant?.firstName, row.tenant?.lastName].filter(Boolean).join(" ") || "Tenant",
+    phone: row.tenant?.phone || "Not provided",
+    email: row.tenant?.email || "Not provided",
+    landlord: "Property landlord",
+    reportedDate: new Date(row.createdAt).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }),
+    appointmentDate: row.scheduledStart
+      ? new Date(row.scheduledStart).toLocaleDateString("en-GB")
+      : "Not scheduled",
+    appointmentTime: row.scheduledStart
+      ? new Date(row.scheduledStart).toLocaleTimeString("en-GB", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "Select a tenant time",
+    priority:
+      row.priority === "EMERGENCY" ? "Urgent" : row.priority === "HIGH" ? "High" : "Normal",
+    status: toStatus(row.status),
+    icon: categoryIcon(row.category),
+    description: row.description,
+    accessInstructions: row.accessPermission
+      ? "Tenant has provided property access permission for the agreed visit."
+      : "Arrange access directly with the tenant for the selected visit time.",
+    reportedBy: [row.tenant?.firstName, row.tenant?.lastName].filter(Boolean).join(" ") || "Tenant",
+  });
+
+  const loadJob = async () => {
+    if (!requestedJobId) return;
+    try {
+      const response = await api.get(`/property-workflows/maintenance-requests/${requestedJobId}`);
+      const row = response.data;
+      setRawJob(row);
+      const mapped = mapJob(row);
+      setSelectedJob(mapped);
+      setStatus(mapped.status);
+      setAppointmentDate(mapped.appointmentDate);
+      setAppointmentTime(mapped.appointmentTime);
+      setProviderNotes(row.providerNotes || row.completionNotes || "");
+    } catch (error: any) {
+      showMessage(error?.response?.data?.message || "Unable to load this maintenance job.");
+    }
+  };
+
+  useEffect(() => {
+    void loadJob();
+  }, [requestedJobId]);
 
   const [snackbarVisible, setSnackbarVisible] =
     useState(false);
@@ -207,33 +271,102 @@ export default function JobDetailsScreen() {
     setSnackbarVisible(true);
   };
 
-  const handleSaveUpdate = () => {
-    if (!appointmentDate.trim()) {
-      showMessage("Please enter an appointment date.");
+  const handleSaveUpdate = async () => {
+    if (!rawJob) return;
+    if (rawJob.status !== "SCHEDULED") {
+      showMessage("Provider notes are saved when the job is started or sent to the tenant for confirmation.");
       return;
     }
-
-    if (!appointmentTime.trim()) {
-      showMessage("Please enter an appointment time.");
-      return;
-    }
-
     setLoading(true);
-
-    setTimeout(() => {
+    try {
+      await api.patch(`/property-workflows/maintenance-requests/${rawJob.id}/start`, {
+        providerNotes: providerNotes.trim() || undefined,
+      });
+      showMessage("Job started and provider notes saved.");
+      await loadJob();
+    } catch (error: any) {
+      showMessage(error?.response?.data?.message || "Unable to start this job.");
+    } finally {
       setLoading(false);
-      showMessage("Job update saved successfully.");
-    }, 700);
+    }
+  };
+
+  const handleAcceptSlot = async (slotId: string) => {
+    if (!rawJob) return;
+    setLoading(true);
+    try {
+      await api.post(`/property-workflows/maintenance-requests/${rawJob.id}/accept-slot`, { slotId });
+      showMessage("Visit time selected. The tenant has been notified.");
+      await loadJob();
+    } catch (error: any) {
+      showMessage(error?.response?.data?.message || "Unable to select this time slot.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAcceptJob = () => {
-    setStatus("Accepted");
-    showMessage("The maintenance job has been accepted.");
+    if (!rawJob) return;
+    if (rawJob.status === "OPEN" || rawJob.status === "REOPENED") {
+      showMessage("Choose one of the tenant's available time slots below to accept this job.");
+      return;
+    }
+    showMessage("This job is already assigned or scheduled.");
   };
 
-  const handleCompleteJob = () => {
-    setStatus("Completed");
-    showMessage("The job has been marked as completed.");
+  const uploadEvidence = async (phase: "before" | "after") => {
+    if (!rawJob) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
+    if (result.canceled) return;
+    const data = new FormData();
+    result.assets.forEach((asset: any, index) => {
+      data.append(
+        "photos",
+        {
+          uri: asset.uri,
+          name: asset.fileName || `${phase}-${index + 1}.jpg`,
+          type: asset.mimeType || "image/jpeg",
+        } as any,
+      );
+    });
+    setLoading(true);
+    try {
+      await api.post(
+        `/property-workflows/maintenance-requests/${rawJob.id}/${phase}-photos`,
+        data,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      );
+      showMessage(`${phase === "before" ? "Before" : "After"} photos uploaded successfully.`);
+      await loadJob();
+    } catch (error: any) {
+      showMessage(error?.response?.data?.message || "Unable to upload photos.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCompleteJob = async () => {
+    if (!rawJob) return;
+    if (rawJob.status !== "IN_PROGRESS") {
+      showMessage("Start the scheduled job before finishing it.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await api.patch(`/property-workflows/maintenance-requests/${rawJob.id}/finish`, {
+        completionNotes: providerNotes.trim() || undefined,
+      });
+      showMessage("Work sent to the tenant for confirmation. It is not completed until the tenant confirms it.");
+      await loadJob();
+    } catch (error: any) {
+      showMessage(error?.response?.data?.message || "Unable to finish this job.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -348,6 +481,8 @@ export default function JobDetailsScreen() {
           </Pressable>
         </Animated.View>
 
+        <WorkflowNotifications compact title="Job updates" limit={4} />
+
         <Animated.View
           entering={FadeInDown.delay(120).duration(450)}
           style={[
@@ -402,7 +537,7 @@ export default function JobDetailsScreen() {
               </Button>
             ) : null}
 
-            {status !== "Completed" ? (
+            {status === "In progress" ? (
               <Button
                 mode="outlined"
                 icon="check-circle-outline"
@@ -410,7 +545,7 @@ export default function JobDetailsScreen() {
                 textColor={colors.primary}
                 style={styles.completeButton}
               >
-                Mark completed
+                Finish work
               </Button>
             ) : null}
           </View>
@@ -495,6 +630,37 @@ export default function JobDetailsScreen() {
             </Animated.View>
 
             <Animated.View
+              entering={FadeInDown.delay(205).duration(450)}
+              style={styles.card}
+            >
+              <SectionHeader
+                icon="calendar-multiple-check"
+                title="Tenant available times"
+                description="Choose one of the tenant's proposed visit windows to accept and schedule this job"
+              />
+              <Divider style={styles.divider} />
+              <View style={styles.slotList}>
+                {(rawJob?.slots || []).filter((slot: any) => slot.proposedBy === "TENANT").length === 0 ? (
+                  <Text style={styles.emptySlotText}>No tenant availability slots are currently available.</Text>
+                ) : (rawJob?.slots || []).filter((slot: any) => slot.proposedBy === "TENANT").map((slot: any) => (
+                  <View key={slot.id} style={styles.slotOption}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.slotDate}>{new Date(slot.startAt).toLocaleString()}</Text>
+                      <Text style={styles.slotTime}>Until {new Date(slot.endAt).toLocaleString()} · {slot.status}</Text>
+                    </View>
+                    <Button
+                      mode={slot.status === "SELECTED" ? "contained" : "outlined"}
+                      disabled={loading || !["OPEN", "REOPENED"].includes(rawJob?.status) || slot.status !== "AVAILABLE"}
+                      onPress={() => void handleAcceptSlot(slot.id)}
+                    >
+                      {slot.status === "SELECTED" ? "Selected" : "Choose time"}
+                    </Button>
+                  </View>
+                ))}
+              </View>
+            </Animated.View>
+
+            <Animated.View
               entering={FadeInDown.delay(220).duration(450)}
               style={styles.card}
             >
@@ -561,9 +727,7 @@ export default function JobDetailsScreen() {
                 anchor={
                   <Pressable
                     style={styles.statusSelector}
-                    onPress={() =>
-                      setStatusMenuVisible(true)
-                    }
+                    onPress={() => showMessage("Status is controlled by the maintenance workflow actions.")}
                   >
                     <View style={styles.statusSelectorLeft}>
                       <MaterialCommunityIcons
@@ -631,15 +795,23 @@ export default function JobDetailsScreen() {
                 <Button
                   mode="outlined"
                   icon="camera-outline"
-                  onPress={() =>
-                    showMessage(
-                      "Photo upload will be connected when backend storage is added."
-                    )
-                  }
+                  disabled={rawJob?.status !== "IN_PROGRESS" || loading}
+                  onPress={() => void uploadEvidence("before")}
                   textColor={colors.primary}
                   style={styles.photoButton}
                 >
-                  Add evidence
+                  Before photos
+                </Button>
+
+                <Button
+                  mode="outlined"
+                  icon="camera-check-outline"
+                  disabled={rawJob?.status !== "IN_PROGRESS" || loading}
+                  onPress={() => void uploadEvidence("after")}
+                  textColor={colors.primary}
+                  style={styles.photoButton}
+                >
+                  After photos
                 </Button>
 
                 <Button
@@ -651,7 +823,7 @@ export default function JobDetailsScreen() {
                   buttonColor={colors.primary}
                   style={styles.saveButton}
                 >
-                  Save update
+                  {rawJob?.status === "SCHEDULED" ? "Start work" : "Save notes"}
                 </Button>
               </View>
             </Animated.View>
@@ -894,6 +1066,16 @@ export default function JobDetailsScreen() {
       </Snackbar>
     </ScreenContainer>
   );
+}
+
+function categoryIcon(category?: string): IconName {
+  const value = String(category || "").toLowerCase();
+  if (value.includes("plumb") || value.includes("water")) return "water-pump";
+  if (value.includes("heat") || value.includes("boiler")) return "water-boiler";
+  if (value.includes("electric") || value.includes("light")) return "lightbulb-outline";
+  if (value.includes("security") || value.includes("lock")) return "lock-outline";
+  if (value.includes("vent") || value.includes("fan")) return "fan";
+  return "tools";
 }
 
 function SectionHeader({
@@ -1415,6 +1597,12 @@ const styles = StyleSheet.create({
     flex: 0.85,
     gap: spacing.xl,
   },
+
+  slotList: { gap: spacing.md },
+  slotOption: { flexDirection: "row", alignItems: "center", gap: spacing.md, padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surfaceSoft },
+  slotDate: { color: colors.textPrimary, fontWeight: "900", fontSize: 12 },
+  slotTime: { marginTop: 3, color: colors.textSecondary, fontSize: 10 },
+  emptySlotText: { color: colors.textSecondary, paddingVertical: spacing.md },
 
   card: {
     padding: spacing.xl,

@@ -1,16 +1,16 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    useWindowDimensions,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import { ActivityIndicator, Menu } from "react-native-paper";
 
@@ -53,6 +53,8 @@ const livingOptions = [
 ];
 
 export default function TenantRegisterPage() {
+  const params = useLocalSearchParams<{ propertyId?: string | string[] }>();
+  const propertyId = Array.isArray(params.propertyId) ? params.propertyId[0] : params.propertyId;
   const { width } = useWindowDimensions();
   const desktop = width >= 900;
 
@@ -94,7 +96,7 @@ export default function TenantRegisterPage() {
       });
       setUserId(response.data.userId);
       setEmail(response.data.email);
-      setStep("verify");
+      setStep(response.data.emailVerificationRequired === false ? "profile" : "verify");
     } catch (e: any) {
       setError(e?.response?.data?.message ?? "Unable to start registration.");
     } finally {
@@ -141,6 +143,15 @@ export default function TenantRegisterPage() {
         idealTimeframe,
         currentLivingSituation,
       });
+      if (propertyId) {
+        await api.post("/property-workflows/tenant-inquiries", {
+          propertyId,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email.trim().toLowerCase(),
+          message: "I registered with TenureEx and would like to enquire about this property.",
+        });
+      }
       setStep("done");
     } catch (e: any) {
       setError(e?.response?.data?.message ?? "Unable to create your tenant account.");
@@ -249,7 +260,7 @@ export default function TenantRegisterPage() {
                 />
 
                 <Pressable onPress={() => void resendCode()} disabled={loading}>
-                  <Text style={styles.secondaryLink}>Didn't receive a code? Resend</Text>
+                  <Text style={styles.secondaryLink}>Didn&apos;t receive a code? Resend</Text>
                 </Pressable>
 
                 <Pressable onPress={() => { setStep("email"); setVerificationCode(""); setError(""); }}>

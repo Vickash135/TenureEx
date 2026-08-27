@@ -30,6 +30,7 @@ type LandlordUser = {
   email: string;
   phone: string | null;
   userType: string;
+  accountRoles?: string[];
   status: string;
   emailVerified: boolean;
   phoneVerified: boolean;
@@ -132,7 +133,7 @@ export default function LandlordModuleScreen({
         // the backend so the header always represents the active JWT user.
         const storedUser = await getStoredUser<LandlordUser>();
 
-        if (active && storedUser?.userType === "LANDLORD") {
+        if (active && (storedUser?.accountRoles ?? [storedUser?.userType]).includes("LANDLORD")) {
           setCurrentUser(storedUser);
         }
 
@@ -146,17 +147,17 @@ export default function LandlordModuleScreen({
         }
 
         if (
-          meResponse.data.userType !== "LANDLORD" ||
+          !(meResponse.data.accountRoles ?? [meResponse.data.userType]).includes("LANDLORD") ||
           meResponse.data.status !== "ACTIVE"
         ) {
-          await clearAuthSession();
+          await clearAuthSession("landlord");
           router.replace("/auth/landlord/login" as Href);
           return;
         }
 
         setCurrentUser(meResponse.data);
         setPropertyCount(propertiesResponse.data?.length ?? 0);
-        await saveCurrentUser(meResponse.data);
+        await saveCurrentUser(meResponse.data, "landlord");
       } catch (error) {
         console.error("Failed to load landlord session:", error);
 
@@ -208,7 +209,7 @@ export default function LandlordModuleScreen({
   };
 
   const handleSignOut = async () => {
-    await clearAuthSession();
+    await clearAuthSession("landlord");
     router.replace("/auth/landlord/login" as Href);
   };
 

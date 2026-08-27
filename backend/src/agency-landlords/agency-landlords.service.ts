@@ -237,16 +237,6 @@ export class AgencyLandlordsService {
       });
 
     if (
-      existingUser &&
-      existingUser.userType !==
-        "LANDLORD"
-    ) {
-      throw new ConflictException(
-        "This email already belongs to a non-landlord TenureEx account.",
-      );
-    }
-
-    if (
       existingUser?.landlordProfile
     ) {
       const links =

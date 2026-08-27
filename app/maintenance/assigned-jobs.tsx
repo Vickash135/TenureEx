@@ -1,30 +1,32 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-    Pressable,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import {
-    Button,
-    Chip,
-    Divider,
-    Searchbar,
+  Button,
+  Chip,
+  Divider,
+  Searchbar,
 } from "react-native-paper";
 import Animated, {
-    FadeInDown,
-    FadeInUp,
+  FadeInDown,
+  FadeInUp,
 } from "react-native-reanimated";
 
+import { api } from "../../src/api/client";
 import ScreenContainer from "../../src/components/ScreenContainer";
+import WorkflowNotifications from "../../src/components/WorkflowNotifications";
 import {
-    colors,
-    radius,
-    spacing,
-    typography,
+  colors,
+  radius,
+  spacing,
+  typography,
 } from "../../src/theme";
 
 type IconName =
@@ -34,7 +36,8 @@ type JobStatus =
   | "New"
   | "Accepted"
   | "Scheduled"
-  | "In progress";
+  | "In progress"
+  | "Awaiting tenant";
 
 type JobPriority = "Urgent" | "High" | "Normal";
 
@@ -53,98 +56,7 @@ type MaintenanceJob = {
   description: string;
 };
 
-const maintenanceJobs: MaintenanceJob[] = [
-  {
-    id: "JOB-1048",
-    title: "Kitchen sink leaking",
-    category: "Plumbing",
-    property: "18 Meadow Lane, Leeds",
-    tenant: "Olivia Bennett",
-    phone: "07123 456789",
-    date: "Today",
-    time: "10:30 AM",
-    priority: "Urgent",
-    status: "New",
-    icon: "water-pump",
-    description:
-      "Water is leaking underneath the kitchen sink and collecting inside the cabinet.",
-  },
-  {
-    id: "JOB-1045",
-    title: "Boiler pressure issue",
-    category: "Heating",
-    property: "42 Green Road, Leeds",
-    tenant: "Daniel Hughes",
-    phone: "07234 567890",
-    date: "Today",
-    time: "2:00 PM",
-    priority: "High",
-    status: "Scheduled",
-    icon: "water-boiler",
-    description:
-      "The boiler pressure continues to fall and the tenant has limited heating.",
-  },
-  {
-    id: "JOB-1041",
-    title: "Bedroom light not working",
-    category: "Electrical",
-    property: "7 Park View, Bradford",
-    tenant: "Amelia Taylor",
-    phone: "07345 678901",
-    date: "Tomorrow",
-    time: "9:00 AM",
-    priority: "Normal",
-    status: "Accepted",
-    icon: "lightbulb-outline",
-    description:
-      "The main bedroom ceiling light is not switching on after replacing the bulb.",
-  },
-  {
-    id: "JOB-1038",
-    title: "Bathroom extractor fan",
-    category: "Ventilation",
-    property: "51 Station Road, Leeds",
-    tenant: "Noah Wilson",
-    phone: "07456 789012",
-    date: "Tomorrow",
-    time: "1:30 PM",
-    priority: "Normal",
-    status: "In progress",
-    icon: "fan",
-    description:
-      "The extractor fan is noisy and no longer removing moisture effectively.",
-  },
-  {
-    id: "JOB-1036",
-    title: "Loose bathroom tap",
-    category: "Plumbing",
-    property: "22 King Street, Leeds",
-    tenant: "Sophia Clark",
-    phone: "07567 890123",
-    date: "2 August",
-    time: "11:00 AM",
-    priority: "Normal",
-    status: "Accepted",
-    icon: "faucet",
-    description:
-      "The bathroom basin tap has become loose and moves when being used.",
-  },
-  {
-    id: "JOB-1033",
-    title: "Front door lock sticking",
-    category: "Security",
-    property: "14 Oak Avenue, Bradford",
-    tenant: "James Walker",
-    phone: "07678 901234",
-    date: "3 August",
-    time: "3:30 PM",
-    priority: "High",
-    status: "New",
-    icon: "lock-outline",
-    description:
-      "The front door lock is difficult to turn and sometimes prevents the tenant from entering.",
-  },
-];
+const initialMaintenanceJobs: MaintenanceJob[] = [];
 
 const filterOptions = [
   "All",
@@ -152,6 +64,7 @@ const filterOptions = [
   "Accepted",
   "Scheduled",
   "In progress",
+  "Awaiting tenant",
 ] as const;
 
 type FilterOption = (typeof filterOptions)[number];
@@ -164,8 +77,43 @@ export default function AssignedJobsScreen() {
   const isSmallPhone = width < 390;
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilter, setSelectedFilter] =
-    useState<FilterOption>("All");
+  const [selectedFilter, setSelectedFilter] = useState<FilterOption>("All");
+  const [maintenanceJobs, setMaintenanceJobs] = useState<MaintenanceJob[]>(initialMaintenanceJobs);
+  const [loadingJobs, setLoadingJobs] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
+  const loadJobs = async () => {
+    try {
+      setLoadError("");
+      const response = await api.get("/property-workflows/maintenance-requests");
+      const rows = Array.isArray(response.data) ? response.data : [];
+      const mapped: MaintenanceJob[] = rows
+        .filter((row: any) => row.status !== "COMPLETED")
+        .map((row: any) => ({
+          id: row.id,
+          title: row.title,
+          category: row.category || "Maintenance",
+          property: [row.property?.addressLine1, row.property?.townCity, row.property?.postcode].filter(Boolean).join(", "),
+          tenant: [row.tenant?.firstName, row.tenant?.lastName].filter(Boolean).join(" ") || "Tenant",
+          phone: row.tenant?.phone || "",
+          date: row.scheduledStart ? new Date(row.scheduledStart).toLocaleDateString("en-GB") : "Awaiting selection",
+          time: row.scheduledStart ? new Date(row.scheduledStart).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "Select tenant time",
+          priority: row.priority === "EMERGENCY" ? "Urgent" : row.priority === "HIGH" ? "High" : "Normal",
+          status: row.status === "SCHEDULED" ? "Scheduled" : row.status === "IN_PROGRESS" ? "In progress" : row.status === "AWAITING_TENANT_CONFIRMATION" ? "Awaiting tenant" : row.assignedProviderUserId ? "Accepted" : "New",
+          icon: categoryIcon(row.category),
+          description: row.description,
+        }));
+      setMaintenanceJobs(mapped);
+    } catch (error: any) {
+      setLoadError(error?.response?.data?.message || "Unable to load maintenance jobs.");
+    } finally {
+      setLoadingJobs(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadJobs();
+  }, []);
 
   const filteredJobs = useMemo(() => {
     const cleanSearch = searchQuery.trim().toLowerCase();
@@ -389,6 +337,8 @@ export default function AssignedJobsScreen() {
           />
         </Animated.View>
 
+        <WorkflowNotifications title="Job notifications" limit={6} />
+
         <Animated.View
           entering={FadeInDown.delay(220).duration(450)}
           style={styles.jobsContainer}
@@ -473,12 +423,11 @@ export default function AssignedJobsScreen() {
               </View>
 
               <Text style={styles.emptyTitle}>
-                No jobs found
+                {loadingJobs ? "Loading jobs…" : "No jobs found"}
               </Text>
 
               <Text style={styles.emptyDescription}>
-                Try changing the selected filter or search
-                phrase.
+                {loadError || (loadingJobs ? "Checking property maintenance work." : "Try changing the selected filter or search phrase.")}
               </Text>
 
               <Button
@@ -498,6 +447,16 @@ export default function AssignedJobsScreen() {
       </View>
     </ScreenContainer>
   );
+}
+
+function categoryIcon(category?: string): IconName {
+  const value = String(category || "").toLowerCase();
+  if (value.includes("plumb") || value.includes("water")) return "water-pump";
+  if (value.includes("heat") || value.includes("boiler")) return "water-boiler";
+  if (value.includes("electric") || value.includes("light")) return "lightbulb-outline";
+  if (value.includes("security") || value.includes("lock")) return "lock-outline";
+  if (value.includes("vent") || value.includes("fan")) return "fan";
+  return "tools";
 }
 
 function SummaryCard({

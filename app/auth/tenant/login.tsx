@@ -18,6 +18,7 @@ import {
     TextInput,
 } from "react-native-paper";
 
+import { api, clearAuthSession, saveAuthTokens, saveCurrentUser } from "../../../src/api/client";
 import { colors, radius, spacing } from "../../../src/theme";
 
 type LoginForm = {
@@ -87,42 +88,63 @@ export default function TenantLoginScreen() {
         }
 
         setLoading(true);
+        setMessage("");
 
         try {
-            await new Promise((resolve) =>
-                setTimeout(resolve, 900),
-            );
+            await clearAuthSession("tenant");
 
-            /*
-             * Replace this sample check with your backend login API.
-             *
-             * Example:
-             *
-             * const response = await fetch(
-             *   "http://localhost:8080/api/tenants/login",
-             *   {
-             *     method: "POST",
-             *     headers: {
-             *       "Content-Type": "application/json",
-             *     },
-             *     body: JSON.stringify({
-             *       email: form.email,
-             *       password: form.password,
-             *     }),
-             *   },
-             * );
-             */
+            const response = await api.post("/auth/login", {
+                email: form.email.trim().toLowerCase(),
+                password: form.password,
+            });
 
-            setMessage("Login successful.");
+            const { user, accessToken, refreshToken } = response.data;
+            const accountRoles: string[] = user?.accountRoles ?? [user?.userType];
 
-            setTimeout(() => {
-                router.replace(
-                    "/tenant/preferences" as never,
+            if (!accountRoles.includes("TENANT")) {
+                await clearAuthSession("tenant");
+                setMessage("This account is not registered as a Tenant account.");
+                return;
+            }
+
+            await saveAuthTokens(accessToken, refreshToken, "tenant");
+
+            const [meResponse, propertiesResponse] = await Promise.all([
+                api.get("/auth/me"),
+                api.get("/property-workflows/tenant/my-properties"),
+            ]);
+
+            const tenantRoles: string[] = meResponse.data?.accountRoles ?? [meResponse.data?.userType];
+            if (!tenantRoles.includes("TENANT")) {
+                await clearAuthSession("tenant");
+                setMessage("You do not have permission to access the Tenant portal.");
+                return;
+            }
+
+            const approvedProperties = Array.isArray(propertiesResponse.data)
+                ? propertiesResponse.data
+                : [];
+
+            if (approvedProperties.length === 0) {
+                await clearAuthSession("tenant");
+                setMessage(
+                    "Your tenant registration is not approved for a property yet. Please wait for the Estate Agent to approve your application.",
                 );
-            }, 500);
-        } catch {
+                return;
+            }
+
+            await saveCurrentUser(meResponse.data, "tenant");
+            setMessage("Login successful.");
+            router.replace("/tenant/dashboard" as never);
+        } catch (error: any) {
+            await clearAuthSession("tenant");
+            const backendMessage = error?.response?.data?.message;
             setMessage(
-                "Unable to log in. Please try again.",
+                Array.isArray(backendMessage)
+                    ? backendMessage.join("\n")
+                    : typeof backendMessage === "string"
+                        ? backendMessage
+                        : "Unable to log in. Please check your email and password.",
             );
         } finally {
             setLoading(false);

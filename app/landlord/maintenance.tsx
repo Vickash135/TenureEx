@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -18,6 +18,9 @@ import {
   TextInput,
 } from "react-native-paper";
 
+import { api } from "../../src/api/client";
+import PropertyMaintenanceProviders from "../../src/components/PropertyMaintenanceProviders";
+import WorkflowNotifications from "../../src/components/WorkflowNotifications";
 import { colors, radius, spacing } from "../../src/theme";
 import LandlordModuleScreen from "./LandlordModuleScreen";
 
@@ -200,6 +203,94 @@ export default function LandlordMaintenanceScreen() {
     useState<MaintenanceRequest[]>(
       initialRequests,
     );
+
+  const [workflowMessage, setWorkflowMessage] = useState("");
+
+  const mapWorkflowRequest = (row: any): MaintenanceRequest => {
+    const status: MaintenanceStatus =
+      row.status === "COMPLETED"
+        ? "Completed"
+        : row.status === "IN_PROGRESS"
+          ? "In progress"
+          : row.status === "SCHEDULED"
+            ? "Appointment booked"
+            : row.status === "AWAITING_TENANT_CONFIRMATION"
+              ? "Awaiting tenant confirmation"
+              : row.status === "REOPENED"
+                ? "Reopened"
+                : "Reported";
+
+    const priority: MaintenancePriority =
+      row.priority === "EMERGENCY"
+        ? "Emergency"
+        : row.priority === "HIGH"
+          ? "High"
+          : row.priority === "LOW"
+            ? "Low"
+            : "Medium";
+
+    const route: MaintenanceRoute =
+      row.property?.maintenanceRoute === "AGENT_CAN_ARRANGE"
+        ? "Agent can arrange"
+        : row.property?.maintenanceRoute === "USE_PREFERRED_CONTRACTOR"
+          ? "Use preferred contractor"
+          : "Contact landlord first";
+
+    const selectedSlot = (row.slots || []).find((slot: any) => slot.status === "SELECTED");
+    const availability = (row.slots || [])
+      .filter((slot: any) => slot.proposedBy === "TENANT")
+      .map((slot: any) => `${new Date(slot.startAt).toLocaleString("en-GB")} - ${new Date(slot.endAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`)
+      .join(" | ");
+
+    return {
+      id: row.id,
+      propertyId: row.propertyId,
+      propertyAddress: [row.property?.addressLine1, row.property?.townCity, row.property?.postcode].filter(Boolean).join(", "),
+      tenantName: [row.tenant?.firstName, row.tenant?.lastName].filter(Boolean).join(" ") || "Tenant",
+      tenantEmail: row.tenant?.email || "",
+      tenantPhone: row.tenant?.phone || "",
+      title: row.title,
+      description: row.description,
+      category: (categoryOptions.includes(row.category as MaintenanceCategory) ? row.category : "Other") as MaintenanceCategory,
+      roomLocation: row.roomLocation || "Not specified",
+      priority,
+      status,
+      dateReported: new Date(row.createdAt).toLocaleDateString("en-GB"),
+      tenantAvailability: availability,
+      accessPermission: Boolean(row.accessPermission),
+      maintenanceRoute: route,
+      landlordDecision: "",
+      contractorName: [row.assignedProvider?.firstName, row.assignedProvider?.lastName].filter(Boolean).join(" "),
+      contractorPhone: row.assignedProvider?.phone || "",
+      contractorEmail: row.assignedProvider?.email || "",
+      appointmentDate: selectedSlot ? new Date(selectedSlot.startAt).toLocaleDateString("en-GB") : "",
+      appointmentTime: selectedSlot ? new Date(selectedSlot.startAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "",
+      estimatedCost: "",
+      finalCost: "",
+      emergencyApproval: Boolean(row.property?.emergencyRepairPermission),
+      spendingLimit: row.property?.emergencySpendingLimit ? String(row.property.emergencySpendingLimit) : "",
+      reportedPhotos: (row.photos || []).filter((photo: any) => photo.phase === "REPORTED").map((photo: any) => photo.url),
+      completionPhotos: (row.photos || []).filter((photo: any) => photo.phase === "AFTER").map((photo: any) => photo.url),
+      contractorNotes: row.providerNotes || "",
+      completionNotes: row.completionNotes || "",
+      tenantFeedback: row.tenantCompletionNote || "",
+    };
+  };
+
+  const loadWorkflowRequests = async () => {
+    try {
+      setWorkflowMessage("");
+      const response = await api.get("/property-workflows/maintenance-requests");
+      const rows = Array.isArray(response.data) ? response.data : [];
+      setRequests(rows.map(mapWorkflowRequest));
+    } catch (error: any) {
+      setWorkflowMessage(error?.response?.data?.message || "Unable to load maintenance requests.");
+    }
+  };
+
+  useEffect(() => {
+    void loadWorkflowRequests();
+  }, []);
 
   const [searchText, setSearchText] =
     useState("");
@@ -529,9 +620,9 @@ export default function LandlordMaintenanceScreen() {
         pageTitle="Maintenance"
         pageSubtitle="Review repair requests, approve work, assign contractors and follow each issue to completion."
         activePage="Maintenance"
-        primaryAction="Add request"
-        primaryActionIcon="plus-circle-outline"
-        onPrimaryAction={openAddRequest}
+        primaryAction="Refresh requests"
+        primaryActionIcon="refresh"
+        onPrimaryAction={() => void loadWorkflowRequests()}
         statistics={[
           {
             label: "Open requests",
@@ -566,6 +657,19 @@ export default function LandlordMaintenanceScreen() {
         ]}
       >
         <View style={styles.pageContent}>
+          <WorkflowNotifications compact title="Maintenance notifications" limit={6} />
+
+          <PropertyMaintenanceProviders
+            actingRole="LANDLORD"
+            propertyEndpoint="/landlord-properties"
+            title="Property maintenance teams"
+            subtitle="Invite providers for your properties. Providers added by the Estate Agent are visible here, and providers you add are shared with the Estate Agent."
+          />
+
+          {workflowMessage ? (
+            <Text style={{ color: colors.error, fontWeight: "800" }}>{workflowMessage}</Text>
+          ) : null}
+
           <View style={styles.filterCard}>
             <View
               style={[

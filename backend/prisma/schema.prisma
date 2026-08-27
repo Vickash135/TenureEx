@@ -519,6 +519,230 @@ model AuditLog {
   @@index([createdAt])
 }
 
+
+// =========================================================
+// PROPERTY-SPECIFIC TENANT & MAINTENANCE WORKFLOW
+// These tables deliberately keep User as the single login account.
+// Role-specific and property-specific workflow data lives here.
+// =========================================================
+
+model TenantPropertyInquiry {
+  id          String   @id @default(uuid())
+  propertyId  String
+  userId      String?
+  firstName   String
+  lastName    String
+  email       String
+  phone       String?
+  message     String?
+  status      String   @default("NEW")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([email])
+  @@index([status])
+}
+
+model TenantInvitation {
+  id              String   @id @default(uuid())
+  propertyId      String
+  agencyId        String
+  invitedByUserId String
+  email           String
+  firstName       String?
+  lastName        String?
+  tokenHash       String   @unique
+  status          String   @default("PENDING")
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([agencyId])
+  @@index([email])
+  @@index([status])
+}
+
+model TenantPropertyApplication {
+  id                    String   @id @default(uuid())
+  propertyId            String
+  tenantUserId          String
+  tenantProfileId       String
+  invitationId          String?  @unique
+  agencyId              String
+  landlordUserId        String
+  status                String   @default("PENDING_DETAILS")
+  dateOfBirth           DateTime?
+  currentAddress        String?
+  postcode              String?
+  phone                 String?
+  identificationType    String?
+  identificationFileUrl String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  additionalNotes       String?
+  agreementTitle        String?
+  agreementVersion      String?
+  agreementTerms        Json?
+  agreementSignedAt     DateTime?
+  signatureName         String?
+  submittedAt           DateTime?
+  reviewedAt            DateTime?
+  reviewedByUserId      String?
+  rejectionReason       String?
+  moreInformationRequest      String?
+  moreInformationResponse     String?
+  moreInformationTokenHash    String?  @unique
+  moreInformationTokenExpiresAt DateTime?
+  resubmittedAt               DateTime?
+  approvedAt                  DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([propertyId, tenantProfileId])
+  @@index([propertyId])
+  @@index([tenantUserId])
+  @@index([agencyId])
+  @@index([status])
+}
+
+model PropertyTenant {
+  id              String   @id @default(uuid())
+  propertyId      String
+  tenantUserId    String
+  tenantProfileId String
+  applicationId   String   @unique
+  status          String   @default("ACTIVE")
+  startedAt       DateTime @default(now())
+  endedAt         DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([propertyId, tenantProfileId])
+  @@index([propertyId])
+  @@index([tenantUserId])
+  @@index([status])
+}
+
+model MaintenanceInvitation {
+  id              String   @id @default(uuid())
+  propertyId      String
+  invitedByUserId String
+  invitedByRole   String
+  email           String
+  firstName       String?
+  lastName        String?
+  tradeType       String?
+  tokenHash       String   @unique
+  status          String   @default("PENDING")
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([email])
+  @@index([status])
+}
+
+model PropertyMaintenanceProvider {
+  id                   String   @id @default(uuid())
+  propertyId           String
+  maintenanceUserId    String
+  maintenanceProfileId String
+  addedByUserId        String
+  addedByRole          String
+  status               String   @default("PENDING_APPROVAL")
+  approvedByUserId     String?
+  approvedAt           DateTime?
+  rejectedAt           DateTime?
+  rejectionReason      String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([propertyId, maintenanceProfileId])
+  @@index([propertyId])
+  @@index([maintenanceUserId])
+  @@index([status])
+}
+
+model MaintenanceRequest {
+  id                    String   @id @default(uuid())
+  propertyId            String
+  tenantUserId          String
+  tenantProfileId       String
+  title                 String
+  description           String
+  category              String
+  roomLocation          String?
+  priority              String   @default("MEDIUM")
+  status                String   @default("OPEN")
+  accessPermission      Boolean  @default(false)
+  assignedProviderUserId String?
+  assignedProviderProfileId String?
+  scheduledStart        DateTime?
+  scheduledEnd          DateTime?
+  providerNotes         String?
+  completionNotes       String?
+  tenantCompletionNote  String?
+  completedByProviderAt DateTime?
+  tenantConfirmedAt     DateTime?
+  reopenedAt            DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([tenantUserId])
+  @@index([assignedProviderUserId])
+  @@index([status])
+}
+
+model MaintenanceTimeSlot {
+  id                    String   @id @default(uuid())
+  maintenanceRequestId  String
+  proposedBy            String
+  providerUserId        String?
+  startAt               DateTime
+  endAt                 DateTime
+  status                String   @default("AVAILABLE")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([maintenanceRequestId])
+  @@index([providerUserId])
+  @@index([status])
+}
+
+model MaintenanceRequestPhoto {
+  id                   String   @id @default(uuid())
+  maintenanceRequestId String
+  uploadedByUserId     String
+  phase                String
+  fileName             String
+  createdAt            DateTime @default(now())
+
+  @@index([maintenanceRequestId])
+  @@index([phase])
+}
+
+model Notification {
+  id              String   @id @default(uuid())
+  recipientUserId String
+  type            String
+  title           String
+  message         String
+  entityType      String?
+  entityId        String?
+  readAt          DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([recipientUserId])
+  @@index([readAt])
+  @@index([createdAt])
+}
+
 enum PropertyType {
   HOUSE
   FLAT

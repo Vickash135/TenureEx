@@ -1,28 +1,35 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-    Pressable,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import {
-    Button,
-    Chip,
-    Menu,
-    Snackbar,
-    TextInput,
+  Button,
+  Chip,
+  Menu,
+  Snackbar,
+  TextInput,
 } from "react-native-paper";
 
+import { api } from "../../src/api/client";
+import PropertyMaintenanceProviders from "../../src/components/PropertyMaintenanceProviders";
 import ScreenContainer from "../../src/components/ScreenContainer";
+import WorkflowNotifications from "../../src/components/WorkflowNotifications";
 import { colors, radius, spacing } from "../../src/theme";
 
 type MaintenanceStatus =
   | "Open"
+  | "Scheduled"
   | "In progress"
-  | "Completed";
+  | "Awaiting tenant confirmation"
+  | "Completed"
+  | "Reopened";
 
 type MaintenancePriority =
   | "Low"
@@ -32,36 +39,28 @@ type MaintenancePriority =
 
 type MaintenanceRequest = {
   id: string;
+  propertyId?: string;
   title: string;
   category: string;
   description: string;
   priority: MaintenancePriority;
   status: MaintenanceStatus;
   createdAt: string;
+  scheduledStart?: string | null;
+  roomLocation?: string | null;
+  photos?: Array<{ id: string; phase: string; url: string }>;
 };
 
-const initialRequests: MaintenanceRequest[] = [
-  {
-    id: "MNT-1001",
-    title: "Kitchen tap leaking",
-    category: "Plumbing",
-    description:
-      "The kitchen tap continues dripping after it is turned off.",
-    priority: "Medium",
-    status: "In progress",
-    createdAt: "20 July 2026",
-  },
-  {
-    id: "MNT-1002",
-    title: "Bedroom light not working",
-    category: "Electrical",
-    description:
-      "The main ceiling light in the bedroom is not switching on.",
-    priority: "Low",
-    status: "Completed",
-    createdAt: "10 July 2026",
-  },
-];
+type TenantProperty = {
+  id: string;
+  addressLine1: string;
+  townCity?: string | null;
+  postcode: string;
+};
+
+type AvailabilitySlot = { id: string; startAt: string; endAt: string };
+
+const initialRequests: MaintenanceRequest[] = [];
 
 const categories = [
   "Plumbing",
@@ -107,68 +106,211 @@ export default function MaintenanceScreen() {
   const [priorityMenu, setPriorityMenu] =
     useState(false);
   const [message, setMessage] = useState("");
-  const [submitting, setSubmitting] =
-    useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [properties, setProperties] = useState<TenantProperty[]>([]);
+  const [selectedPropertyId, setSelectedPropertyId] = useState(propertyId ?? "");
+  const [propertyMenu, setPropertyMenu] = useState(false);
+  const [roomLocation, setRoomLocation] = useState("");
+  const [accessPermission, setAccessPermission] = useState(false);
+  const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([
+    { id: "slot-1", startAt: "", endAt: "" },
+  ]);
+  const [pendingPhotos, setPendingPhotos] = useState<any[]>([]);
 
   const activeRequests = useMemo(
-    () =>
-      requests.filter(
-        (request) =>
-          request.status !== "Completed",
-      ).length,
+    () => requests.filter((request) => request.status !== "Completed").length,
     [requests],
   );
 
+  const selectedProperty = useMemo(
+    () => properties.find((item) => item.id === selectedPropertyId),
+    [properties, selectedPropertyId],
+  );
+
+  const mapRequest = (row: any): MaintenanceRequest => ({
+    id: row.id,
+    propertyId: row.propertyId,
+    title: row.title,
+    category: row.category || "Other",
+    description: row.description,
+    priority:
+      row.priority === "EMERGENCY"
+        ? "Emergency"
+        : row.priority === "HIGH"
+          ? "High"
+          : row.priority === "LOW"
+            ? "Low"
+            : "Medium",
+    status:
+      row.status === "COMPLETED"
+        ? "Completed"
+        : row.status === "IN_PROGRESS"
+          ? "In progress"
+          : row.status === "SCHEDULED"
+            ? "Scheduled"
+            : row.status === "AWAITING_TENANT_CONFIRMATION"
+              ? "Awaiting tenant confirmation"
+              : row.status === "REOPENED"
+                ? "Reopened"
+                : "Open",
+    createdAt: new Date(row.createdAt).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }),
+    scheduledStart: row.scheduledStart,
+    roomLocation: row.roomLocation,
+    photos: row.photos,
+  });
+
+  const loadWorkflow = async () => {
+    try {
+      const [propertiesResponse, requestsResponse] = await Promise.all([
+        api.get("/property-workflows/tenant/my-properties"),
+        api.get("/property-workflows/maintenance-requests"),
+      ]);
+      const propertyRows = (Array.isArray(propertiesResponse.data)
+        ? propertiesResponse.data
+        : []
+      )
+        .map((row: any) => row.property)
+        .filter(Boolean) as TenantProperty[];
+      setProperties(propertyRows);
+      if (!selectedPropertyId && propertyRows[0]) {
+        setSelectedPropertyId(propertyRows[0].id);
+      }
+      const requestRows = Array.isArray(requestsResponse.data)
+        ? requestsResponse.data
+        : [];
+      setRequests(
+        requestRows
+          .filter((row: any) => row.tenantUserId)
+          .map(mapRequest),
+      );
+    } catch (error: any) {
+      setMessage(error?.response?.data?.message || "Unable to load tenant maintenance.");
+    }
+  };
+
+  useEffect(() => {
+    void loadWorkflow();
+  }, []);
+
+  const updateSlot = (id: string, field: "startAt" | "endAt", value: string) => {
+    setAvailabilitySlots((current) =>
+      current.map((slot) => (slot.id === id ? { ...slot, [field]: value } : slot)),
+    );
+  };
+
+  const addSlot = () => {
+    setAvailabilitySlots((current) => [
+      ...current,
+      { id: `slot-${Date.now()}`, startAt: "", endAt: "" },
+    ]);
+  };
+
+  const removeSlot = (id: string) => {
+    setAvailabilitySlots((current) =>
+      current.length === 1 ? current : current.filter((slot) => slot.id !== id),
+    );
+  };
+
+  const pickIssuePhotos = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
+    if (!result.canceled) setPendingPhotos(result.assets);
+  };
+
   const handleSubmit = async () => {
+    if (!selectedPropertyId) {
+      setMessage("Select the property for this maintenance request.");
+      return;
+    }
     if (!title.trim()) {
       setMessage("Enter a short issue title.");
       return;
     }
-
     if (!description.trim()) {
       setMessage("Describe the maintenance issue.");
       return;
     }
+    const validSlots = availabilitySlots.filter(
+      (slot) => slot.startAt.trim() && slot.endAt.trim(),
+    );
+    if (!validSlots.length) {
+      setMessage("Add at least one available date and time slot.");
+      return;
+    }
 
     setSubmitting(true);
-
     try {
-      await new Promise((resolve) =>
-        setTimeout(resolve, 700),
-      );
-
-      const newRequest: MaintenanceRequest = {
-        id: `MNT-${Date.now()}`,
+      const response = await api.post("/property-workflows/maintenance-requests", {
+        propertyId: selectedPropertyId,
         title: title.trim(),
-        category,
         description: description.trim(),
-        priority,
-        status: "Open",
-        createdAt: new Date().toLocaleDateString(
-          "en-GB",
-          {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-          },
-        ),
-      };
+        category,
+        roomLocation: roomLocation.trim() || undefined,
+        priority: priority.toUpperCase(),
+        accessPermission,
+        slots: validSlots.map((slot) => ({
+          startAt: new Date(slot.startAt).toISOString(),
+          endAt: new Date(slot.endAt).toISOString(),
+        })),
+      });
 
-      setRequests((current) => [
-        newRequest,
-        ...current,
-      ]);
+      if (pendingPhotos.length) {
+        const data = new FormData();
+        pendingPhotos.forEach((asset: any, index) => {
+          data.append(
+            "photos",
+            {
+              uri: asset.uri,
+              name: asset.fileName || `issue-${index + 1}.jpg`,
+              type: asset.mimeType || "image/jpeg",
+            } as any,
+          );
+        });
+        await api.post(
+          `/property-workflows/maintenance-requests/${response.data.request.id}/reported-photos`,
+          data,
+          { headers: { "Content-Type": "multipart/form-data" } },
+        );
+      }
 
       setTitle("");
       setDescription("");
+      setRoomLocation("");
       setCategory("Plumbing");
       setPriority("Medium");
-
+      setAccessPermission(false);
+      setAvailabilitySlots([{ id: `slot-${Date.now()}`, startAt: "", endAt: "" }]);
+      setPendingPhotos([]);
       setMessage(
-        "Maintenance request submitted successfully.",
+        "Maintenance request submitted. All approved maintenance providers for this property have been notified.",
       );
+      await loadWorkflow();
+    } catch (error: any) {
+      setMessage(error?.response?.data?.message || "Unable to submit maintenance request.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const confirmCompletion = async (id: string, completed: boolean) => {
+    try {
+      await api.patch(`/property-workflows/maintenance-requests/${id}/tenant-confirm`, {
+        completed,
+        note: completed
+          ? "Work confirmed as completed by the tenant."
+          : "The issue is not fully resolved and needs more work.",
+      });
+      setMessage(completed ? "Maintenance work confirmed as completed." : "The maintenance issue has been reopened.");
+      await loadWorkflow();
+    } catch (error: any) {
+      setMessage(error?.response?.data?.message || "Unable to update maintenance request.");
     }
   };
 
@@ -201,7 +343,7 @@ export default function MaintenanceScreen() {
               </Text>
 
               <Text style={styles.brandSubtitle}>
-                Property {propertyId ?? "PROP-001"}
+                Property {selectedProperty?.postcode ?? propertyId ?? "Not selected"}
               </Text>
             </View>
           </Pressable>
@@ -262,6 +404,29 @@ export default function MaintenanceScreen() {
               </Text>
 
               <View style={styles.form}>
+                <Menu
+                  visible={propertyMenu}
+                  onDismiss={() => setPropertyMenu(false)}
+                  anchor={
+                    <Button mode="outlined" icon="home-search-outline" onPress={() => setPropertyMenu(true)}>
+                      {selectedProperty
+                        ? `${selectedProperty.addressLine1}, ${selectedProperty.postcode}`
+                        : "Select approved tenancy property"}
+                    </Button>
+                  }
+                >
+                  {properties.map((item) => (
+                    <Menu.Item
+                      key={item.id}
+                      title={`${item.addressLine1}, ${item.townCity ?? ""} ${item.postcode}`}
+                      onPress={() => {
+                        setSelectedPropertyId(item.id);
+                        setPropertyMenu(false);
+                      }}
+                    />
+                  ))}
+                </Menu>
+
                 <TextInput
                   mode="outlined"
                   label="Issue title"
@@ -357,6 +522,66 @@ export default function MaintenanceScreen() {
                   }
                 />
 
+                <TextInput
+                  mode="outlined"
+                  label="Room / location (optional)"
+                  placeholder="Example: Kitchen, bathroom, bedroom"
+                  value={roomLocation}
+                  onChangeText={setRoomLocation}
+                  left={<TextInput.Icon icon="floor-plan" />}
+                />
+
+                <View style={styles.availabilityCard}>
+                  <View style={styles.availabilityHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.availabilityTitle}>Your available visit times</Text>
+                      <Text style={styles.availabilityText}>Add one or more time slots. A maintenance provider can select one that works for them.</Text>
+                    </View>
+                    <Button mode="text" icon="plus" onPress={addSlot}>Add time</Button>
+                  </View>
+                  {availabilitySlots.map((slot, index) => (
+                    <View key={slot.id} style={styles.slotCard}>
+                      <Text style={styles.slotLabel}>Option {index + 1}</Text>
+                      <TextInput
+                        mode="outlined"
+                        label="Available from"
+                        placeholder="2026-09-01T09:00:00+01:00"
+                        value={slot.startAt}
+                        onChangeText={(value) => updateSlot(slot.id, "startAt", value)}
+                      />
+                      <TextInput
+                        mode="outlined"
+                        label="Available until"
+                        placeholder="2026-09-01T12:00:00+01:00"
+                        value={slot.endAt}
+                        onChangeText={(value) => updateSlot(slot.id, "endAt", value)}
+                      />
+                      {availabilitySlots.length > 1 ? (
+                        <Button mode="text" textColor={colors.error} icon="delete-outline" onPress={() => removeSlot(slot.id)}>Remove</Button>
+                      ) : null}
+                    </View>
+                  ))}
+                </View>
+
+                <Pressable
+                  style={[styles.accessRow, accessPermission && styles.accessRowSelected]}
+                  onPress={() => setAccessPermission((value) => !value)}
+                >
+                  <MaterialCommunityIcons
+                    name={accessPermission ? "checkbox-marked-circle-outline" : "checkbox-blank-circle-outline"}
+                    size={23}
+                    color={accessPermission ? colors.primary : colors.textMuted}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.accessTitle}>Permission to access the property</Text>
+                    <Text style={styles.accessText}>Select this if an approved maintenance provider may enter as agreed even when you are not present.</Text>
+                  </View>
+                </Pressable>
+
+                <Button mode="outlined" icon="camera-outline" onPress={pickIssuePhotos}>
+                  Add problem photos ({pendingPhotos.length})
+                </Button>
+
                 <View style={styles.submitRow}>
                   <Button
                     mode="contained"
@@ -391,12 +616,21 @@ export default function MaintenanceScreen() {
                 <RequestCard
                   key={request.id}
                   request={request}
+                  onConfirm={(completed) => void confirmCompletion(request.id, completed)}
                 />
               ))}
             </View>
           </View>
 
           <View style={styles.sideColumn}>
+            <WorkflowNotifications compact title="Maintenance updates" limit={5} />
+            {selectedPropertyId ? (
+              <PropertyMaintenanceProviders
+            actingRole="TENANT"
+                propertyEndpoint="/property-workflows/tenant/my-properties"
+                title="My property maintenance people"
+              />
+            ) : null}
             <View style={styles.emergencyCard}>
               <MaterialCommunityIcons
                 name="alert-octagon-outline"
@@ -469,8 +703,10 @@ export default function MaintenanceScreen() {
 
 function RequestCard({
   request,
+  onConfirm,
 }: {
   request: MaintenanceRequest;
+  onConfirm: (completed: boolean) => void;
 }) {
   const statusIcon =
     request.status === "Completed"
@@ -514,9 +750,18 @@ function RequestCard({
         {request.description}
       </Text>
 
-      <Text style={styles.requestDate}>
-        Submitted {request.createdAt}
-      </Text>
+      {request.scheduledStart ? (
+        <Text style={styles.requestDate}>Visit scheduled: {new Date(request.scheduledStart).toLocaleString()}</Text>
+      ) : null}
+
+      <Text style={styles.requestDate}>Submitted {request.createdAt}</Text>
+
+      {request.status === "Awaiting tenant confirmation" ? (
+        <View style={styles.confirmRow}>
+          <Button mode="contained" icon="check-circle-outline" onPress={() => onConfirm(true)}>Confirm completed</Button>
+          <Button mode="outlined" icon="restore" onPress={() => onConfirm(false)}>Not fixed / reopen</Button>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -678,6 +923,29 @@ const styles = StyleSheet.create({
   descriptionInput: {
     minHeight: 130,
   },
+
+  availabilityCard: {
+    gap: spacing.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceSoft,
+  },
+  availabilityHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.md,
+  },
+  availabilityTitle: { color: colors.textPrimary, fontWeight: "900", fontSize: 13 },
+  availabilityText: { marginTop: 3, color: colors.textSecondary, fontSize: 10, lineHeight: 15 },
+  slotCard: { gap: spacing.sm, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.white },
+  slotLabel: { color: colors.primary, fontSize: 10, fontWeight: "900" },
+  accessRow: { flexDirection: "row", gap: spacing.md, padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg },
+  accessRowSelected: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
+  accessTitle: { color: colors.textPrimary, fontWeight: "800" },
+  accessText: { marginTop: 3, color: colors.textSecondary, fontSize: 10, lineHeight: 15 },
+  confirmRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
 
   submitRow: {
     alignItems: "flex-end",
