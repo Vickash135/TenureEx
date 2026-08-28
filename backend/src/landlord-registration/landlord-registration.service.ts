@@ -141,16 +141,20 @@ export class LandlordRegistrationService {
         );
       });
 
+      const phoneVerificationRequired =
+        !existingUser.phoneVerified;
+
       return {
-        message:
-          "Landlord role added to your existing TenureEx account successfully. You can continue using your existing login.",
+        message: phoneVerificationRequired
+          ? "Landlord role added to your existing TenureEx account. Your email is already verified; verify your phone number to activate Landlord access."
+          : "Landlord role added to your existing TenureEx account successfully. You can continue using your existing login.",
         userId: existingUser.id,
         email: existingUser.email,
         status: existingUser.status,
         existingAccount: true,
-        registrationComplete: true,
+        registrationComplete: !phoneVerificationRequired,
         emailVerificationRequired: false,
-        phoneVerificationRequired: false,
+        phoneVerificationRequired,
       };
     }
 

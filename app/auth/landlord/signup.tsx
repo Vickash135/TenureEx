@@ -230,6 +230,7 @@ export default function LandlordSignupScreen() {
   const [otp, setOtp] = useState("");
   const [emailVerified, setEmailVerified] = useState(false);
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [existingAccountFlow, setExistingAccountFlow] = useState(false);
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [apiError, setApiError] = useState("");
   const [apiMessage, setApiMessage] = useState("");
@@ -779,10 +780,18 @@ export default function LandlordSignupScreen() {
 
       setEmailVerificationToken("");
 
-      if (response.data.registrationComplete) {
-        setEmailVerified(true);
-        setPhoneVerified(true);
-      }
+      const isExistingAccount =
+        Boolean(response.data.existingAccount);
+
+      const needsEmailVerification =
+        response.data.emailVerificationRequired !== false;
+
+      const needsPhoneVerification =
+        response.data.phoneVerificationRequired !== false;
+
+      setExistingAccountFlow(isExistingAccount);
+      setEmailVerified(!needsEmailVerification);
+      setPhoneVerified(!needsPhoneVerification);
 
       let identificationUploadSucceeded = true;
 
@@ -793,33 +802,57 @@ export default function LandlordSignupScreen() {
           );
         } catch {
           identificationUploadSucceeded = false;
+          // Registration/profile creation has already succeeded.
+          // Keep the verification screen available so the document
+          // can be retried without creating another landlord profile.
         }
       }
 
-      // Existing TenureEx users are already email/phone verified.
-      // When they add the LANDLORD role through an invitation, do not
-      // send them into the new-account OTP verification screen.
+      // Existing account + verified phone: the role is ready immediately.
       if (
-        response.data.existingAccount &&
-        response.data.registrationComplete
+        isExistingAccount &&
+        response.data.registrationComplete &&
+        !needsPhoneVerification
       ) {
         if (!identificationUploadSucceeded) {
-          setApiError(
-            "Your landlord role was added successfully, but the identification document could not be uploaded. Please try the upload again from your landlord account.",
+          setVerificationMode(true);
+          setApiMessage(
+            "Your landlord role was added successfully. Please retry the identification document upload before continuing.",
           );
+          return;
         }
 
         router.replace(
           "/auth/landlord/login" as Href,
         );
-
         return;
       }
 
-      // Brand-new landlord accounts continue through the normal
-      // email verification and phone verification flow.
-      setVerificationMode(true);
+      // Existing account with verified email but unverified phone:
+      // skip email OTP and generate the landlord phone OTP immediately.
+      if (
+        isExistingAccount &&
+        !needsEmailVerification &&
+        needsPhoneVerification
+      ) {
+        const otpResponse =
+          await api.post<SendPhoneOtpResponse>(
+            `/landlord-registration/send-phone-otp/${response.data.userId}`,
+          );
 
+        setDevelopmentOtp(
+          otpResponse.data.developmentOtp ?? "",
+        );
+
+        setVerificationMode(true);
+        setApiMessage(
+          `${response.data.message} ${otpResponse.data.message}`,
+        );
+        return;
+      }
+
+      // Brand-new landlord: continue with the standard email OTP flow.
+      setVerificationMode(true);
       setApiMessage(
         response.data.message,
       );
@@ -1037,7 +1070,11 @@ export default function LandlordSignupScreen() {
                 </Text>
 
                 <Text style={styles.subtitle}>
-                  A 6-digit verification code has been sent to your email address. Phone verification will continue using the development OTP for now.
+                  {existingAccountFlow
+                    ? phoneVerified
+                      ? "Your existing TenureEx account is already verified. You can continue to Landlord login."
+                      : "Your existing TenureEx email is already verified. Complete phone verification to activate Landlord access."
+                    : "A 6-digit verification code has been sent to your email address. Phone verification will continue using the development OTP for now."}
                 </Text>
 
                 <View style={styles.formSection}>
@@ -1098,65 +1135,60 @@ export default function LandlordSignupScreen() {
                     description={`Verify ${email.trim().toLowerCase()} before continuing to phone verification.`}
                   />
 
-                  <View>
-                    <Text style={styles.inputLabel}>
-                      6-digit email verification code
-                    </Text>
+                  {emailVerified ? (
+                    <View style={styles.preferenceCard}>
+                      <Text style={styles.preferenceTitle}>
+                        Email verified
+                      </Text>
+                      <Text style={styles.preferenceDescription}>
+                        {email.trim().toLowerCase()} is already verified on your TenureEx account. No additional email OTP is required.
+                      </Text>
+                    </View>
+                  ) : (
+                    <>
+                      <View>
+                        <Text style={styles.inputLabel}>
+                          6-digit email verification code
+                        </Text>
 
-                    <TextInput
-                      mode="outlined"
-                      value={emailVerificationToken}
-                      onChangeText={(value) => {
-                        setEmailVerificationToken(
-                          value.replace(/\D/g, "").slice(0, 6),
-                        );
-                        setApiError("");
-                      }}
-                      placeholder="Enter code from your email"
-                      keyboardType="number-pad"
-                      maxLength={6}
-                      left={<TextInput.Icon icon="email-check-outline" />}
-                      outlineColor={colors.border}
-                      activeOutlineColor={colors.primary}
-                      style={styles.textInput}
-                      contentStyle={styles.textInputContent}
-                    />
-                  </View>
+                        <TextInput
+                          mode="outlined"
+                          value={emailVerificationToken}
+                          onChangeText={(value) => {
+                            setEmailVerificationToken(
+                              value.replace(/\D/g, "").slice(0, 6),
+                            );
+                            setApiError("");
+                          }}
+                          placeholder="Enter code from your email"
+                          keyboardType="number-pad"
+                          maxLength={6}
+                          left={<TextInput.Icon icon="email-check-outline" />}
+                          outlineColor={colors.border}
+                          activeOutlineColor={colors.primary}
+                          style={styles.textInput}
+                          contentStyle={styles.textInputContent}
+                        />
+                      </View>
 
-                  <Button
-                    mode={
-                      emailVerified
-                        ? "outlined"
-                        : "contained"
-                    }
-                    icon={
-                      emailVerified
-                        ? "check-circle-outline"
-                        : "email-check-outline"
-                    }
-                    disabled={
-                      emailVerified ||
-                      verificationLoading ||
-                      !/^\d{6}$/.test(emailVerificationToken.trim())
-                    }
-                    loading={
-                      verificationLoading &&
-                      !emailVerified
-                    }
-                    buttonColor={colors.primary}
-                    textColor={
-                      emailVerified
-                        ? colors.success
-                        : colors.white
-                    }
-                    onPress={handleVerifyEmail}
-                    style={styles.navigationButton}
-                    contentStyle={styles.buttonContent}
-                  >
-                    {emailVerified
-                      ? "Email verified"
-                      : "Verify email code"}
-                  </Button>
+                      <Button
+                        mode="contained"
+                        icon="email-check-outline"
+                        disabled={
+                          verificationLoading ||
+                          !/^\d{6}$/.test(emailVerificationToken.trim())
+                        }
+                        loading={verificationLoading}
+                        buttonColor={colors.primary}
+                        textColor={colors.white}
+                        onPress={handleVerifyEmail}
+                        style={styles.navigationButton}
+                        contentStyle={styles.buttonContent}
+                      >
+                        Verify email code
+                      </Button>
+                    </>
+                  )}
                 </View>
 
                 <View style={styles.formSection}>
@@ -1690,7 +1722,7 @@ export default function LandlordSignupScreen() {
                   <SectionHeading
                     icon="shield-key-outline"
                     title="Account security"
-                    description="Create a secure password. If this email already belongs to a TenureEx account, enter your existing account password to add the landlord role."
+                    description="Create a secure password. If this email already belongs to TenureEx, enter your existing account password to add the landlord role."
                   />
 
                   <View>
