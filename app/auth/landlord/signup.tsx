@@ -564,6 +564,12 @@ export default function LandlordSignupScreen() {
 
   const getBackendMessage = (error: unknown) => {
     if (axios.isAxiosError(error)) {
+      const status = error.response?.status;
+
+      if (status === 504 || status === 502 || status === 402) {
+        return "Address lookup is temporarily unavailable. Please enter your residential address manually or try again later.";
+      }
+
       const backendMessage =
         error.response?.data?.message;
 
@@ -575,14 +581,12 @@ export default function LandlordSignupScreen() {
         return backendMessage;
       }
 
-      if (error.response?.status === 409) {
-        return "An account with this email already exists. Please use another email address or sign in.";
+      if (status === 409) {
+        return "This email already has a TenureEx account. If you were invited to add the landlord role, open the latest landlord invitation link and use your existing account password.";
       }
 
-      if (error.request) {
-        return Platform.OS === "web"
-          ? "Unable to connect to the TenureEx server. Make sure the backend is running on port 3000."
-          : "Unable to connect to the TenureEx server. Please check your network connection.";
+      if (!error.response && error.request) {
+        return "Unable to connect to TenureEx. Please check your network connection and try again.";
       }
     }
 
@@ -780,18 +784,40 @@ export default function LandlordSignupScreen() {
         setPhoneVerified(true);
       }
 
+      let identificationUploadSucceeded = true;
+
       if (identificationDocument) {
         try {
           await uploadIdentificationDocument(
             response.data.userId,
           );
         } catch {
-          // Registration has already been created.
-          // Keep the user in the verification flow so the
-          // upload can be retried without creating the account again.
+          identificationUploadSucceeded = false;
         }
       }
 
+      // Existing TenureEx users are already email/phone verified.
+      // When they add the LANDLORD role through an invitation, do not
+      // send them into the new-account OTP verification screen.
+      if (
+        response.data.existingAccount &&
+        response.data.registrationComplete
+      ) {
+        if (!identificationUploadSucceeded) {
+          setApiError(
+            "Your landlord role was added successfully, but the identification document could not be uploaded. Please try the upload again from your landlord account.",
+          );
+        }
+
+        router.replace(
+          "/auth/landlord/login" as Href,
+        );
+
+        return;
+      }
+
+      // Brand-new landlord accounts continue through the normal
+      // email verification and phone verification flow.
       setVerificationMode(true);
 
       setApiMessage(
@@ -1664,7 +1690,7 @@ export default function LandlordSignupScreen() {
                   <SectionHeading
                     icon="shield-key-outline"
                     title="Account security"
-                    description="Create a secure password for your landlord account."
+                    description="Create a secure password. If this email already belongs to a TenureEx account, enter your existing account password to add the landlord role."
                   />
 
                   <View>
