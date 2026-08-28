@@ -46,6 +46,7 @@ type MaintenanceRequest = {
   createdAt: string;
   scheduledStart?: string | null;
   roomLocation?: string | null;
+  reportedPhotoCount: number;
 };
 
 type TenantProperty = {
@@ -248,6 +249,9 @@ function mapRequest(row: any): MaintenanceRequest {
     }),
     scheduledStart: row.scheduledStart,
     roomLocation: row.roomLocation,
+    reportedPhotoCount: Array.isArray(row.photos)
+      ? row.photos.filter((photo: any) => photo.phase === "REPORTED").length
+      : 0,
   };
 }
 
@@ -401,7 +405,18 @@ export default function MaintenanceScreen() {
       allowsMultipleSelection: true,
       quality: 0.8,
     });
-    if (!result.canceled) setPendingPhotos(result.assets);
+
+    if (!result.canceled) {
+      setPendingPhotos(result.assets);
+
+      if (failedPhotoRequestId) {
+        setSubmitError(
+          "Photo selected. Click Retry photo upload to attach it to the maintenance request that is already saved.",
+        );
+      } else {
+        setSubmitError("");
+      }
+    }
   };
 
   const uploadReportedPhotos = async (
@@ -461,11 +476,6 @@ export default function MaintenanceScreen() {
     await api.post(
       `/property-workflows/maintenance-requests/${requestId}/reported-photos`,
       data,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      },
     );
   };
 
@@ -487,6 +497,41 @@ export default function MaintenanceScreen() {
     setPendingPhotos([]);
     setFailedPhotoRequestId("");
     setSubmitError("");
+  };
+
+  const addPhotosToExistingRequest = async (
+    requestId: string,
+  ) => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets.length) {
+      return;
+    }
+
+    setMessage("");
+    setSubmitError("");
+
+    try {
+      await uploadReportedPhotos(requestId, result.assets);
+      setMessage("Problem photo uploaded successfully.");
+      await loadWorkflow();
+    } catch (error: any) {
+      const messageText =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Unable to upload the problem photo.";
+
+      setSubmitError(messageText);
+      setMessage(messageText);
+      console.error(
+        "Existing maintenance request photo upload failed:",
+        error?.response?.data || error,
+      );
+    }
   };
 
   const retryPhotoUpload = async () => {
@@ -1166,6 +1211,9 @@ export default function MaintenanceScreen() {
                     onConfirm={(completed) =>
                       void confirmCompletion(request.id, completed)
                     }
+                    onAddProblemPhotos={() =>
+                      void addPhotosToExistingRequest(request.id)
+                    }
                   />
                 ))
               ) : (
@@ -1235,9 +1283,11 @@ export default function MaintenanceScreen() {
 function RequestCard({
   request,
   onConfirm,
+  onAddProblemPhotos,
 }: {
   request: MaintenanceRequest;
   onConfirm: (completed: boolean) => void;
+  onAddProblemPhotos: () => void;
 }) {
   const statusIcon =
     request.status === "Completed"
@@ -1284,6 +1334,30 @@ function RequestCard({
       ) : null}
 
       <Text style={styles.requestDate}>Submitted {request.createdAt}</Text>
+
+      {request.reportedPhotoCount === 0 &&
+      (request.status === "Open" || request.status === "Reopened") ? (
+        <View style={styles.missingPhotoRow}>
+          <View style={styles.missingPhotoCopy}>
+            <MaterialCommunityIcons
+              name="image-outline"
+              size={19}
+              color={colors.warning}
+            />
+            <Text style={styles.missingPhotoText}>
+              No problem photo is attached to this request yet.
+            </Text>
+          </View>
+          <Button
+            mode="outlined"
+            compact
+            icon="camera-plus-outline"
+            onPress={onAddProblemPhotos}
+          >
+            Add problem photo
+          </Button>
+        </View>
+      ) : null}
 
       {request.status === "Awaiting tenant confirmation" ? (
         <View style={styles.confirmRow}>
@@ -1582,6 +1656,27 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 8,
     fontWeight: "700",
+  },
+  missingPhotoRow: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    borderRadius: radius.lg,
+    backgroundColor: colors.warningLight,
+    gap: spacing.sm,
+  },
+  missingPhotoCopy: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  missingPhotoText: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontSize: 9,
+    fontWeight: "800",
+    lineHeight: 14,
   },
   confirmRow: {
     flexDirection: "row",

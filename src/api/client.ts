@@ -442,6 +442,33 @@ api.interceptors.request.use(
   async (
     config: RetryableRequestConfig,
   ) => {
+    /*
+    |--------------------------------------------------------------------------
+    | FormData / multipart handling
+    |--------------------------------------------------------------------------
+    |
+    | The Axios instance normally defaults to application/json.
+    | For FormData, remove Content-Type so the browser/native adapter can
+    | generate the correct multipart boundary automatically. If the boundary
+    | is missing, Nest/Multer receives zero files even when the UI shows a
+    | selected image.
+    |
+    */
+    if (
+      typeof FormData !== "undefined" &&
+      config.data instanceof FormData
+    ) {
+      const headers = config.headers as any;
+
+      if (typeof headers?.delete === "function") {
+        headers.delete("Content-Type");
+        headers.delete("content-type");
+      } else if (headers) {
+        delete headers["Content-Type"];
+        delete headers["content-type"];
+      }
+    }
+
     const role =
       config._tenureExRole ??
       (await resolveSessionRole());
