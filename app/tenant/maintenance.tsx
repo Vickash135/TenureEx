@@ -1,8 +1,10 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -129,6 +131,89 @@ function buildLocalDate(dateValue: string, timeValue: string) {
   return value;
 }
 
+
+function dateToIso(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function timeToValue(value: Date) {
+  const hour = String(value.getHours()).padStart(2, "0");
+  const minute = String(value.getMinutes()).padStart(2, "0");
+  return `${hour}:${minute}`;
+}
+
+function slotPickerDate(
+  slot: AvailabilitySlot,
+  field: "date" | "startTime" | "endTime",
+) {
+  const baseDate = slot.date
+    ? buildLocalDate(slot.date, "12:00") ?? new Date()
+    : new Date();
+
+  if (field === "date") return baseDate;
+
+  const timeValue =
+    field === "startTime" ? slot.startTime : slot.endTime;
+
+  const match = timeValue.match(/^(\d{2}):(\d{2})$/);
+  const value = new Date(baseDate);
+
+  if (match) {
+    value.setHours(Number(match[1]), Number(match[2]), 0, 0);
+  } else {
+    value.setHours(field === "startTime" ? 9 : 10, 0, 0, 0);
+  }
+
+  return value;
+}
+
+type WebPickerFieldProps = {
+  label: string;
+  type: "date" | "time";
+  value: string;
+  onChange: (value: string) => void;
+  min?: string;
+};
+
+function WebPickerField({
+  label,
+  type,
+  value,
+  onChange,
+  min,
+}: WebPickerFieldProps) {
+  return (
+    <View style={styles.webPickerField}>
+      <Text style={styles.pickerLabel}>{label}</Text>
+      {React.createElement("input", {
+        type,
+        value,
+        min,
+        step: type === "time" ? 900 : undefined,
+        onChange: (event: any) => onChange(event.target.value),
+        style: {
+          width: "100%",
+          height: 52,
+          boxSizing: "border-box",
+          border: `1px solid ${colors.border}`,
+          borderRadius: 8,
+          padding: "0 14px",
+          fontSize: 14,
+          fontFamily: "inherit",
+          color: colors.textPrimary,
+          backgroundColor: colors.white,
+          outline: "none",
+          cursor: "pointer",
+        },
+        "aria-label": label,
+      })}
+    </View>
+  );
+}
+
 function mapRequest(row: any): MaintenanceRequest {
   return {
     id: row.id,
@@ -191,6 +276,10 @@ export default function MaintenanceScreen() {
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [pickerTarget, setPickerTarget] = useState<{
+    slotId: string;
+    field: "date" | "startTime" | "endTime";
+  } | null>(null);
 
   const activeRequests = useMemo(
     () => requests.filter((request) => request.status !== "Completed").length,
@@ -262,6 +351,32 @@ export default function MaintenanceScreen() {
     );
   };
 
+  const handleNativePickerChange = (
+    event: DateTimePickerEvent,
+    selectedDate?: Date,
+  ) => {
+    if (!pickerTarget) return;
+
+    if (event.type === "dismissed") {
+      setPickerTarget(null);
+      return;
+    }
+
+    if (!selectedDate) return;
+
+    updateSlot(
+      pickerTarget.slotId,
+      pickerTarget.field,
+      pickerTarget.field === "date"
+        ? dateToIso(selectedDate)
+        : timeToValue(selectedDate),
+    );
+
+    if (Platform.OS === "android") {
+      setPickerTarget(null);
+    }
+  };
+
   const addSlot = () => {
     setAvailabilitySlots((current) => [
       ...current,
@@ -326,7 +441,7 @@ export default function MaintenanceScreen() {
 
       if (!start || !end) {
         setMessage(
-          `Availability option ${index + 1} has an invalid date or time. Use YYYY-MM-DD and HH:MM.`,
+          `Availability option ${index + 1} has an invalid date or time. Please choose the date and times again.`,
         );
         return;
       }
@@ -607,8 +722,8 @@ export default function MaintenanceScreen() {
                         When can the provider visit?
                       </Text>
                       <Text style={styles.availabilityText}>
-                        Add one or more options. Enter the date as YYYY-MM-DD and
-                        times as HH:MM, for example 2026-08-29, 09:00 to 12:00.
+                        Add one or more visit options. Choose a date from the
+                        calendar and select the start and end times.
                       </Text>
                     </View>
                     <Button mode="text" icon="plus" onPress={addSlot}>
@@ -633,41 +748,159 @@ export default function MaintenanceScreen() {
                         ) : null}
                       </View>
 
-                      <TextInput
-                        mode="outlined"
-                        label="Date"
-                        placeholder="2026-08-29"
-                        value={slot.date}
-                        onChangeText={(value) =>
-                          updateSlot(slot.id, "date", value)
-                        }
-                        autoCapitalize="none"
-                      />
+                      {Platform.OS === "web" ? (
+                        <>
+                          <WebPickerField
+                            label="Visit date"
+                            type="date"
+                            value={slot.date}
+                            min={dateToIso(new Date())}
+                            onChange={(value) =>
+                              updateSlot(slot.id, "date", value)
+                            }
+                          />
 
-                      <View style={styles.timeRow}>
-                        <TextInput
-                          mode="outlined"
-                          label="From"
-                          placeholder="09:00"
-                          value={slot.startTime}
-                          onChangeText={(value) =>
-                            updateSlot(slot.id, "startTime", value)
-                          }
-                          style={styles.timeField}
-                          autoCapitalize="none"
-                        />
-                        <TextInput
-                          mode="outlined"
-                          label="Until"
-                          placeholder="12:00"
-                          value={slot.endTime}
-                          onChangeText={(value) =>
-                            updateSlot(slot.id, "endTime", value)
-                          }
-                          style={styles.timeField}
-                          autoCapitalize="none"
-                        />
-                      </View>
+                          <View style={styles.timeRow}>
+                            <View style={styles.timeField}>
+                              <WebPickerField
+                                label="Available from"
+                                type="time"
+                                value={slot.startTime}
+                                onChange={(value) =>
+                                  updateSlot(slot.id, "startTime", value)
+                                }
+                              />
+                            </View>
+
+                            <View style={styles.timeField}>
+                              <WebPickerField
+                                label="Available until"
+                                type="time"
+                                value={slot.endTime}
+                                onChange={(value) =>
+                                  updateSlot(slot.id, "endTime", value)
+                                }
+                              />
+                            </View>
+                          </View>
+                        </>
+                      ) : (
+                        <>
+                          <Pressable
+                            onPress={() =>
+                              setPickerTarget({
+                                slotId: slot.id,
+                                field: "date",
+                              })
+                            }
+                          >
+                            <View pointerEvents="none">
+                              <TextInput
+                                mode="outlined"
+                                label="Visit date"
+                                value={slot.date}
+                                placeholder="Choose date"
+                                editable={false}
+                                right={
+                                  <TextInput.Icon icon="calendar-month-outline" />
+                                }
+                              />
+                            </View>
+                          </Pressable>
+
+                          <View style={styles.timeRow}>
+                            <Pressable
+                              style={styles.timeField}
+                              onPress={() =>
+                                setPickerTarget({
+                                  slotId: slot.id,
+                                  field: "startTime",
+                                })
+                              }
+                            >
+                              <View pointerEvents="none">
+                                <TextInput
+                                  mode="outlined"
+                                  label="Available from"
+                                  value={slot.startTime}
+                                  placeholder="Choose time"
+                                  editable={false}
+                                  right={<TextInput.Icon icon="clock-outline" />}
+                                />
+                              </View>
+                            </Pressable>
+
+                            <Pressable
+                              style={styles.timeField}
+                              onPress={() =>
+                                setPickerTarget({
+                                  slotId: slot.id,
+                                  field: "endTime",
+                                })
+                              }
+                            >
+                              <View pointerEvents="none">
+                                <TextInput
+                                  mode="outlined"
+                                  label="Available until"
+                                  value={slot.endTime}
+                                  placeholder="Choose time"
+                                  editable={false}
+                                  right={<TextInput.Icon icon="clock-outline" />}
+                                />
+                              </View>
+                            </Pressable>
+                          </View>
+
+                          {pickerTarget?.slotId === slot.id ? (
+                            <View style={styles.nativePickerCard}>
+                              <Text style={styles.nativePickerTitle}>
+                                {pickerTarget.field === "date"
+                                  ? "Choose visit date"
+                                  : pickerTarget.field === "startTime"
+                                    ? "Choose available from time"
+                                    : "Choose available until time"}
+                              </Text>
+
+                              <DateTimePicker
+                                value={slotPickerDate(
+                                  slot,
+                                  pickerTarget.field,
+                                )}
+                                mode={
+                                  pickerTarget.field === "date"
+                                    ? "date"
+                                    : "time"
+                                }
+                                display={
+                                  Platform.OS === "ios"
+                                    ? "spinner"
+                                    : "default"
+                                }
+                                minimumDate={
+                                  pickerTarget.field === "date"
+                                    ? new Date()
+                                    : undefined
+                                }
+                                minuteInterval={15}
+                                onChange={handleNativePickerChange}
+                              />
+
+                              {Platform.OS === "ios" ? (
+                                <Button
+                                  mode="contained"
+                                  compact
+                                  icon="check"
+                                  onPress={() => setPickerTarget(null)}
+                                  style={styles.pickerDoneButton}
+                                >
+                                  Done
+                                </Button>
+                              ) : null}
+                            </View>
+                          ) : null}
+                        </>
+                      )}
                     </View>
                   ))}
                 </View>
@@ -1039,6 +1272,33 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   slotLabel: { color: colors.primary, fontSize: 10, fontWeight: "900" },
+  webPickerField: {
+    flex: 1,
+    gap: 6,
+  },
+  pickerLabel: {
+    color: colors.textSecondary,
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  nativePickerCard: {
+    marginTop: spacing.sm,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: colors.background,
+  },
+  nativePickerTitle: {
+    marginBottom: spacing.sm,
+    color: colors.textPrimary,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  pickerDoneButton: {
+    alignSelf: "flex-end",
+    marginTop: spacing.sm,
+  },
   timeRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
   timeField: { flexGrow: 1, flexBasis: 180 },
   accessRow: {
