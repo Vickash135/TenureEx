@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { Button, Card, Dialog, Divider, Menu, Portal, TextInput } from "react-native-paper";
 
 import { api } from "../../src/api/client";
@@ -44,6 +44,7 @@ type ApplicationRow = {
 };
 
 export default function TenantsScreen() {
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [inquiries, setInquiries] = useState<InquiryRow[]>([]);
   const [applications, setApplications] = useState<ApplicationRow[]>([]);
@@ -331,10 +332,35 @@ export default function TenantsScreen() {
       />
 
       <Portal>
-        <Dialog visible={detailsOpen} onDismiss={() => setDetailsOpen(false)} style={styles.dialog}>
-          <Dialog.Title>Tenant application review</Dialog.Title>
-          <Dialog.ScrollArea>
-            <View style={styles.dialogBody}>
+        <Dialog
+          visible={detailsOpen}
+          onDismiss={() => setDetailsOpen(false)}
+          style={[
+            styles.dialog,
+            {
+              width: windowWidth < 700 ? "96%" : "92%",
+              maxWidth: windowWidth < 900 ? 760 : 980,
+              maxHeight: Math.max(440, windowHeight * 0.9),
+            },
+          ]}
+        >
+          <View style={styles.dialogHeader}>
+            <View style={styles.dialogHeaderText}>
+              <Text style={styles.dialogTitle}>Tenant application review</Text>
+              <Text style={styles.dialogSubtitle}>
+                Review the tenant details, property information and signed tenancy agreement before making a decision.
+              </Text>
+            </View>
+            {selectedApplication?.status ? <StatusPill label={selectedApplication.status} /> : null}
+          </View>
+
+          <Dialog.ScrollArea style={styles.dialogScrollArea}>
+            <ScrollView
+              style={styles.dialogScroll}
+              contentContainerStyle={styles.dialogBody}
+              showsVerticalScrollIndicator
+              keyboardShouldPersistTaps="handled"
+            >
               {selectedApplication ? (
                 <>
                   <DetailSection title="Tenant">
@@ -399,14 +425,36 @@ export default function TenantsScreen() {
                   />
                 </>
               ) : null}
-            </View>
+            </ScrollView>
           </Dialog.ScrollArea>
-          <Dialog.Actions style={styles.dialogActions}>
+
+          <View style={styles.dialogFooter}>
             <Button onPress={() => setDetailsOpen(false)}>Close</Button>
-            <Button mode="outlined" textColor={colors.error} disabled={loading} onPress={() => void review("REJECT")}>Reject</Button>
-            <Button mode="outlined" disabled={loading} onPress={() => void review("REQUEST_MORE_INFORMATION")}>Request more info</Button>
-            <Button mode="contained" disabled={loading || selectedApplication?.status === "APPROVED"} onPress={() => void review("APPROVE")}>Approve tenant</Button>
-          </Dialog.Actions>
+            <View style={styles.dialogDecisionActions}>
+              <Button
+                mode="outlined"
+                textColor={colors.error}
+                disabled={loading}
+                onPress={() => void review("REJECT")}
+              >
+                Reject
+              </Button>
+              <Button
+                mode="outlined"
+                disabled={loading}
+                onPress={() => void review("REQUEST_MORE_INFORMATION")}
+              >
+                Request more info
+              </Button>
+              <Button
+                mode="contained"
+                disabled={loading || selectedApplication?.status === "APPROVED"}
+                onPress={() => void review("APPROVE")}
+              >
+                Approve tenant
+              </Button>
+            </View>
+          </View>
         </Dialog>
       </Portal>
     </>
@@ -469,15 +517,63 @@ const styles = StyleSheet.create({
   statusText: { color: colors.primary, fontSize: 10, fontWeight: "900" },
   empty: { color: colors.textSecondary, paddingVertical: spacing.md },
   feedback: { color: colors.primary, fontWeight: "800", backgroundColor: colors.primaryLight, padding: spacing.md, borderRadius: radius.md },
-  dialog: { width: "92%", maxWidth: 820, alignSelf: "center" },
-  dialogBody: { paddingVertical: spacing.md, gap: spacing.md },
-  dialogActions: { flexWrap: "wrap" },
+  dialog: {
+    alignSelf: "center",
+    marginVertical: 0,
+    borderRadius: radius.lg,
+    overflow: "hidden",
+    backgroundColor: colors.white,
+  },
+  dialogHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  dialogHeaderText: { flex: 1 },
+  dialogTitle: { color: colors.textPrimary, fontSize: 21, fontWeight: "900" },
+  dialogSubtitle: { color: colors.textSecondary, lineHeight: 19, marginTop: 4, maxWidth: 680 },
+  dialogScrollArea: {
+    paddingHorizontal: 0,
+    flexShrink: 1,
+    borderTopWidth: 0,
+    borderBottomWidth: 0,
+  },
+  dialogScroll: { flexShrink: 1 },
+  dialogBody: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.md,
+  },
+  dialogFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.white,
+  },
+  dialogDecisionActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+    gap: spacing.sm,
+  },
   detailSection: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, gap: 8 },
   detailSectionTitle: { color: colors.textPrimary, fontWeight: "900", fontSize: 16, marginBottom: 4 },
   detailRow: { flexDirection: "row", gap: spacing.md, alignItems: "flex-start" },
   detailLabel: { width: 145, color: colors.textSecondary, fontSize: 12, fontWeight: "700" },
   detailValue: { flex: 1, color: colors.textPrimary, fontSize: 13 },
-  termsTitle: { color: colors.textSecondary, fontWeight: "800", marginTop: 4 },
+  termsTitle: { color: colors.textPrimary, fontWeight: "900", marginTop: 8, marginBottom: 2 },
   termsText: { color: colors.textPrimary, lineHeight: 20, backgroundColor: colors.background, padding: spacing.md, borderRadius: radius.sm, flex: 1 },
   termReviewRow: { flexDirection: "row", alignItems: "flex-start", gap: 9, marginTop: 7 },
   termReviewNumber: { width: 24, minHeight: 24, borderRadius: 12, textAlign: "center", backgroundColor: colors.primaryLight, color: colors.primary, fontWeight: "900", fontSize: 11, paddingTop: 4 },
