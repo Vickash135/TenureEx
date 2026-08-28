@@ -275,6 +275,7 @@ export default function MaintenanceScreen() {
   const [pendingPhotos, setPendingPhotos] = useState<any[]>([]);
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [loading, setLoading] = useState(true);
   const [pickerTarget, setPickerTarget] = useState<{
     slotId: string;
@@ -401,21 +402,27 @@ export default function MaintenanceScreen() {
     if (!result.canceled) setPendingPhotos(result.assets);
   };
 
+  const failSubmit = (messageText: string) => {
+    setSubmitError(messageText);
+    setMessage(messageText);
+  };
+
   const handleSubmit = async () => {
+    setSubmitError("");
     if (!property?.id) {
-      setMessage(
+      failSubmit(
         "Maintenance can only be reported for your active approved tenancy property.",
       );
       return;
     }
 
     if (title.trim().length < 3) {
-      setMessage("Issue title must contain at least 3 characters.");
+      failSubmit("Issue title must contain at least 3 characters.");
       return;
     }
 
     if (description.trim().length < 5) {
-      setMessage("Issue description must contain at least 5 characters.");
+      failSubmit("Issue description must contain at least 5 characters.");
       return;
     }
 
@@ -430,7 +437,7 @@ export default function MaintenanceScreen() {
       if (!hasAnyValue) continue;
 
       if (!slot.date.trim() || !slot.startTime.trim() || !slot.endTime.trim()) {
-        setMessage(
+        failSubmit(
           `Complete the date, start time and end time for availability option ${index + 1}.`,
         );
         return;
@@ -440,14 +447,14 @@ export default function MaintenanceScreen() {
       const end = buildLocalDate(slot.date, slot.endTime);
 
       if (!start || !end) {
-        setMessage(
+        failSubmit(
           `Availability option ${index + 1} has an invalid date or time. Please choose the date and times again.`,
         );
         return;
       }
 
       if (end.getTime() <= start.getTime()) {
-        setMessage(
+        failSubmit(
           `Availability option ${index + 1} must end after it starts.`,
         );
         return;
@@ -460,7 +467,7 @@ export default function MaintenanceScreen() {
     }
 
     if (!preparedSlots.length) {
-      setMessage("Add at least one available date and time slot.");
+      failSubmit("Add at least one available date and time slot.");
       return;
     }
 
@@ -517,12 +524,19 @@ export default function MaintenanceScreen() {
         },
       ]);
       setPendingPhotos([]);
+      setSubmitError("");
       setMessage(
         "Maintenance request submitted. Approved maintenance providers for this property have been notified.",
       );
       await loadWorkflow();
     } catch (error: any) {
-      setMessage(backendMessage(error));
+      const messageText = backendMessage(error);
+      setSubmitError(messageText);
+      setMessage(messageText);
+      console.error(
+        "Maintenance request submission failed:",
+        error?.response?.data || error,
+      );
     } finally {
       setSubmitting(false);
     }
@@ -940,15 +954,30 @@ export default function MaintenanceScreen() {
                   Add problem photos ({pendingPhotos.length})
                 </Button>
 
+                {submitError ? (
+                  <View style={styles.submitErrorCard}>
+                    <MaterialCommunityIcons
+                      name="alert-circle-outline"
+                      size={21}
+                      color={colors.error}
+                    />
+                    <Text style={styles.submitErrorText}>
+                      {submitError}
+                    </Text>
+                  </View>
+                ) : null}
+
                 <View style={styles.submitRow}>
                   <Button
                     mode="contained"
                     icon="send-outline"
                     loading={submitting}
                     disabled={submitting || loading || !property}
-                    onPress={() => void handleSubmit()}
+                    onPress={handleSubmit}
                   >
-                    Submit maintenance request
+                    {submitting
+                      ? "Submitting maintenance request..."
+                      : "Submit maintenance request"}
                   </Button>
                 </View>
               </View>
@@ -1319,6 +1348,23 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 10,
     lineHeight: 15,
+  },
+  submitErrorCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.error,
+    borderRadius: radius.lg,
+    backgroundColor: colors.errorLight,
+  },
+  submitErrorText: {
+    flex: 1,
+    color: colors.error,
+    fontSize: 10,
+    fontWeight: "800",
+    lineHeight: 16,
   },
   submitRow: { alignItems: "flex-end" },
   sectionHeader: {
