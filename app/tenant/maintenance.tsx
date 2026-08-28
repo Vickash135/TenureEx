@@ -276,6 +276,8 @@ export default function MaintenanceScreen() {
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [failedPhotoRequestId, setFailedPhotoRequestId] = useState("");
+  const [retryingPhotos, setRetryingPhotos] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pickerTarget, setPickerTarget] = useState<{
     slotId: string;
@@ -402,6 +404,134 @@ export default function MaintenanceScreen() {
     if (!result.canceled) setPendingPhotos(result.assets);
   };
 
+  const uploadReportedPhotos = async (
+    requestId: string,
+    assets: any[],
+  ) => {
+    if (!assets.length) return;
+
+    const data = new FormData();
+    let appended = 0;
+
+    for (let index = 0; index < assets.length; index += 1) {
+      const asset = assets[index];
+      const fallbackName =
+        asset.fileName || `issue-${index + 1}.jpg`;
+
+      if (Platform.OS === "web") {
+        if (asset.file) {
+          data.append(
+            "photos",
+            asset.file,
+            asset.file.name || fallbackName,
+          );
+          appended += 1;
+          continue;
+        }
+
+        if (asset.uri) {
+          const fileResponse = await fetch(asset.uri);
+          const blob = await fileResponse.blob();
+          data.append("photos", blob, fallbackName);
+          appended += 1;
+        }
+
+        continue;
+      }
+
+      if (asset.uri) {
+        data.append(
+          "photos",
+          {
+            uri: asset.uri,
+            name: fallbackName,
+            type: asset.mimeType || "image/jpeg",
+          } as any,
+        );
+        appended += 1;
+      }
+    }
+
+    if (!appended) {
+      throw new Error(
+        "The selected photo could not be prepared for upload. Please choose the photo again.",
+      );
+    }
+
+    await api.post(
+      `/property-workflows/maintenance-requests/${requestId}/reported-photos`,
+      data,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+  };
+
+  const resetSubmittedForm = () => {
+    setTitle("");
+    setDescription("");
+    setRoomLocation("");
+    setCategory("Plumbing");
+    setPriority("Medium");
+    setAccessPermission(false);
+    setAvailabilitySlots([
+      {
+        id: `slot-${Date.now()}`,
+        date: "",
+        startTime: "",
+        endTime: "",
+      },
+    ]);
+    setPendingPhotos([]);
+    setFailedPhotoRequestId("");
+    setSubmitError("");
+  };
+
+  const retryPhotoUpload = async () => {
+    if (!failedPhotoRequestId || !pendingPhotos.length) {
+      setSubmitError(
+        "Choose at least one problem photo before retrying.",
+      );
+      return;
+    }
+
+    setRetryingPhotos(true);
+    setSubmitError("");
+    setMessage("");
+
+    try {
+      await uploadReportedPhotos(
+        failedPhotoRequestId,
+        pendingPhotos,
+      );
+
+      resetSubmittedForm();
+      setMessage(
+        "Maintenance request and problem photos submitted successfully.",
+      );
+      await loadWorkflow();
+    } catch (error: any) {
+      const messageText =
+        error?.response?.data?.message ||
+        error?.message ||
+        "The maintenance request exists, but the photo upload still failed.";
+
+      setSubmitError(
+        `The maintenance request is already saved. Photo upload failed: ${messageText}`,
+      );
+      setMessage(messageText);
+
+      console.error(
+        "Maintenance photo retry failed:",
+        error?.response?.data || error,
+      );
+    } finally {
+      setRetryingPhotos(false);
+    }
+  };
+
   const failSubmit = (messageText: string) => {
     setSubmitError(messageText);
     setMessage(messageText);
@@ -409,6 +539,13 @@ export default function MaintenanceScreen() {
 
   const handleSubmit = async () => {
     setSubmitError("");
+
+    if (failedPhotoRequestId) {
+      failSubmit(
+        "This maintenance request is already saved. Use Retry photo upload instead of submitting another request.",
+      );
+      return;
+    }
     if (!property?.id) {
       failSubmit(
         "Maintenance can only be reported for your active approved tenancy property.",
@@ -489,44 +626,45 @@ export default function MaintenanceScreen() {
         },
       );
 
-      if (pendingPhotos.length) {
-        const data = new FormData();
-        pendingPhotos.forEach((asset: any, index) => {
-          data.append(
-            "photos",
-            {
-              uri: asset.uri,
-              name: asset.fileName || `issue-${index + 1}.jpg`,
-              type: asset.mimeType || "image/jpeg",
-            } as any,
-          );
-        });
+      const requestId = response.data.request.id as string;
 
-        await api.post(
-          `/property-workflows/maintenance-requests/${response.data.request.id}/reported-photos`,
-          data,
-          { headers: { "Content-Type": "multipart/form-data" } },
-        );
+      if (pendingPhotos.length) {
+        try {
+          await uploadReportedPhotos(
+            requestId,
+            pendingPhotos,
+          );
+        } catch (photoError: any) {
+          const photoMessage =
+            photoError?.response?.data?.message ||
+            photoError?.message ||
+            "Unable to upload the selected problem photos.";
+
+          // The maintenance request is already created at this point.
+          // Remember its ID so another Submit cannot create a duplicate.
+          setFailedPhotoRequestId(requestId);
+          setSubmitError(
+            `Your maintenance request was saved, but the problem photos were not uploaded: ${photoMessage}`,
+          );
+          setMessage(
+            "Request saved. Please retry the problem photo upload.",
+          );
+
+          console.error(
+            "Maintenance request created, photo upload failed:",
+            photoError?.response?.data || photoError,
+          );
+
+          await loadWorkflow();
+          return;
+        }
       }
 
-      setTitle("");
-      setDescription("");
-      setRoomLocation("");
-      setCategory("Plumbing");
-      setPriority("Medium");
-      setAccessPermission(false);
-      setAvailabilitySlots([
-        {
-          id: `slot-${Date.now()}`,
-          date: "",
-          startTime: "",
-          endTime: "",
-        },
-      ]);
-      setPendingPhotos([]);
-      setSubmitError("");
+      resetSubmittedForm();
       setMessage(
-        "Maintenance request submitted. Approved maintenance providers for this property have been notified.",
+        pendingPhotos.length
+          ? "Maintenance request and problem photos submitted successfully."
+          : "Maintenance request submitted successfully.",
       );
       await loadWorkflow();
     } catch (error: any) {
@@ -961,9 +1099,28 @@ export default function MaintenanceScreen() {
                       size={21}
                       color={colors.error}
                     />
-                    <Text style={styles.submitErrorText}>
-                      {submitError}
-                    </Text>
+                    <View style={styles.submitErrorContent}>
+                      <Text style={styles.submitErrorText}>
+                        {submitError}
+                      </Text>
+
+                      {failedPhotoRequestId ? (
+                        <Button
+                          mode="contained"
+                          compact
+                          icon="image-sync-outline"
+                          loading={retryingPhotos}
+                          disabled={
+                            retryingPhotos ||
+                            !pendingPhotos.length
+                          }
+                          onPress={retryPhotoUpload}
+                          style={styles.retryPhotoButton}
+                        >
+                          Retry photo upload
+                        </Button>
+                      ) : null}
+                    </View>
                   </View>
                 ) : null}
 
@@ -972,12 +1129,19 @@ export default function MaintenanceScreen() {
                     mode="contained"
                     icon="send-outline"
                     loading={submitting}
-                    disabled={submitting || loading || !property}
+                    disabled={
+                      submitting ||
+                      loading ||
+                      !property ||
+                      Boolean(failedPhotoRequestId)
+                    }
                     onPress={handleSubmit}
                   >
-                    {submitting
-                      ? "Submitting maintenance request..."
-                      : "Submit maintenance request"}
+                    {failedPhotoRequestId
+                      ? "Request saved - retry photos above"
+                      : submitting
+                        ? "Submitting maintenance request..."
+                        : "Submit maintenance request"}
                   </Button>
                 </View>
               </View>
@@ -1359,12 +1523,18 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     backgroundColor: colors.errorLight,
   },
-  submitErrorText: {
+  submitErrorContent: {
     flex: 1,
+    gap: spacing.sm,
+  },
+  submitErrorText: {
     color: colors.error,
     fontSize: 10,
     fontWeight: "800",
     lineHeight: 16,
+  },
+  retryPhotoButton: {
+    alignSelf: "flex-start",
   },
   submitRow: { alignItems: "flex-end" },
   sectionHeader: {
