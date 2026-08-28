@@ -1,1341 +1,1053 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { useMemo } from "react";
+import { router, type Href } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
 import {
-    Pressable,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  ActivityIndicator,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
+import { Avatar, Button } from "react-native-paper";
+
 import {
-    Button,
-    Divider,
-    ProgressBar
-} from "react-native-paper";
+  api,
+  clearAuthSession,
+  getStoredUser,
+  saveCurrentUser,
+} from "../../src/api/client";
+import TenureExLogo from "../../src/components/Logo/TenureExLogo";
+import { colors, radius, spacing } from "../../src/theme";
 
-import ScreenContainer from "../../src/components/ScreenContainer";
-import {
-    colors,
-    radius,
-    spacing,
-} from "../../src/theme";
+type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
-type IconName =
-  keyof typeof MaterialCommunityIcons.glyphMap;
-
-type TenantStage =
-  | "searching"
-  | "application-submitted"
-  | "application-approved"
-  | "agreement-signed"
-  | "active-tenancy";
-
-type ApplicationStatus =
-  | "Draft"
-  | "Submitted"
-  | "Under review"
-  | "Approved"
-  | "Rejected";
-
-type DashboardRoute =
-  | "/tenant/preferences"
-  | "/tenant/properties"
-  | "/tenant/property-details"
-  | "/tenant/applications"
-  | "/tenant/documents"
-  | "/tenant/agreement"
-  | "/tenant/my-property"
-  | "/tenant/maintenance"
-  | "/tenant/payments"
-  | "/tenant/messages"
-  | "/tenant/settings";
-
-type DashboardAction = {
-  title: string;
-  description: string;
-  icon: IconName;
-  route: DashboardRoute;
-  visible: boolean;
+type TenantUser = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string | null;
+  userType: string;
+  accountRoles?: string[];
+  status: string;
+  emailVerified: boolean;
+  phoneVerified: boolean;
 };
 
-type SuggestedProperty = {
+type TenantProperty = {
   id: string;
-  title: string;
-  address: string;
-  monthlyRent: number;
+  landlordProfileId: string;
+  addressLine1: string;
+  addressLine2?: string | null;
+  townCity: string;
+  county?: string | null;
+  postcode: string;
+  propertyType: string;
   bedrooms: number;
   bathrooms: number;
-  propertyType: string;
-  matchScore: number;
+  receptionRooms: number;
+  monthlyRent: string | number;
+  tenantMonthlyRent?: string | number | null;
+  depositAmount?: string | number | null;
+  councilTaxBand?: string | null;
+  furnishingStatus?: string | null;
+  propertyStatus: string;
+  approvalStatus: string;
+  availableFrom?: string | null;
+  petsAllowed?: boolean;
+  smokingAllowed?: boolean;
+  childrenAllowed?: boolean;
+  hasParking?: boolean;
+  hasGarden?: boolean;
+  hasLift?: boolean;
+  hasWheelchairAccess?: boolean;
+  description?: string | null;
+  photoNames?: string[];
 };
 
-type TenantApplication = {
+type ActiveTenancy = {
   id: string;
   propertyId: string;
-  propertyTitle: string;
-  propertyAddress: string;
-  submittedDate: string;
-  status: ApplicationStatus;
+  tenantUserId: string;
+  tenantProfileId: string;
+  applicationId: string;
+  status: string;
+  startedAt: string;
+  endedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  property?: TenantProperty | null;
 };
 
-const tenantProfile = {
-  firstName: "Amelia",
-  lastName: "Brown",
-  email: "amelia.brown@example.com",
-  preferredLanguage: "Tamil",
-
-  profileCompletion: 80,
-
-  personalInformationCompleted: true,
-  identificationUploaded: true,
-  preferencesCompleted: true,
-  rightToRentVerified: true,
-
-  applicationSubmitted: true,
-  applicationApproved: false,
-
-  agreementAvailable: false,
-  agreementSigned: false,
-
-  tenancyActive: false,
+type NavigationItem = {
+  label: string;
+  icon: IconName;
+  route: Href;
+  propertyScoped?: boolean;
+  applicationScoped?: boolean;
 };
 
-const suggestedProperties: SuggestedProperty[] = [
+const navigationItems: NavigationItem[] = [
   {
-    id: "PROP-001",
-    title: "Modern Two-Bedroom City Apartment",
-    address: "42 King Street, Leeds, LS1 2HQ",
-    monthlyRent: 1325,
-    bedrooms: 2,
-    bathrooms: 2,
-    propertyType: "Flat",
-    matchScore: 94,
+    label: "Dashboard",
+    icon: "view-dashboard-outline",
+    route: "/tenant/dashboard" as Href,
   },
   {
-    id: "PROP-002",
-    title: "Three-Bedroom Family Home",
-    address:
-      "18 Victoria Road, Manchester, M14 6BT",
-    monthlyRent: 1450,
-    bedrooms: 3,
-    bathrooms: 2,
-    propertyType: "House",
-    matchScore: 89,
+    label: "My Home",
+    icon: "home-account",
+    route: "/tenant/my-property" as Href,
+    propertyScoped: true,
+    applicationScoped: true,
   },
   {
-    id: "PROP-003",
-    title: "City Centre One-Bedroom Flat",
-    address:
-      "91 High Street, Birmingham, B4 7SL",
-    monthlyRent: 1100,
-    bedrooms: 1,
-    bathrooms: 1,
-    propertyType: "Flat",
-    matchScore: 84,
+    label: "Maintenance",
+    icon: "tools",
+    route: "/tenant/maintenance" as Href,
+    propertyScoped: true,
   },
-];
-
-const applications: TenantApplication[] = [
   {
-    id: "APP-1001",
-    propertyId: "PROP-001",
-    propertyTitle:
-      "Modern Two-Bedroom City Apartment",
-    propertyAddress:
-      "42 King Street, Leeds, LS1 2HQ",
-    submittedDate: "25 July 2026",
-    status: "Under review",
+    label: "Payments",
+    icon: "credit-card-outline",
+    route: "/tenant/payments" as Href,
+    propertyScoped: true,
+  },
+  {
+    label: "Documents",
+    icon: "file-document-multiple-outline",
+    route: "/tenant/documents" as Href,
+    propertyScoped: true,
+    applicationScoped: true,
+  },
+  {
+    label: "Messages",
+    icon: "message-text-outline",
+    route: "/tenant/messages" as Href,
+  },
+  {
+    label: "Settings",
+    icon: "cog-outline",
+    route: "/tenant/settings" as Href,
   },
 ];
 
 export default function TenantDashboardScreen() {
   const { width } = useWindowDimensions();
 
-  const isDesktop = width >= 1050;
-  const isTablet = width >= 700;
+  const [mounted, setMounted] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [currentUser, setCurrentUser] = useState<TenantUser | null>(null);
+  const [activeTenancy, setActiveTenancy] = useState<ActiveTenancy | null>(null);
 
-  const tenantStage = getTenantStage();
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  const unreadMessages = 3;
+  useEffect(() => {
+    let active = true;
 
-  const currentApplication =
-    applications[0] ?? null;
+    const loadDashboard = async () => {
+      setLoading(true);
+      setError("");
 
-  const nextStep = getNextStep(
-    tenantStage,
-    currentApplication,
-  );
+      try {
+        const storedUser = await getStoredUser<TenantUser>();
 
-  const visibleActions = useMemo(
-    () =>
-      getDashboardActions(
-        tenantStage,
-        currentApplication,
-      ).filter((action) => action.visible),
-    [tenantStage, currentApplication],
-  );
+        if (active && storedUser) {
+          setCurrentUser(storedUser);
+        }
 
-  const stageInformation =
-    getStageInformation(tenantStage);
+        const [meResponse, propertiesResponse] = await Promise.all([
+          api.get<TenantUser>("/auth/me"),
+          api.get<ActiveTenancy[]>("/property-workflows/tenant/my-properties"),
+        ]);
 
-  const showPropertySuggestions =
-    tenantStage === "searching" ||
-    tenantStage ===
-      "application-submitted";
+        if (!active) {
+          return;
+        }
 
-  const showApplicationSection =
-    tenantProfile.applicationSubmitted &&
-    currentApplication !== null;
+        const roles =
+          meResponse.data.accountRoles?.length
+            ? meResponse.data.accountRoles
+            : [meResponse.data.userType];
 
-  const showActiveTenancy =
-    tenantStage === "active-tenancy";
+        if (!roles.includes("TENANT")) {
+          await clearAuthSession("tenant");
+          router.replace("/auth/tenant/login" as Href);
+          return;
+        }
 
-  const handleNextStep = () => {
-    if (!nextStep) {
+        setCurrentUser(meResponse.data);
+        await saveCurrentUser(meResponse.data, "tenant");
+
+        const tenancies = Array.isArray(propertiesResponse.data)
+          ? propertiesResponse.data
+          : [];
+
+        // The workflow creates PropertyTenant only after the Estate Agent
+        // approves the application. The endpoint is ordered newest first,
+        // so the first ACTIVE record is the tenant's current approved home.
+        const current =
+          tenancies.find(
+            (item) =>
+              item.status === "ACTIVE" &&
+              item.property,
+          ) ?? null;
+
+        setActiveTenancy(current);
+      } catch (requestError: any) {
+        if (!active) {
+          return;
+        }
+
+        console.error("Failed to load tenant dashboard:", requestError);
+        setActiveTenancy(null);
+        setError(
+          requestError?.response?.data?.message ||
+            "Unable to load your tenancy at the moment.",
+        );
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadDashboard();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const isDesktop = mounted && width >= 1050;
+  const isTablet = mounted && width >= 700;
+
+  const displayName = useMemo(() => {
+    if (!currentUser) {
+      return "Tenant";
+    }
+
+    return (
+      `${currentUser.firstName ?? ""} ${currentUser.lastName ?? ""}`.trim() ||
+      "Tenant"
+    );
+  }, [currentUser]);
+
+  const firstName = currentUser?.firstName?.trim() || "Tenant";
+
+  const initials = useMemo(() => {
+    const first = currentUser?.firstName?.trim().charAt(0) ?? "";
+    const last = currentUser?.lastName?.trim().charAt(0) ?? "";
+
+    return `${first}${last}`.toUpperCase() || "T";
+  }, [currentUser]);
+
+  const property = activeTenancy?.property ?? null;
+
+  const propertyAddress = useMemo(() => {
+    if (!property) {
+      return "";
+    }
+
+    return [
+      property.addressLine1,
+      property.addressLine2,
+      property.townCity,
+      property.postcode,
+    ]
+      .filter(Boolean)
+      .join(", ");
+  }, [property]);
+
+  const rent = property
+    ? numberValue(property.tenantMonthlyRent ?? property.monthlyRent)
+    : 0;
+
+  const deposit = property
+    ? numberValue(property.depositAmount)
+    : 0;
+
+  const navigate = (item: NavigationItem) => {
+    setMenuOpen(false);
+
+    if (!activeTenancy) {
+      router.push(item.route);
+      return;
+    }
+
+    if (item.propertyScoped || item.applicationScoped) {
+      router.push({
+        pathname: item.route as never,
+        params: {
+          ...(item.propertyScoped
+            ? { propertyId: activeTenancy.propertyId }
+            : {}),
+          ...(item.applicationScoped
+            ? { applicationId: activeTenancy.applicationId }
+            : {}),
+        },
+      });
+
+      return;
+    }
+
+    router.push(item.route);
+  };
+
+  const openScopedRoute = (
+    route: Href,
+    options?: {
+      includeApplication?: boolean;
+    },
+  ) => {
+    if (!activeTenancy) {
       return;
     }
 
     router.push({
-      pathname: nextStep.route as never,
-      params: nextStep.params,
+      pathname: route as never,
+      params: {
+        propertyId: activeTenancy.propertyId,
+        ...(options?.includeApplication
+          ? { applicationId: activeTenancy.applicationId }
+          : {}),
+      },
     });
   };
 
+  const handleSignOut = async () => {
+    await clearAuthSession("tenant");
+    router.replace("/auth/tenant/login" as Href);
+  };
+
   return (
-    <ScreenContainer
-      scrollable
-      contentStyle={styles.screenContent}
-    >
-      <View style={styles.page}>
-        <View style={styles.topBar}>
-          <Pressable
-            style={styles.brandArea}
-            onPress={() =>
-              router.replace(
-                "/tenant/dashboard" as never,
-              )
-            }
-          >
-            <View style={styles.logo}>
-              <MaterialCommunityIcons
-                name="home-city-outline"
-                size={28}
-                color={colors.white}
-              />
-            </View>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.appShell}>
+        {isDesktop ? (
+          <TenantSidebar
+            activeTenancy={activeTenancy}
+            displayName={displayName}
+            initials={initials}
+            propertyAddress={propertyAddress}
+            onNavigate={navigate}
+            onSignOut={() => void handleSignOut()}
+          />
+        ) : null}
 
-            <View>
-              <Text style={styles.brandName}>
-                TenureEx
-              </Text>
-
-              <Text style={styles.brandSubtitle}>
-                Tenant portal
-              </Text>
-            </View>
-          </Pressable>
-
-          <View style={styles.topBarActions}>
-            <Pressable
-              style={
-                styles.notificationButton
-              }
-              onPress={() =>
-                router.push(
-                  "/tenant/messages" as never,
-                )
-              }
-            >
-              <MaterialCommunityIcons
-                name="bell-outline"
-                size={23}
-                color={colors.textPrimary}
-              />
-
-              {unreadMessages > 0 ? (
-                <View
-                  style={
-                    styles.notificationBadge
+        <View style={styles.mainArea}>
+          <View style={styles.topBar}>
+            <View style={styles.topBarLeft}>
+              {!isDesktop ? (
+                <Pressable
+                  onPress={() =>
+                    setMenuOpen((current) => !current)
                   }
+                  style={styles.headerIconButton}
                 >
-                  <Text
-                    style={
-                      styles.notificationBadgeText
-                    }
-                  >
-                    {unreadMessages}
-                  </Text>
-                </View>
+                  <MaterialCommunityIcons
+                    name={menuOpen ? "close" : "menu"}
+                    size={24}
+                    color={colors.textPrimary}
+                  />
+                </Pressable>
               ) : null}
-            </Pressable>
 
-            <Pressable
-              style={styles.profileButton}
-              onPress={() =>
-                router.push(
-                  "/tenant/settings" as never,
-                )
-              }
-            >
-              <View style={styles.profileAvatar}>
-                <Text
-                  style={
-                    styles.profileAvatarText
-                  }
-                >
-                  {tenantProfile.firstName.charAt(
-                    0,
-                  )}
-                  {tenantProfile.lastName.charAt(
-                    0,
-                  )}
-                </Text>
-              </View>
-
-              {isTablet ? (
+              {!isDesktop ? (
+                <TenureExLogo compact />
+              ) : (
                 <View>
-                  <Text
-                    style={styles.profileName}
-                  >
-                    {tenantProfile.firstName}{" "}
-                    {tenantProfile.lastName}
+                  <Text style={styles.topBarTitle}>
+                    Dashboard
                   </Text>
-
-                  <Text
-                    style={styles.profileRole}
-                  >
-                    Tenant
+                  <Text style={styles.topBarSubtitle}>
+                    Tenant Workspace
                   </Text>
                 </View>
-              ) : null}
-            </Pressable>
-          </View>
-        </View>
+              )}
+            </View>
 
-        <View
-          style={[
-            styles.hero,
-            !isTablet && styles.heroMobile,
-          ]}
-        >
-          <View style={styles.heroContent}>
-            <Text style={styles.heroGreeting}>
-              Welcome,{" "}
-              {tenantProfile.firstName}
-            </Text>
-
-            <Text style={styles.heroTitle}>
-              {stageInformation.title}
-            </Text>
-
-            <Text
-              style={styles.heroDescription}
-            >
-              {stageInformation.description}
-            </Text>
-
-            <View style={styles.heroActions}>
-              {nextStep ? (
-                <Button
-                  mode="contained"
-                  icon={nextStep.icon}
-                  buttonColor={colors.white}
-                  textColor={colors.primary}
-                  onPress={handleNextStep}
-                >
-                  {nextStep.buttonLabel}
-                </Button>
-              ) : null}
-
-              <Button
-                mode="outlined"
-                icon="message-text-outline"
-                textColor={colors.white}
-                style={
-                  styles.heroOutlineButton
-                }
+            <View style={styles.topBarActions}>
+              <Pressable
+                style={styles.headerIconButton}
                 onPress={() =>
                   router.push(
-                    "/tenant/messages" as never,
+                    "/tenant/messages" as Href,
                   )
                 }
               >
-                Messages
-              </Button>
+                <MaterialCommunityIcons
+                  name="bell-outline"
+                  size={22}
+                  color={colors.textSecondary}
+                />
+              </Pressable>
+
+              {isTablet ? (
+                <Pressable
+                  style={styles.profile}
+                  onPress={() =>
+                    router.push(
+                      "/tenant/settings" as Href,
+                    )
+                  }
+                >
+                  <Avatar.Text
+                    size={38}
+                    label={initials}
+                    style={styles.avatar}
+                    labelStyle={styles.avatarLabel}
+                  />
+
+                  <View>
+                    <Text style={styles.profileName}>
+                      {displayName}
+                    </Text>
+                    <Text style={styles.profileRole}>
+                      Tenant
+                    </Text>
+                  </View>
+                </Pressable>
+              ) : null}
             </View>
           </View>
 
-          <View
-            style={styles.heroIllustration}
-          >
-            <MaterialCommunityIcons
-              name={stageInformation.icon}
-              size={82}
-              color={colors.white}
-            />
-
-            <Text
-              style={
-                styles.heroIllustrationText
-              }
-            >
-              {stageInformation.label}
-            </Text>
-          </View>
-        </View>
-
-        <View
-          style={[
-            styles.statisticsGrid,
-            isDesktop
-              ? styles.fourColumns
-              : isTablet
-                ? styles.twoColumns
-                : styles.oneColumn,
-          ]}
-        >
-          <StatisticCard
-            title="Profile completion"
-            value={`${tenantProfile.profileCompletion}%`}
-            helper="Tenant account progress"
-            icon="account-check-outline"
-          />
-
-          <StatisticCard
-            title="Property matches"
-            value={`${suggestedProperties.length}`}
-            helper="Based on your preferences"
-            icon="home-search-outline"
-          />
-
-          <StatisticCard
-            title="Applications"
-            value={`${applications.length}`}
-            helper="Property applications"
-            icon="clipboard-text-outline"
-          />
-
-          <StatisticCard
-            title="Current stage"
-            value={getShortStageLabel(
-              tenantStage,
-            )}
-            helper="Tenant journey status"
-            icon={stageInformation.icon}
-            compactValue
-          />
-        </View>
-
-        <View
-          style={[
-            styles.mainColumns,
-            !isDesktop &&
-              styles.mainColumnsStacked,
-          ]}
-        >
-          <View style={styles.mainColumn}>
-            <SectionHeader
-              title="Your progress"
-              subtitle="Complete each required stage before your tenancy becomes active."
-            />
-
-            <View style={styles.progressCard}>
-              <View
-                style={styles.progressHeader}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={styles.progressTitle}
-                  >
-                    Account and tenancy
-                    progress
-                  </Text>
-
-                  <Text
-                    style={
-                      styles.progressDescription
-                    }
-                  >
-                    Your available services will
-                    change as your application
-                    progresses.
-                  </Text>
-                </View>
-
-                <Text
-                  style={
-                    styles.progressPercentage
-                  }
-                >
-                  {calculateJourneyProgress()}%
-                </Text>
-              </View>
-
-              <ProgressBar
-                progress={
-                  calculateJourneyProgress() /
-                  100
-                }
-                color={colors.primary}
-                style={styles.progressBar}
+          {!isDesktop && menuOpen ? (
+            <>
+              <Pressable
+                onPress={() => setMenuOpen(false)}
+                style={styles.menuBackdrop}
               />
 
-              <View style={styles.checklist}>
-                <ChecklistItem
-                  title="Personal information"
-                  complete={
-                    tenantProfile.personalInformationCompleted
-                  }
+              <View style={styles.mobileMenu}>
+                <TenantNavigation
+                  activeTenancy={activeTenancy}
+                  onNavigate={navigate}
+                  mobile
                 />
 
-                <ChecklistItem
-                  title="Identification uploaded"
-                  complete={
-                    tenantProfile.identificationUploaded
-                  }
-                />
-
-                <ChecklistItem
-                  title="Property preferences"
-                  complete={
-                    tenantProfile.preferencesCompleted
-                  }
-                />
-
-                <ChecklistItem
-                  title="Right to Rent verified"
-                  complete={
-                    tenantProfile.rightToRentVerified
-                  }
-                />
-
-                <ChecklistItem
-                  title="Application submitted"
-                  complete={
-                    tenantProfile.applicationSubmitted
-                  }
-                />
-
-                <ChecklistItem
-                  title="Application approved"
-                  complete={
-                    tenantProfile.applicationApproved
-                  }
-                />
-
-                <ChecklistItem
-                  title="Agreement signed"
-                  complete={
-                    tenantProfile.agreementSigned
-                  }
-                />
-
-                <ChecklistItem
-                  title="Tenancy activated"
-                  complete={
-                    tenantProfile.tenancyActive
-                  }
-                />
+                <Pressable
+                  onPress={() => void handleSignOut()}
+                  style={styles.mobileSignOut}
+                >
+                  <MaterialCommunityIcons
+                    name="logout"
+                    size={20}
+                    color={colors.error}
+                  />
+                  <Text style={styles.mobileSignOutText}>
+                    Sign out
+                  </Text>
+                </Pressable>
               </View>
+            </>
+          ) : null}
 
-              {nextStep ? (
-                <View style={styles.nextStepBox}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.pageContent}
+          >
+            <View style={styles.pageContainer}>
+              {loading ? (
+                <LoadingState />
+              ) : !activeTenancy || !property ? (
+                <NoActiveTenancyState
+                  firstName={firstName}
+                  error={error}
+                  onSignOut={() => void handleSignOut()}
+                />
+              ) : (
+                <>
+                  <View style={styles.pageHeader}>
+                    <View style={styles.pageHeading}>
+                      <Text style={styles.eyebrow}>
+                        TENANT PORTAL
+                      </Text>
+                      <Text style={styles.pageTitle}>
+                        Welcome home, {firstName}
+                      </Text>
+                      <Text style={styles.pageSubtitle}>
+                        Everything here is for your approved tenancy at {propertyAddress}.
+                      </Text>
+                    </View>
+
+                    <View style={styles.activeBadge}>
+                      <MaterialCommunityIcons
+                        name="check-decagram"
+                        size={18}
+                        color={colors.success}
+                      />
+                      <Text style={styles.activeBadgeText}>
+                        Active tenancy
+                      </Text>
+                    </View>
+                  </View>
+
                   <View
-                    style={styles.nextStepIcon}
+                    style={[
+                      styles.hero,
+                      !isTablet && styles.heroStacked,
+                    ]}
                   >
-                    <MaterialCommunityIcons
-                      name={nextStep.icon}
-                      size={25}
-                      color={colors.primary}
+                    <View style={styles.heroMain}>
+                      <View style={styles.heroIcon}>
+                        <MaterialCommunityIcons
+                          name="home-account"
+                          size={36}
+                          color={colors.white}
+                        />
+                      </View>
+
+                      <View style={styles.heroText}>
+                        <Text style={styles.heroEyebrow}>
+                          YOUR HOME
+                        </Text>
+                        <Text style={styles.heroTitle}>
+                          {property.addressLine1}
+                        </Text>
+                        <Text style={styles.heroAddress}>
+                          {[property.addressLine2, property.townCity, property.postcode]
+                            .filter(Boolean)
+                            .join(", ")}
+                        </Text>
+
+                        <View style={styles.heroFacts}>
+                          <HeroFact
+                            icon="bed-outline"
+                            text={`${property.bedrooms} bedroom${property.bedrooms === 1 ? "" : "s"}`}
+                          />
+                          <HeroFact
+                            icon="shower"
+                            text={`${property.bathrooms} bathroom${property.bathrooms === 1 ? "" : "s"}`}
+                          />
+                          <HeroFact
+                            icon="home-outline"
+                            text={prettyEnum(property.propertyType)}
+                          />
+                        </View>
+                      </View>
+                    </View>
+
+                    <Button
+                      mode="contained"
+                      icon="home-eye-outline"
+                      buttonColor={colors.white}
+                      textColor={colors.primary}
+                      onPress={() =>
+                        openScopedRoute(
+                          "/tenant/my-property" as Href,
+                          { includeApplication: true },
+                        )
+                      }
+                    >
+                      View my home
+                    </Button>
+                  </View>
+
+                  <View style={styles.summaryGrid}>
+                    <SummaryCard
+                      label="Monthly rent"
+                      value={formatCurrency(rent)}
+                      helper="Your recorded monthly rent"
+                      icon="cash-multiple"
+                    />
+                    <SummaryCard
+                      label="Deposit"
+                      value={
+                        deposit > 0
+                          ? formatCurrency(deposit)
+                          : "Not recorded"
+                      }
+                      helper="Deposit held for this tenancy"
+                      icon="shield-home-outline"
+                    />
+                    <SummaryCard
+                      label="Tenancy status"
+                      value="Active"
+                      helper={`Since ${formatDate(activeTenancy.startedAt)}`}
+                      icon="home-outline"
+                    />
+                    <SummaryCard
+                      label="Council tax band"
+                      value={property.councilTaxBand || "Not recorded"}
+                      helper="Property council tax information"
+                      icon="bank-outline"
+                      compact
                     />
                   </View>
 
                   <View
-                    style={
-                      styles.nextStepContent
-                    }
+                    style={[
+                      styles.contentGrid,
+                      !isDesktop && styles.contentGridStacked,
+                    ]}
                   >
-                    <Text
-                      style={
-                        styles.nextStepLabel
-                      }
-                    >
-                      YOUR NEXT STEP
-                    </Text>
+                    <View style={styles.mainColumn}>
+                      <SectionHeading
+                        title="Your tenancy"
+                        subtitle="Key information for the property you have been approved to occupy."
+                      />
 
-                    <Text
-                      style={
-                        styles.nextStepTitle
-                      }
-                    >
-                      {nextStep.title}
-                    </Text>
+                      <View style={styles.tenancyCard}>
+                        <DetailRow
+                          label="Property"
+                          value={propertyAddress}
+                          icon="map-marker-outline"
+                        />
+                        <DetailRow
+                          label="Property type"
+                          value={prettyEnum(property.propertyType)}
+                          icon="home-outline"
+                        />
+                        <DetailRow
+                          label="Furnishing"
+                          value={prettyEnum(property.furnishingStatus || "NOT_RECORDED")}
+                          icon="sofa-outline"
+                        />
+                        <DetailRow
+                          label="Application reference"
+                          value={activeTenancy.applicationId}
+                          icon="file-check-outline"
+                        />
+                        <DetailRow
+                          label="Tenancy started"
+                          value={formatDate(activeTenancy.startedAt)}
+                          icon="calendar-check-outline"
+                          last
+                        />
+                      </View>
 
-                    <Text
-                      style={
-                        styles.nextStepDescription
-                      }
-                    >
-                      {nextStep.description}
-                    </Text>
+                      <SectionHeading
+                        title="Property features"
+                        subtitle="Features recorded against your approved home."
+                      />
+
+                      <View style={styles.featureCard}>
+                        <FeaturePill
+                          icon="bed-outline"
+                          text={`${property.bedrooms} bedrooms`}
+                        />
+                        <FeaturePill
+                          icon="shower"
+                          text={`${property.bathrooms} bathrooms`}
+                        />
+                        {property.receptionRooms > 0 ? (
+                          <FeaturePill
+                            icon="sofa-outline"
+                            text={`${property.receptionRooms} reception room${property.receptionRooms === 1 ? "" : "s"}`}
+                          />
+                        ) : null}
+                        {property.hasParking ? (
+                          <FeaturePill
+                            icon="car-outline"
+                            text="Parking"
+                          />
+                        ) : null}
+                        {property.hasGarden ? (
+                          <FeaturePill
+                            icon="flower-outline"
+                            text="Garden"
+                          />
+                        ) : null}
+                        {property.hasLift ? (
+                          <FeaturePill
+                            icon="elevator"
+                            text="Lift"
+                          />
+                        ) : null}
+                        {property.hasWheelchairAccess ? (
+                          <FeaturePill
+                            icon="wheelchair-accessibility"
+                            text="Wheelchair access"
+                          />
+                        ) : null}
+                        {property.petsAllowed ? (
+                          <FeaturePill
+                            icon="paw-outline"
+                            text="Pets allowed"
+                          />
+                        ) : null}
+                        {!property.smokingAllowed ? (
+                          <FeaturePill
+                            icon="smoking-off"
+                            text="No smoking"
+                          />
+                        ) : null}
+                      </View>
+                    </View>
+
+                    <View style={styles.sideColumn}>
+                      <SectionHeading
+                        title="Quick actions"
+                        subtitle="Only actions related to this tenancy are shown."
+                      />
+
+                      <View style={styles.quickActionsCard}>
+                        <QuickAction
+                          icon="tools"
+                          title="Report maintenance"
+                          description="Report a repair and choose suitable appointment times."
+                          onPress={() =>
+                            openScopedRoute(
+                              "/tenant/maintenance" as Href,
+                            )
+                          }
+                        />
+                        <QuickAction
+                          icon="credit-card-outline"
+                          title="Payments"
+                          description="View rent, deposit and payment information."
+                          onPress={() =>
+                            openScopedRoute(
+                              "/tenant/payments" as Href,
+                            )
+                          }
+                        />
+                        <QuickAction
+                          icon="file-document-multiple-outline"
+                          title="Tenancy documents"
+                          description="Open your signed agreement and property documents."
+                          onPress={() =>
+                            openScopedRoute(
+                              "/tenant/documents" as Href,
+                              { includeApplication: true },
+                            )
+                          }
+                        />
+                        <QuickAction
+                          icon="message-text-outline"
+                          title="Messages"
+                          description="Contact the people involved in managing your tenancy."
+                          onPress={() =>
+                            router.push(
+                              "/tenant/messages" as Href,
+                            )
+                          }
+                          last
+                        />
+                      </View>
+                    </View>
                   </View>
 
-                  <Button
-                    mode="contained"
-                    compact
-                    onPress={handleNextStep}
+                  <View
+                    style={[
+                      styles.supportGrid,
+                      !isTablet && styles.supportGridStacked,
+                    ]}
                   >
-                    Continue
-                  </Button>
-                </View>
-              ) : null}
-            </View>
-          </View>
+                    <View style={styles.supportCard}>
+                      <View style={styles.supportIcon}>
+                        <MaterialCommunityIcons
+                          name="tools"
+                          size={28}
+                          color={colors.primary}
+                        />
+                      </View>
+                      <View style={styles.supportContent}>
+                        <Text style={styles.supportTitle}>
+                          Something needs fixing?
+                        </Text>
+                        <Text style={styles.supportText}>
+                          Create a maintenance request for this property. You can describe the issue, add photos and provide suitable visit times.
+                        </Text>
+                      </View>
+                      <Button
+                        mode="contained"
+                        icon="plus"
+                        onPress={() =>
+                          openScopedRoute(
+                            "/tenant/maintenance" as Href,
+                          )
+                        }
+                      >
+                        New request
+                      </Button>
+                    </View>
 
-          <View style={styles.sideColumn}>
-            <SectionHeader
-              title="Quick actions"
-              subtitle="Services currently available to you."
-            />
-
-            <View style={styles.quickActions}>
-              {visibleActions
-                .slice(0, 5)
-                .map((action) => (
-                  <QuickAction
-                    key={action.route}
-                    action={action}
-                  />
-                ))}
-            </View>
-          </View>
-        </View>
-
-        {showApplicationSection &&
-        currentApplication ? (
-          <>
-            <SectionHeader
-              title="Current application"
-              subtitle="Track the latest progress of your property application."
-              actionLabel="View applications"
-              onAction={() =>
-                router.push(
-                  "/tenant/applications" as never,
-                )
-              }
-            />
-
-            <View
-              style={styles.applicationCard}
-            >
-              <View
-                style={
-                  styles.applicationIcon
-                }
-              >
-                <MaterialCommunityIcons
-                  name="clipboard-text-outline"
-                  size={31}
-                  color={colors.primary}
-                />
-              </View>
-
-              <View
-                style={
-                  styles.applicationContent
-                }
-              >
-                <View
-                  style={
-                    styles.applicationHeader
-                  }
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={
-                        styles.applicationTitle
-                      }
-                    >
-                      {
-                        currentApplication.propertyTitle
-                      }
-                    </Text>
-
-                    <Text
-                      style={
-                        styles.applicationAddress
-                      }
-                    >
-                      {
-                        currentApplication.propertyAddress
-                      }
-                    </Text>
+                    <View style={styles.supportCard}>
+                      <View style={styles.supportIcon}>
+                        <MaterialCommunityIcons
+                          name="file-sign"
+                          size={28}
+                          color={colors.primary}
+                        />
+                      </View>
+                      <View style={styles.supportContent}>
+                        <Text style={styles.supportTitle}>
+                          Your signed agreement
+                        </Text>
+                        <Text style={styles.supportText}>
+                          The agreement you signed during onboarding stays linked to this approved tenancy and can be viewed at any time.
+                        </Text>
+                      </View>
+                      <Button
+                        mode="outlined"
+                        icon="file-eye-outline"
+                        onPress={() =>
+                          openScopedRoute(
+                            "/tenant/agreement" as Href,
+                            { includeApplication: true },
+                          )
+                        }
+                      >
+                        View agreement
+                      </Button>
+                    </View>
                   </View>
-
-                  <ApplicationBadge
-                    status={
-                      currentApplication.status
-                    }
-                  />
-                </View>
-
-                <Divider
-                  style={styles.divider}
-                />
-
-                <View
-                  style={
-                    styles.applicationDetails
-                  }
-                >
-                  <ApplicationDetail
-                    label="Application ID"
-                    value={
-                      currentApplication.id
-                    }
-                  />
-
-                  <ApplicationDetail
-                    label="Submitted"
-                    value={
-                      currentApplication.submittedDate
-                    }
-                  />
-
-                  <ApplicationDetail
-                    label="Current status"
-                    value={
-                      currentApplication.status
-                    }
-                  />
-                </View>
-
-                <View
-                  style={
-                    styles.applicationActions
-                  }
-                >
-                  <Button
-                    mode="outlined"
-                    icon="file-document-multiple-outline"
-                    onPress={() =>
-                      router.push({
-                        pathname:
-                          "/tenant/documents" as never,
-                        params: {
-                          applicationId:
-                            currentApplication.id,
-                          propertyId:
-                            currentApplication.propertyId,
-                        },
-                      })
-                    }
-                  >
-                    Documents
-                  </Button>
-
-                  <Button
-                    mode="contained"
-                    icon="clipboard-text-outline"
-                    onPress={() =>
-                      router.push(
-                        "/tenant/applications" as never,
-                      )
-                    }
-                  >
-                    View application
-                  </Button>
-                </View>
-              </View>
-            </View>
-          </>
-        ) : null}
-
-        {showPropertySuggestions ? (
-          <>
-            <SectionHeader
-              title="Suggested properties"
-              subtitle="Properties matched using your saved preferences."
-              actionLabel="View all"
-              onAction={() =>
-                router.push(
-                  "/tenant/properties" as never,
-                )
-              }
-            />
-
-            <View
-              style={[
-                styles.propertyGrid,
-                isDesktop
-                  ? styles.threeColumns
-                  : isTablet
-                    ? styles.twoColumns
-                    : styles.oneColumn,
-              ]}
-            >
-              {suggestedProperties.map(
-                (property) => (
-                  <PropertyCard
-                    key={property.id}
-                    property={property}
-                  />
-                ),
+                </>
               )}
             </View>
-          </>
-        ) : null}
-
-        {showActiveTenancy ? (
-          <View
-            style={styles.activeTenancyCard}
-          >
-            <View
-              style={
-                styles.activeTenancyIcon
-              }
-            >
-              <MaterialCommunityIcons
-                name="home-outline"
-                size={35}
-                color={colors.success}
-              />
-            </View>
-
-            <View
-              style={
-                styles.activeTenancyContent
-              }
-            >
-              <Text
-                style={
-                  styles.activeTenancyLabel
-                }
-              >
-                ACTIVE TENANCY
-              </Text>
-
-              <Text
-                style={
-                  styles.activeTenancyTitle
-                }
-              >
-                Your property management
-                services are ready
-              </Text>
-
-              <Text
-                style={
-                  styles.activeTenancyDescription
-                }
-              >
-                You can now view your property,
-                manage payments and submit
-                maintenance requests.
-              </Text>
-            </View>
-
-            <Button
-              mode="contained"
-              icon="home-account"
-              onPress={() =>
-                router.push({
-                  pathname:
-                    "/tenant/my-property" as never,
-                  params: {
-                    propertyId:
-                      currentApplication
-                        ?.propertyId ??
-                      "PROP-001",
-                    applicationId:
-                      currentApplication?.id ??
-                      "",
-                  },
-                })
-              }
-            >
-              Open My Property
-            </Button>
-          </View>
-        ) : null}
-
-        <SectionHeader
-          title="Available services"
-          subtitle="Only services relevant to your current stage are displayed."
-        />
-
-        <View
-          style={[
-            styles.serviceGrid,
-            isDesktop
-              ? styles.threeColumns
-              : isTablet
-                ? styles.twoColumns
-                : styles.oneColumn,
-          ]}
-        >
-          {visibleActions.map((action) => (
-            <ServiceCard
-              key={action.route}
-              action={action}
-            />
-          ))}
-        </View>
-
-        <View style={styles.languageCard}>
-          <View style={styles.languageIcon}>
-            <MaterialCommunityIcons
-              name="translate"
-              size={30}
-              color={colors.primary}
-            />
-          </View>
-
-          <View style={styles.languageContent}>
-            <Text
-              style={styles.languageTitle}
-            >
-              Language and accessibility
-            </Text>
-
-            <Text
-              style={
-                styles.languageDescription
-              }
-            >
-              Your selected additional language
-              is{" "}
-              <Text
-                style={styles.languageStrong}
-              >
-                {
-                  tenantProfile.preferredLanguage
-                }
-              </Text>
-              . You can update language and
-              accessibility settings from your
-              account.
-            </Text>
-          </View>
-
-          <Button
-            mode="outlined"
-            icon="cog-outline"
-            onPress={() =>
-              router.push(
-                "/tenant/settings" as never,
-              )
-            }
-          >
-            Manage
-          </Button>
+          </ScrollView>
         </View>
       </View>
-    </ScreenContainer>
+    </SafeAreaView>
   );
 }
 
-function getTenantStage(): TenantStage {
-  if (tenantProfile.tenancyActive) {
-    return "active-tenancy";
-  }
-
-  if (tenantProfile.agreementSigned) {
-    return "agreement-signed";
-  }
-
-  if (
-    tenantProfile.applicationApproved ||
-    tenantProfile.agreementAvailable
-  ) {
-    return "application-approved";
-  }
-
-  if (tenantProfile.applicationSubmitted) {
-    return "application-submitted";
-  }
-
-  return "searching";
-}
-
-function getStageInformation(
-  stage: TenantStage,
-): {
-  title: string;
-  description: string;
-  label: string;
-  icon: IconName;
-} {
-  switch (stage) {
-    case "application-submitted":
-      return {
-        title:
-          "Your application is being reviewed",
-        description:
-          "Track your application and respond if the estate agent asks for more information or documents.",
-        label: "Application under review",
-        icon: "file-search-outline",
-      };
-
-    case "application-approved":
-      return {
-        title:
-          "Your application has been approved",
-        description:
-          "Review the tenancy agreement carefully and add your electronic signature.",
-        label: "Ready for agreement",
-        icon: "file-sign",
-      };
-
-    case "agreement-signed":
-      return {
-        title:
-          "Your agreement has been signed",
-        description:
-          "The tenancy is being prepared. You will receive confirmation when your property services become active.",
-        label: "Agreement completed",
-        icon: "file-check-outline",
-      };
-
-    case "active-tenancy":
-      return {
-        title:
-          "Manage your home and tenancy",
-        description:
-          "Access rent payments, maintenance, tenancy documents and property support.",
-        label: "Active tenancy",
-        icon: "home-outline",
-      };
-
-    default:
-      return {
-        title:
-          "Find and apply for your next home",
-        description:
-          "Complete your preferences to receive suitable property recommendations.",
-        label: "Property search",
-        icon: "home-search-outline",
-      };
-  }
-}
-
-function getNextStep(
-  stage: TenantStage,
-  application: TenantApplication | null,
-): {
-  title: string;
-  description: string;
-  buttonLabel: string;
-  icon: IconName;
-  route: DashboardRoute;
-  params?: Record<string, string>;
-} | null {
-  if (
-    !tenantProfile.preferencesCompleted
-  ) {
-    return {
-      title:
-        "Complete your property preferences",
-      description:
-        "Tell us your budget, location and household requirements.",
-      buttonLabel: "Preferences",
-      icon: "tune-variant",
-      route: "/tenant/preferences",
-    };
-  }
-
-  if (
-    !tenantProfile.identificationUploaded ||
-    !tenantProfile.rightToRentVerified
-  ) {
-    return {
-      title:
-        "Complete your supporting documents",
-      description:
-        "Upload identity and Right to Rent evidence.",
-      buttonLabel: "Upload documents",
-      icon: "file-upload-outline",
-      route: "/tenant/documents",
-      params: {
-        applicationId:
-          application?.id ?? "",
-        propertyId:
-          application?.propertyId ?? "",
-      },
-    };
-  }
-
-  if (stage === "searching") {
-    return {
-      title: "Choose a suitable property",
-      description:
-        "View properties matched to your preferences.",
-      buttonLabel: "View properties",
-      icon: "home-search-outline",
-      route: "/tenant/properties",
-    };
-  }
-
-  if (
-    stage === "application-submitted"
-  ) {
-    return {
-      title:
-        "Track your property application",
-      description:
-        "Your application is currently being reviewed.",
-      buttonLabel: "View application",
-      icon: "clipboard-text-outline",
-      route: "/tenant/applications",
-    };
-  }
-
-  if (
-    stage === "application-approved"
-  ) {
-    return {
-      title:
-        "Review and sign your agreement",
-      description:
-        "Read the tenancy terms and provide your electronic signature.",
-      buttonLabel: "Open agreement",
-      icon: "file-sign",
-      route: "/tenant/agreement",
-      params: {
-        applicationId:
-          application?.id ?? "",
-        propertyId:
-          application?.propertyId ??
-          "PROP-001",
-      },
-    };
-  }
-
-  if (stage === "agreement-signed") {
-    return {
-      title:
-        "Wait for tenancy activation",
-      description:
-        "Your signed agreement is being finalised by the landlord or agent.",
-      buttonLabel: "View agreement",
-      icon: "file-check-outline",
-      route: "/tenant/agreement",
-      params: {
-        applicationId:
-          application?.id ?? "",
-        propertyId:
-          application?.propertyId ??
-          "PROP-001",
-      },
-    };
-  }
-
-  if (stage === "active-tenancy") {
-    return {
-      title: "Manage your property",
-      description:
-        "Access payments, maintenance and tenancy information.",
-      buttonLabel: "My Property",
-      icon: "home-account",
-      route: "/tenant/my-property",
-      params: {
-        applicationId:
-          application?.id ?? "",
-        propertyId:
-          application?.propertyId ??
-          "PROP-001",
-      },
-    };
-  }
-
-  return null;
-}
-
-function getDashboardActions(
-  stage: TenantStage,
-  application: TenantApplication | null,
-): DashboardAction[] {
-  const active =
-    stage === "active-tenancy";
-
-  const approved =
-    stage === "application-approved" ||
-    stage === "agreement-signed" ||
-    active;
-
-  return [
-    {
-      title: "Property preferences",
-      description:
-        "Update your budget, location and household requirements.",
-      icon: "tune-variant",
-      route: "/tenant/preferences",
-      visible: !active,
-    },
-    {
-      title: "Property suggestions",
-      description:
-        "View properties matched to your saved preferences.",
-      icon: "home-search-outline",
-      route: "/tenant/properties",
-      visible:
-        stage === "searching" ||
-        stage ===
-          "application-submitted",
-    },
-    {
-      title: "Applications",
-      description:
-        "Track submitted applications and their review status.",
-      icon: "clipboard-text-outline",
-      route: "/tenant/applications",
-      visible:
-        tenantProfile.applicationSubmitted,
-    },
-    {
-      title: "Documents",
-      description:
-        "View and upload application documents.",
-      icon: "file-document-multiple-outline",
-      route: "/tenant/documents",
-      visible: !active,
-    },
-    {
-      title: "Agreement",
-      description:
-        "Review your tenancy agreement and signature status.",
-      icon: "file-sign",
-      route: "/tenant/agreement",
-      visible: approved,
-    },
-    {
-      title: "My Property",
-      description:
-        "View your active tenancy and property details.",
-      icon: "home-account",
-      route: "/tenant/my-property",
-      visible: active,
-    },
-    {
-      title: "Maintenance",
-      description:
-        "Report and track property maintenance issues.",
-      icon: "tools",
-      route: "/tenant/maintenance",
-      visible: active,
-    },
-    {
-      title: "Payments",
-      description:
-        "View rent, deposit and payment history.",
-      icon: "cash-multiple",
-      route: "/tenant/payments",
-      visible: active,
-    },
-    {
-      title: "Messages",
-      description:
-        "Contact the estate agent, landlord or support team.",
-      icon: "message-text-outline",
-      route: "/tenant/messages",
-      visible: true,
-    },
-    {
-      title: "Settings",
-      description:
-        "Manage your account, notifications and language.",
-      icon: "cog-outline",
-      route: "/tenant/settings",
-      visible: true,
-    },
-  ];
-}
-
-function calculateJourneyProgress() {
-  const steps = [
-    tenantProfile.personalInformationCompleted,
-    tenantProfile.identificationUploaded,
-    tenantProfile.preferencesCompleted,
-    tenantProfile.rightToRentVerified,
-    tenantProfile.applicationSubmitted,
-    tenantProfile.applicationApproved,
-    tenantProfile.agreementSigned,
-    tenantProfile.tenancyActive,
-  ];
-
-  const completed =
-    steps.filter(Boolean).length;
-
-  return Math.round(
-    (completed / steps.length) * 100,
-  );
-}
-
-function getShortStageLabel(
-  stage: TenantStage,
-) {
-  switch (stage) {
-    case "application-submitted":
-      return "Under review";
-
-    case "application-approved":
-      return "Approved";
-
-    case "agreement-signed":
-      return "Signed";
-
-    case "active-tenancy":
-      return "Active";
-
-    default:
-      return "Searching";
-  }
-}
-
-function StatisticCard({
-  title,
-  value,
-  helper,
-  icon,
-  compactValue = false,
+function TenantSidebar({
+  activeTenancy,
+  displayName,
+  initials,
+  propertyAddress,
+  onNavigate,
+  onSignOut,
 }: {
-  title: string;
-  value: string;
-  helper: string;
-  icon: IconName;
-  compactValue?: boolean;
+  activeTenancy: ActiveTenancy | null;
+  displayName: string;
+  initials: string;
+  propertyAddress: string;
+  onNavigate: (item: NavigationItem) => void;
+  onSignOut: () => void;
 }) {
   return (
-    <View style={styles.statisticCard}>
-      <View style={styles.statisticIcon}>
+    <View style={styles.sidebar}>
+      <View style={styles.sidebarBrand}>
+        <TenureExLogo compact />
+      </View>
+
+      <View style={styles.sidebarHomeCard}>
+        <View style={styles.sidebarHomeIcon}>
+          <MaterialCommunityIcons
+            name="home-account"
+            size={21}
+            color={colors.white}
+          />
+        </View>
+        <View style={styles.sidebarHomeText}>
+          <Text style={styles.sidebarHomeLabel}>
+            CURRENT HOME
+          </Text>
+          <Text
+            style={styles.sidebarHomeAddress}
+            numberOfLines={2}
+          >
+            {activeTenancy
+              ? propertyAddress
+              : "No active tenancy"}
+          </Text>
+        </View>
+      </View>
+
+      <Text style={styles.sidebarSectionLabel}>
+        TENANT WORKSPACE
+      </Text>
+
+      <TenantNavigation
+        activeTenancy={activeTenancy}
+        onNavigate={onNavigate}
+      />
+
+      <View style={styles.sidebarBottom}>
+        <View style={styles.sidebarUser}>
+          <Avatar.Text
+            size={40}
+            label={initials}
+            style={styles.sidebarAvatar}
+            labelStyle={styles.sidebarAvatarLabel}
+          />
+          <View style={styles.sidebarUserText}>
+            <Text
+              style={styles.sidebarUserName}
+              numberOfLines={1}
+            >
+              {displayName}
+            </Text>
+            <Text style={styles.sidebarUserRole}>
+              Tenant
+            </Text>
+          </View>
+        </View>
+
+        <Pressable
+          style={styles.signOutButton}
+          onPress={onSignOut}
+        >
+          <MaterialCommunityIcons
+            name="logout"
+            size={19}
+            color={colors.white}
+          />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function TenantNavigation({
+  activeTenancy,
+  onNavigate,
+  mobile = false,
+}: {
+  activeTenancy: ActiveTenancy | null;
+  onNavigate: (item: NavigationItem) => void;
+  mobile?: boolean;
+}) {
+  return (
+    <View style={mobile ? styles.mobileNavigation : styles.navigation}>
+      {navigationItems.map((item) => {
+        const requiresTenancy =
+          item.propertyScoped || item.applicationScoped;
+        const disabled = requiresTenancy && !activeTenancy;
+        const active = item.label === "Dashboard";
+
+        return (
+          <Pressable
+            key={item.label}
+            disabled={disabled}
+            onPress={() => onNavigate(item)}
+            style={[
+              styles.navigationItem,
+              active && styles.navigationItemActive,
+              mobile && styles.mobileNavigationItem,
+              disabled && styles.navigationItemDisabled,
+            ]}
+          >
+            <MaterialCommunityIcons
+              name={item.icon}
+              size={20}
+              color={
+                mobile
+                  ? active
+                    ? colors.primary
+                    : colors.textSecondary
+                  : active
+                    ? colors.white
+                    : "rgba(255,255,255,0.72)"
+              }
+            />
+            <Text
+              style={[
+                styles.navigationText,
+                active && styles.navigationTextActive,
+                mobile && styles.mobileNavigationText,
+                disabled && styles.navigationTextDisabled,
+              ]}
+            >
+              {item.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function LoadingState() {
+  return (
+    <View style={styles.stateCard}>
+      <ActivityIndicator
+        size="large"
+        color={colors.primary}
+      />
+      <Text style={styles.stateTitle}>
+        Loading your tenancy
+      </Text>
+      <Text style={styles.stateText}>
+        We are loading the property approved for your tenant account.
+      </Text>
+    </View>
+  );
+}
+
+function NoActiveTenancyState({
+  firstName,
+  error,
+  onSignOut,
+}: {
+  firstName: string;
+  error: string;
+  onSignOut: () => void;
+}) {
+  return (
+    <View style={styles.stateCard}>
+      <View style={styles.stateIcon}>
         <MaterialCommunityIcons
-          name={icon}
-          size={26}
+          name="home-clock-outline"
+          size={42}
           color={colors.primary}
         />
       </View>
-
-      <View style={styles.statisticContent}>
-        <Text
-          style={styles.statisticTitle}
-        >
-          {title}
+      <Text style={styles.stateTitle}>
+        No active tenancy found for {firstName}
+      </Text>
+      <Text style={styles.stateText}>
+        The tenant dashboard is only enabled after the Estate Agent approves your property-specific application. No other properties or property suggestions are shown here.
+      </Text>
+      {error ? (
+        <Text style={styles.stateError}>
+          {error}
         </Text>
+      ) : null}
+      <Button
+        mode="outlined"
+        icon="logout"
+        onPress={onSignOut}
+      >
+        Back to tenant sign in
+      </Button>
+    </View>
+  );
+}
 
+function SummaryCard({
+  label,
+  value,
+  helper,
+  icon,
+  compact = false,
+}: {
+  label: string;
+  value: string;
+  helper: string;
+  icon: IconName;
+  compact?: boolean;
+}) {
+  return (
+    <View style={styles.summaryCard}>
+      <View style={styles.summaryIcon}>
+        <MaterialCommunityIcons
+          name={icon}
+          size={25}
+          color={colors.primary}
+        />
+      </View>
+      <View style={styles.summaryText}>
+        <Text style={styles.summaryLabel}>{label}</Text>
         <Text
           style={[
-            styles.statisticValue,
-            compactValue &&
-              styles.statisticValueCompact,
+            styles.summaryValue,
+            compact && styles.summaryValueCompact,
           ]}
+          numberOfLines={2}
         >
           {value}
         </Text>
-
-        <Text
-          style={styles.statisticHelper}
-        >
+        <Text style={styles.summaryHelper}>
           {helper}
         </Text>
       </View>
@@ -1343,263 +1055,7 @@ function StatisticCard({
   );
 }
 
-function SectionHeader({
-  title,
-  subtitle,
-  actionLabel,
-  onAction,
-}: {
-  title: string;
-  subtitle: string;
-  actionLabel?: string;
-  onAction?: () => void;
-}) {
-  return (
-    <View style={styles.sectionHeader}>
-      <View
-        style={styles.sectionHeaderText}
-      >
-        <Text style={styles.sectionTitle}>
-          {title}
-        </Text>
-
-        <Text
-          style={styles.sectionSubtitle}
-        >
-          {subtitle}
-        </Text>
-      </View>
-
-      {actionLabel && onAction ? (
-        <Button
-          mode="text"
-          compact
-          icon="arrow-right"
-          contentStyle={
-            styles.actionButtonContent
-          }
-          onPress={onAction}
-        >
-          {actionLabel}
-        </Button>
-      ) : null}
-    </View>
-  );
-}
-
-function ChecklistItem({
-  title,
-  complete,
-}: {
-  title: string;
-  complete: boolean;
-}) {
-  return (
-    <View style={styles.checklistItem}>
-      <MaterialCommunityIcons
-        name={
-          complete
-            ? "check-circle"
-            : "circle-outline"
-        }
-        size={21}
-        color={
-          complete
-            ? colors.success
-            : colors.textMuted
-        }
-      />
-
-      <Text
-        style={[
-          styles.checklistText,
-          complete &&
-            styles.checklistCompleteText,
-        ]}
-      >
-        {title}
-      </Text>
-
-      <Text
-        style={[
-          styles.checklistStatus,
-          complete &&
-            styles.checklistStatusComplete,
-        ]}
-      >
-        {complete ? "Complete" : "Required"}
-      </Text>
-    </View>
-  );
-}
-
-function QuickAction({
-  action,
-}: {
-  action: DashboardAction;
-}) {
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.quickAction,
-        pressed && styles.pressed,
-      ]}
-      onPress={() =>
-        router.push(
-          action.route as never,
-        )
-      }
-    >
-      <View
-        style={styles.quickActionIcon}
-      >
-        <MaterialCommunityIcons
-          name={action.icon}
-          size={24}
-          color={colors.primary}
-        />
-      </View>
-
-      <View
-        style={styles.quickActionContent}
-      >
-        <Text
-          style={styles.quickActionTitle}
-        >
-          {action.title}
-        </Text>
-
-        <Text
-          style={
-            styles.quickActionDescription
-          }
-          numberOfLines={2}
-        >
-          {action.description}
-        </Text>
-      </View>
-
-      <MaterialCommunityIcons
-        name="chevron-right"
-        size={21}
-        color={colors.textMuted}
-      />
-    </Pressable>
-  );
-}
-
-function PropertyCard({
-  property,
-}: {
-  property: SuggestedProperty;
-}) {
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.propertyCard,
-        pressed && styles.pressed,
-      ]}
-      onPress={() =>
-        router.push({
-          pathname:
-            "/tenant/property-details" as never,
-          params: {
-            propertyId: property.id,
-          },
-        })
-      }
-    >
-      <View style={styles.propertyImage}>
-        <MaterialCommunityIcons
-          name="home-city-outline"
-          size={58}
-          color={colors.primary}
-        />
-
-        <View style={styles.matchBadge}>
-          <Text
-            style={styles.matchBadgeText}
-          >
-            {property.matchScore}% match
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.propertyContent}>
-        <Text
-          style={styles.propertyTitle}
-          numberOfLines={2}
-        >
-          {property.title}
-        </Text>
-
-        <View style={styles.locationRow}>
-          <MaterialCommunityIcons
-            name="map-marker-outline"
-            size={16}
-            color={colors.textMuted}
-          />
-
-          <Text
-            style={styles.propertyAddress}
-            numberOfLines={2}
-          >
-            {property.address}
-          </Text>
-        </View>
-
-        <View style={styles.propertyFacts}>
-          <PropertyFact
-            icon="bed-outline"
-            text={`${property.bedrooms} bedroom(s)`}
-          />
-
-          <PropertyFact
-            icon="shower"
-            text={`${property.bathrooms} bathroom(s)`}
-          />
-
-          <PropertyFact
-            icon="home-outline"
-            text={property.propertyType}
-          />
-        </View>
-
-        <View style={styles.propertyFooter}>
-          <View>
-            <Text style={styles.rentLabel}>
-              Monthly rent
-            </Text>
-
-            <Text style={styles.rentValue}>
-              {formatCurrency(
-                property.monthlyRent,
-              )}
-            </Text>
-          </View>
-
-          <Button
-            mode="contained"
-            compact
-            onPress={() =>
-              router.push({
-                pathname:
-                  "/tenant/property-details" as never,
-                params: {
-                  propertyId: property.id,
-                },
-              })
-            }
-          >
-            View
-          </Button>
-        </View>
-      </View>
-    </Pressable>
-  );
-}
-
-function PropertyFact({
+function HeroFact({
   icon,
   text,
 }: {
@@ -1607,127 +1063,135 @@ function PropertyFact({
   text: string;
 }) {
   return (
-    <View style={styles.propertyFact}>
+    <View style={styles.heroFact}>
       <MaterialCommunityIcons
         name={icon}
         size={16}
-        color={colors.primary}
+        color={colors.white}
       />
+      <Text style={styles.heroFactText}>{text}</Text>
+    </View>
+  );
+}
 
-      <Text
-        style={styles.propertyFactText}
-      >
-        {text}
+function SectionHeading({
+  title,
+  subtitle,
+}: {
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <View style={styles.sectionHeading}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <Text style={styles.sectionSubtitle}>
+        {subtitle}
       </Text>
     </View>
   );
 }
 
-function ApplicationDetail({
+function DetailRow({
   label,
   value,
+  icon,
+  last = false,
 }: {
   label: string;
   value: string;
+  icon: IconName;
+  last?: boolean;
 }) {
-  return (
-    <View
-      style={styles.applicationDetail}
-    >
-      <Text
-        style={styles.applicationDetailLabel}
-      >
-        {label}
-      </Text>
-
-      <Text
-        style={styles.applicationDetailValue}
-      >
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-function ApplicationBadge({
-  status,
-}: {
-  status: ApplicationStatus;
-}) {
-  const success = status === "Approved";
-  const error = status === "Rejected";
-
   return (
     <View
       style={[
-        styles.statusBadge,
-        success
-          ? styles.successBadge
-          : error
-            ? styles.errorBadge
-            : styles.warningBadge,
+        styles.detailRow,
+        last && styles.detailRowLast,
       ]}
     >
-      <Text
-        style={[
-          styles.statusBadgeText,
-          success
-            ? styles.successBadgeText
-            : error
-              ? styles.errorBadgeText
-              : styles.warningBadgeText,
-        ]}
-      >
-        {status}
-      </Text>
+      <View style={styles.detailIcon}>
+        <MaterialCommunityIcons
+          name={icon}
+          size={20}
+          color={colors.primary}
+        />
+      </View>
+      <View style={styles.detailContent}>
+        <Text style={styles.detailLabel}>{label}</Text>
+        <Text style={styles.detailValue}>{value}</Text>
+      </View>
     </View>
   );
 }
 
-function ServiceCard({
-  action,
+function FeaturePill({
+  icon,
+  text,
 }: {
-  action: DashboardAction;
+  icon: IconName;
+  text: string;
+}) {
+  return (
+    <View style={styles.featurePill}>
+      <MaterialCommunityIcons
+        name={icon}
+        size={17}
+        color={colors.primary}
+      />
+      <Text style={styles.featureText}>{text}</Text>
+    </View>
+  );
+}
+
+function QuickAction({
+  icon,
+  title,
+  description,
+  onPress,
+  last = false,
+}: {
+  icon: IconName;
+  title: string;
+  description: string;
+  onPress: () => void;
+  last?: boolean;
 }) {
   return (
     <Pressable
+      onPress={onPress}
       style={({ pressed }) => [
-        styles.serviceCard,
+        styles.quickAction,
+        last && styles.quickActionLast,
         pressed && styles.pressed,
       ]}
-      onPress={() =>
-        router.push(
-          action.route as never,
-        )
-      }
     >
-      <View style={styles.serviceIcon}>
+      <View style={styles.quickActionIcon}>
         <MaterialCommunityIcons
-          name={action.icon}
-          size={28}
+          name={icon}
+          size={23}
           color={colors.primary}
         />
       </View>
-
-      <View style={styles.serviceContent}>
-        <Text style={styles.serviceTitle}>
-          {action.title}
+      <View style={styles.quickActionContent}>
+        <Text style={styles.quickActionTitle}>
+          {title}
         </Text>
-
-        <Text
-          style={styles.serviceDescription}
-        >
-          {action.description}
+        <Text style={styles.quickActionDescription}>
+          {description}
         </Text>
       </View>
-
       <MaterialCommunityIcons
-        name="arrow-right"
-        size={21}
-        color={colors.primary}
+        name="chevron-right"
+        size={22}
+        color={colors.textMuted}
       />
     </Pressable>
   );
+}
+
+function numberValue(value: string | number | null | undefined) {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function formatCurrency(value: number) {
@@ -1738,230 +1202,411 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
+function formatDate(value: string | null | undefined) {
+  if (!value) {
+    return "Not recorded";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Not recorded";
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
+function prettyEnum(value: string) {
+  if (!value || value === "NOT_RECORDED") {
+    return "Not recorded";
+  }
+
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((part) =>
+      part.charAt(0).toUpperCase() + part.slice(1),
+    )
+    .join(" ");
+}
+
 const styles = StyleSheet.create({
-  screenContent: {
-    padding: 0,
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
   },
-
-  page: {
-    width: "100%",
-    maxWidth: 1500,
-    alignSelf: "center",
-    gap: spacing.xl,
+  appShell: {
+    flex: 1,
+    flexDirection: "row",
+  },
+  sidebar: {
+    width: 258,
+    minHeight: "100%",
     padding: spacing.lg,
-    paddingBottom: 70,
+    backgroundColor: "#123E4B",
   },
-
+  sidebarBrand: {
+    marginBottom: spacing.xl,
+  },
+  sidebarHomeCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: "rgba(255,255,255,0.10)",
+  },
+  sidebarHomeIcon: {
+    width: 38,
+    height: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  sidebarHomeText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  sidebarHomeLabel: {
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 8,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+  sidebarHomeAddress: {
+    marginTop: 4,
+    color: colors.white,
+    fontSize: 10,
+    lineHeight: 15,
+    fontWeight: "800",
+  },
+  sidebarSectionLabel: {
+    marginTop: spacing.xl,
+    marginBottom: spacing.sm,
+    marginLeft: spacing.sm,
+    color: "rgba(255,255,255,0.42)",
+    fontSize: 8,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+  },
+  navigation: {
+    gap: 5,
+  },
+  mobileNavigation: {
+    gap: 4,
+  },
+  navigationItem: {
+    minHeight: 46,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+  },
+  navigationItemActive: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  navigationItemDisabled: {
+    opacity: 0.42,
+  },
+  navigationText: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  navigationTextActive: {
+    color: colors.white,
+  },
+  navigationTextDisabled: {
+    opacity: 0.7,
+  },
+  mobileNavigationItem: {
+    backgroundColor: colors.white,
+  },
+  mobileNavigationText: {
+    color: colors.textSecondary,
+  },
+  sidebarBottom: {
+    marginTop: "auto",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingTop: spacing.xl,
+  },
+  sidebarUser: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    minWidth: 0,
+  },
+  sidebarAvatar: {
+    backgroundColor: "rgba(255,255,255,0.14)",
+  },
+  sidebarAvatarLabel: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  sidebarUserText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  sidebarUserName: {
+    color: colors.white,
+    fontSize: 10,
+    fontWeight: "900",
+  },
+  sidebarUserRole: {
+    marginTop: 2,
+    color: "rgba(255,255,255,0.52)",
+    fontSize: 8,
+  },
+  signOutButton: {
+    width: 38,
+    height: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  mainArea: {
+    flex: 1,
+    minWidth: 0,
+  },
   topBar: {
-    minHeight: 68,
+    minHeight: 70,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.white,
+  },
+  topBarLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  topBarTitle: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  topBarSubtitle: {
+    marginTop: 2,
+    color: colors.textMuted,
+    fontSize: 8,
+    fontWeight: "700",
+  },
+  topBarActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  headerIconButton: {
+    width: 42,
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 13,
+    backgroundColor: colors.background,
+  },
+  profile: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  avatar: {
+    backgroundColor: colors.primaryLight,
+  },
+  avatarLabel: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  profileName: {
+    color: colors.textPrimary,
+    fontSize: 10,
+    fontWeight: "900",
+  },
+  profileRole: {
+    marginTop: 2,
+    color: colors.textMuted,
+    fontSize: 8,
+  },
+  menuBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 30,
+    backgroundColor: "rgba(14, 35, 43, 0.28)",
+  },
+  mobileMenu: {
+    position: "absolute",
+    zIndex: 40,
+    top: 70,
+    left: spacing.md,
+    width: 270,
+    gap: spacing.sm,
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.xl,
     backgroundColor: colors.white,
   },
-
-  brandArea: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-
-  logo: {
-    width: 47,
-    height: 47,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 15,
-    backgroundColor: colors.primary,
-  },
-
-  brandName: {
-    color: colors.textPrimary,
-    fontSize: 17,
-    fontWeight: "900",
-  },
-
-  brandSubtitle: {
-    marginTop: 2,
-    color: colors.textMuted,
-    fontSize: 9,
-    fontWeight: "700",
-  },
-
-  topBarActions: {
+  mobileSignOut: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
+    padding: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
-
-  notificationButton: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 14,
-    backgroundColor: colors.background,
-  },
-
-  notificationBadge: {
-    position: "absolute",
-    top: 3,
-    right: 3,
-    minWidth: 18,
-    height: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 3,
-    borderRadius: 9,
-    backgroundColor: colors.error,
-  },
-
-  notificationBadgeText: {
-    color: colors.white,
-    fontSize: 8,
+  mobileSignOutText: {
+    color: colors.error,
+    fontSize: 11,
     fontWeight: "900",
   },
-
-  profileButton: {
+  pageContent: {
+    paddingBottom: 70,
+  },
+  pageContainer: {
+    width: "100%",
+    maxWidth: 1450,
+    alignSelf: "center",
+    gap: spacing.xl,
+    padding: spacing.xl,
+  },
+  pageHeader: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
-    gap: spacing.sm,
-    padding: 4,
+    justifyContent: "space-between",
+    gap: spacing.lg,
   },
-
-  profileAvatar: {
-    width: 42,
-    height: 42,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 21,
-    backgroundColor: colors.primaryLight,
+  pageHeading: {
+    flex: 1,
+    minWidth: 280,
   },
-
-  profileAvatarText: {
+  eyebrow: {
     color: colors.primary,
-    fontSize: 12,
+    fontSize: 9,
     fontWeight: "900",
+    letterSpacing: 1.5,
   },
-
-  profileName: {
+  pageTitle: {
+    marginTop: 6,
     color: colors.textPrimary,
-    fontSize: 10,
+    fontSize: 27,
+    fontWeight: "900",
+    lineHeight: 34,
+  },
+  pageSubtitle: {
+    maxWidth: 760,
+    marginTop: 7,
+    color: colors.textMuted,
+    fontSize: 11,
+    lineHeight: 18,
+  },
+  activeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 9,
+    borderRadius: 999,
+    backgroundColor: colors.successLight,
+  },
+  activeBadgeText: {
+    color: colors.success,
+    fontSize: 9,
     fontWeight: "900",
   },
-
-  profileRole: {
-    marginTop: 2,
-    color: colors.textMuted,
-    fontSize: 8,
-  },
-
   hero: {
-    minHeight: 290,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.xl,
-    padding: spacing.xl * 1.5,
-    overflow: "hidden",
+    padding: spacing.xl,
     borderRadius: radius.xl,
     backgroundColor: colors.primary,
   },
-
-  heroMobile: {
-    flexDirection: "column",
+  heroStacked: {
     alignItems: "flex-start",
+    flexDirection: "column",
   },
-
-  heroContent: {
+  heroMain: {
     flex: 1,
-    maxWidth: 760,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.lg,
   },
-
-  heroGreeting: {
-    color: colors.white,
-    fontSize: 13,
-    fontWeight: "700",
-    opacity: 0.9,
+  heroIcon: {
+    width: 68,
+    height: 68,
+    flexShrink: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 21,
+    backgroundColor: "rgba(255,255,255,0.13)",
   },
-
-  heroTitle: {
-    marginTop: spacing.sm,
-    color: colors.white,
-    fontSize: 31,
+  heroText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  heroEyebrow: {
+    color: "rgba(255,255,255,0.68)",
+    fontSize: 8,
     fontWeight: "900",
-    lineHeight: 39,
+    letterSpacing: 1.3,
   },
-
-  heroDescription: {
-    maxWidth: 680,
-    marginTop: spacing.md,
+  heroTitle: {
+    marginTop: 5,
     color: colors.white,
-    fontSize: 12,
-    lineHeight: 20,
-    opacity: 0.9,
+    fontSize: 24,
+    fontWeight: "900",
   },
-
-  heroActions: {
+  heroAddress: {
+    marginTop: 5,
+    color: "rgba(255,255,255,0.82)",
+    fontSize: 11,
+    lineHeight: 18,
+  },
+  heroFacts: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
-    marginTop: spacing.xl,
-  },
-
-  heroOutlineButton: {
-    borderColor: colors.white,
-  },
-
-  heroIllustration: {
-    minWidth: 220,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: spacing.xl,
-    borderRadius: radius.xl,
-    backgroundColor:
-      "rgba(255,255,255,0.12)",
-  },
-
-  heroIllustrationText: {
     marginTop: spacing.md,
-    color: colors.white,
-    fontSize: 11,
-    fontWeight: "900",
-    textAlign: "center",
   },
-
-  statisticsGrid: {
+  heroFact: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.10)",
+  },
+  heroFactText: {
+    color: colors.white,
+    fontSize: 9,
+    fontWeight: "800",
+  },
+  summaryGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.md,
   },
-
-  fourColumns: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-
-  threeColumns: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-
-  twoColumns: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-
-  oneColumn: {
-    flexDirection: "column",
-  },
-
-  statisticCard: {
+  summaryCard: {
     flexGrow: 1,
-    flexBasis: 240,
+    flexBasis: 220,
     minWidth: 210,
     flexDirection: "row",
     alignItems: "center",
@@ -1972,224 +1617,152 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     backgroundColor: colors.white,
   },
-
-  statisticIcon: {
-    width: 53,
-    height: 53,
+  summaryIcon: {
+    width: 50,
+    height: 50,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 17,
+    borderRadius: 16,
     backgroundColor: colors.primaryLight,
   },
-
-  statisticContent: {
+  summaryText: {
     flex: 1,
+    minWidth: 0,
   },
-
-  statisticTitle: {
+  summaryLabel: {
     color: colors.textMuted,
     fontSize: 8,
     fontWeight: "900",
     textTransform: "uppercase",
   },
-
-  statisticValue: {
+  summaryValue: {
     marginTop: 4,
     color: colors.textPrimary,
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "900",
   },
-
-  statisticValueCompact: {
+  summaryValueCompact: {
     fontSize: 15,
   },
-
-  statisticHelper: {
-    marginTop: 3,
+  summaryHelper: {
+    marginTop: 4,
     color: colors.textMuted,
     fontSize: 8,
+    lineHeight: 13,
   },
-
-  mainColumns: {
+  contentGrid: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: spacing.xl,
   },
-
-  mainColumnsStacked: {
+  contentGridStacked: {
     flexDirection: "column",
   },
-
   mainColumn: {
     flex: 2,
     width: "100%",
     minWidth: 0,
+    gap: spacing.md,
   },
-
   sideColumn: {
     flex: 1,
     width: "100%",
     minWidth: 290,
-  },
-
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
     gap: spacing.md,
-    marginBottom: spacing.md,
   },
-
-  sectionHeaderText: {
-    flex: 1,
+  sectionHeading: {
+    marginTop: spacing.sm,
   },
-
   sectionTitle: {
     color: colors.textPrimary,
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: "900",
   },
-
   sectionSubtitle: {
     marginTop: 4,
     color: colors.textMuted,
     fontSize: 10,
     lineHeight: 16,
   },
-
-  actionButtonContent: {
-    flexDirection: "row-reverse",
-  },
-
-  progressCard: {
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.xl,
-    backgroundColor: colors.white,
-  },
-
-  progressHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: spacing.md,
-  },
-
-  progressTitle: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: "900",
-  },
-
-  progressDescription: {
-    marginTop: 4,
-    color: colors.textMuted,
-    fontSize: 10,
-    lineHeight: 16,
-  },
-
-  progressPercentage: {
-    color: colors.primary,
-    fontSize: 24,
-    fontWeight: "900",
-  },
-
-  progressBar: {
-    height: 9,
-    marginTop: spacing.lg,
-    borderRadius: 8,
-    backgroundColor: colors.primaryLight,
-  },
-
-  checklist: {
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-  },
-
-  checklistItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-  },
-
-  checklistText: {
-    flex: 1,
-    color: colors.textSecondary,
-    fontSize: 10,
-    fontWeight: "700",
-  },
-
-  checklistCompleteText: {
-    color: colors.textPrimary,
-  },
-
-  checklistStatus: {
-    color: colors.warning,
-    fontSize: 8,
-    fontWeight: "900",
-  },
-
-  checklistStatusComplete: {
-    color: colors.success,
-  },
-
-  nextStepBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.primaryLight,
-  },
-
-  nextStepIcon: {
-    width: 47,
-    height: 47,
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 15,
-    backgroundColor: colors.white,
-  },
-
-  nextStepContent: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  nextStepLabel: {
-    color: colors.primary,
-    fontSize: 8,
-    fontWeight: "900",
-  },
-
-  nextStepTitle: {
-    marginTop: 3,
-    color: colors.textPrimary,
-    fontSize: 11,
-    fontWeight: "900",
-  },
-
-  nextStepDescription: {
-    marginTop: 3,
-    color: colors.textMuted,
-    fontSize: 9,
-    lineHeight: 14,
-  },
-
-  quickActions: {
+  tenancyCard: {
     overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.xl,
     backgroundColor: colors.white,
   },
-
+  detailRow: {
+    minHeight: 68,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  detailRowLast: {
+    borderBottomWidth: 0,
+  },
+  detailIcon: {
+    width: 40,
+    height: 40,
+    flexShrink: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 13,
+    backgroundColor: colors.primaryLight,
+  },
+  detailContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+  detailLabel: {
+    color: colors.textMuted,
+    fontSize: 8,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  detailValue: {
+    marginTop: 4,
+    color: colors.textPrimary,
+    fontSize: 10,
+    lineHeight: 16,
+    fontWeight: "800",
+  },
+  featureCard: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.xl,
+    backgroundColor: colors.white,
+  },
+  featurePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: colors.primaryLight,
+  },
+  featureText: {
+    color: colors.textPrimary,
+    fontSize: 9,
+    fontWeight: "800",
+  },
+  quickActionsCard: {
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.xl,
+    backgroundColor: colors.white,
+  },
   quickAction: {
-    minHeight: 78,
+    minHeight: 83,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
@@ -2197,318 +1770,49 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-
+  quickActionLast: {
+    borderBottomWidth: 0,
+  },
   quickActionIcon: {
-    width: 44,
-    height: 44,
+    width: 45,
+    height: 45,
     flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 14,
     backgroundColor: colors.primaryLight,
   },
-
   quickActionContent: {
     flex: 1,
+    minWidth: 0,
   },
-
   quickActionTitle: {
     color: colors.textPrimary,
     fontSize: 10,
     fontWeight: "900",
   },
-
   quickActionDescription: {
     marginTop: 3,
     color: colors.textMuted,
     fontSize: 8,
     lineHeight: 13,
   },
-
-  applicationCard: {
+  pressed: {
+    opacity: 0.72,
+  },
+  supportGrid: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "stretch",
     gap: spacing.lg,
-    padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: radius.xl,
-    backgroundColor: colors.white,
   },
-
-  applicationIcon: {
-    width: 65,
-    height: 65,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 21,
-    backgroundColor: colors.primaryLight,
+  supportGridStacked: {
+    flexDirection: "column",
   },
-
-  applicationContent: {
+  supportCard: {
     flex: 1,
     minWidth: 0,
-  },
-
-  applicationHeader: {
     flexDirection: "row",
     flexWrap: "wrap",
-    alignItems: "flex-start",
-    gap: spacing.md,
-  },
-
-  applicationTitle: {
-    color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: "900",
-  },
-
-  applicationAddress: {
-    marginTop: 5,
-    color: colors.textMuted,
-    fontSize: 9,
-  },
-
-  divider: {
-    marginVertical: spacing.lg,
-  },
-
-  applicationDetails: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xl,
-  },
-
-  applicationDetail: {
-    minWidth: 150,
-  },
-
-  applicationDetailLabel: {
-    color: colors.textMuted,
-    fontSize: 8,
-    fontWeight: "800",
-    textTransform: "uppercase",
-  },
-
-  applicationDetailValue: {
-    marginTop: 5,
-    color: colors.textPrimary,
-    fontSize: 10,
-    fontWeight: "900",
-  },
-
-  applicationActions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "flex-end",
-    gap: spacing.md,
-    marginTop: spacing.xl,
-  },
-
-  statusBadge: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 20,
-  },
-
-  statusBadgeText: {
-    fontSize: 8,
-    fontWeight: "900",
-  },
-
-  successBadge: {
-    backgroundColor: colors.successLight,
-  },
-
-  successBadgeText: {
-    color: colors.success,
-  },
-
-  warningBadge: {
-    backgroundColor: colors.warningLight,
-  },
-
-  warningBadgeText: {
-    color: colors.warning,
-  },
-
-  errorBadge: {
-    backgroundColor: colors.errorLight,
-  },
-
-  errorBadgeText: {
-    color: colors.error,
-  },
-
-  propertyGrid: {
-    gap: spacing.lg,
-  },
-
-  propertyCard: {
-    flexGrow: 1,
-    flexBasis: 320,
-    minWidth: 280,
-    maxWidth: 520,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.xl,
-    backgroundColor: colors.white,
-  },
-
-  propertyImage: {
-    height: 165,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.primaryLight,
-  },
-
-  matchBadge: {
-    position: "absolute",
-    top: spacing.md,
-    right: spacing.md,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: colors.success,
-  },
-
-  matchBadgeText: {
-    color: colors.white,
-    fontSize: 8,
-    fontWeight: "900",
-  },
-
-  propertyContent: {
-    padding: spacing.lg,
-  },
-
-  propertyTitle: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: "900",
-    lineHeight: 19,
-  },
-
-  locationRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 5,
-    marginTop: spacing.sm,
-  },
-
-  propertyAddress: {
-    flex: 1,
-    color: colors.textMuted,
-    fontSize: 9,
-    lineHeight: 14,
-  },
-
-  propertyFacts: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
-
-  propertyFact: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 14,
-    backgroundColor: colors.background,
-  },
-
-  propertyFactText: {
-    color: colors.textSecondary,
-    fontSize: 8,
-    fontWeight: "700",
-  },
-
-  propertyFooter: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: spacing.lg,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-
-  rentLabel: {
-    color: colors.textMuted,
-    fontSize: 8,
-    fontWeight: "700",
-  },
-
-  rentValue: {
-    marginTop: 3,
-    color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: "900",
-  },
-
-  activeTenancyCard: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: spacing.lg,
-    padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: colors.success,
-    borderRadius: radius.xl,
-    backgroundColor: colors.successLight,
-  },
-
-  activeTenancyIcon: {
-    width: 65,
-    height: 65,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 21,
-    backgroundColor: colors.white,
-  },
-
-  activeTenancyContent: {
-    flex: 1,
-    minWidth: 230,
-  },
-
-  activeTenancyLabel: {
-    color: colors.success,
-    fontSize: 8,
-    fontWeight: "900",
-    letterSpacing: 1.2,
-  },
-
-  activeTenancyTitle: {
-    marginTop: 5,
-    color: colors.textPrimary,
-    fontSize: 15,
-    fontWeight: "900",
-  },
-
-  activeTenancyDescription: {
-    marginTop: 5,
-    color: colors.textSecondary,
-    fontSize: 9,
-    lineHeight: 15,
-  },
-
-  serviceGrid: {
-    gap: spacing.lg,
-  },
-
-  serviceCard: {
-    flexGrow: 1,
-    flexBasis: 320,
-    minWidth: 280,
-    maxWidth: 520,
-    minHeight: 130,
-    flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
     padding: spacing.lg,
@@ -2517,80 +1821,68 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     backgroundColor: colors.white,
   },
-
-  serviceIcon: {
-    width: 55,
-    height: 55,
+  supportIcon: {
+    width: 52,
+    height: 52,
     flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 18,
+    borderRadius: 17,
     backgroundColor: colors.primaryLight,
   },
-
-  serviceContent: {
+  supportContent: {
     flex: 1,
+    minWidth: 210,
   },
-
-  serviceTitle: {
-    color: colors.textPrimary,
-    fontSize: 12,
-    fontWeight: "900",
-  },
-
-  serviceDescription: {
-    marginTop: 5,
-    color: colors.textMuted,
-    fontSize: 9,
-    lineHeight: 15,
-  },
-
-  languageCard: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: spacing.lg,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.xl,
-    backgroundColor: colors.white,
-  },
-
-  languageIcon: {
-    width: 58,
-    height: 58,
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 18,
-    backgroundColor: colors.primaryLight,
-  },
-
-  languageContent: {
-    flex: 1,
-    minWidth: 220,
-  },
-
-  languageTitle: {
+  supportTitle: {
     color: colors.textPrimary,
     fontSize: 13,
     fontWeight: "900",
   },
-
-  languageDescription: {
-    marginTop: 5,
+  supportText: {
+    marginTop: 4,
     color: colors.textMuted,
-    fontSize: 10,
-    lineHeight: 17,
+    fontSize: 9,
+    lineHeight: 15,
   },
-
-  languageStrong: {
-    color: colors.primary,
+  stateCard: {
+    minHeight: 430,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.md,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.xl,
+    backgroundColor: colors.white,
+  },
+  stateIcon: {
+    width: 82,
+    height: 82,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 26,
+    backgroundColor: colors.primaryLight,
+  },
+  stateTitle: {
+    marginTop: spacing.sm,
+    color: colors.textPrimary,
+    fontSize: 20,
     fontWeight: "900",
+    textAlign: "center",
   },
-
-  pressed: {
-    opacity: 0.82,
+  stateText: {
+    maxWidth: 650,
+    color: colors.textMuted,
+    fontSize: 11,
+    lineHeight: 18,
+    textAlign: "center",
+  },
+  stateError: {
+    maxWidth: 650,
+    color: colors.error,
+    fontSize: 10,
+    lineHeight: 16,
+    textAlign: "center",
   },
 });
