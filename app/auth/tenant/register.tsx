@@ -129,6 +129,14 @@ export default function TenantRegisterPage() {
 
   const completeRegistration = async () => {
     if (!canComplete || !userId) return;
+
+    const cleanPostcode = postcode.trim().toUpperCase();
+
+    if (cleanPostcode && (cleanPostcode.length > 10 || cleanPostcode.includes("@"))) {
+      setError("Please enter a valid UK postcode or leave the postcode field blank.");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -137,7 +145,7 @@ export default function TenantRegisterPage() {
         userId,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        postcode: postcode.trim() || undefined,
+        postcode: cleanPostcode || undefined,
         password,
         mainReason,
         idealTimeframe,
@@ -218,6 +226,8 @@ export default function TenantRegisterPage() {
                   placeholderTextColor={colors.textMuted}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  autoComplete="email"
+                  autoCorrect={false}
                   style={styles.input}
                 />
 
@@ -279,21 +289,37 @@ export default function TenantRegisterPage() {
                 <View style={styles.twoColumns}>
                   <View style={styles.column}>
                     <FieldLabel text="First name" />
-                    <TextInput value={firstName} onChangeText={setFirstName} style={styles.input} />
+                    <TextInput
+                      value={firstName}
+                      onChangeText={setFirstName}
+                      autoComplete="given-name"
+                      style={styles.input}
+                    />
                   </View>
                   <View style={styles.column}>
                     <FieldLabel text="Last name" />
-                    <TextInput value={lastName} onChangeText={setLastName} style={styles.input} />
+                    <TextInput
+                      value={lastName}
+                      onChangeText={setLastName}
+                      autoComplete="family-name"
+                      style={styles.input}
+                    />
                   </View>
                 </View>
 
                 <FieldLabel text="UK postcode (optional)" />
                 <TextInput
                   value={postcode}
-                  onChangeText={setPostcode}
+                  onChangeText={(value) => {
+                    setPostcode(value.toUpperCase());
+                    setError("");
+                  }}
                   placeholder="e.g. SW1A 1AA"
                   placeholderTextColor={colors.textMuted}
                   autoCapitalize="characters"
+                  autoComplete="postal-code"
+                  autoCorrect={false}
+                  maxLength={10}
                   style={styles.input}
                 />
 
@@ -304,6 +330,7 @@ export default function TenantRegisterPage() {
                   secureTextEntry
                   placeholder="Minimum 8 characters"
                   placeholderTextColor={colors.textMuted}
+                  autoComplete="new-password"
                   style={styles.input}
                 />
 
