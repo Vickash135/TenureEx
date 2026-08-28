@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Button, Card, Chip, Divider, Menu, TextInput } from "react-native-paper";
 
@@ -40,6 +40,8 @@ type Props = {
   canApprove?: boolean;
   title?: string;
   subtitle?: string;
+  fixedPropertyId?: string;
+  hidePropertySelector?: boolean;
 };
 
 export default function PropertyMaintenanceProviders({
@@ -48,9 +50,11 @@ export default function PropertyMaintenanceProviders({
   canApprove = false,
   title = "Maintenance team",
   subtitle = "Invite and manage maintenance providers linked to this property.",
+  fixedPropertyId,
+  hidePropertySelector = false,
 }: Props) {
   const [properties, setProperties] = useState<PropertyRow[]>([]);
-  const [propertyId, setPropertyId] = useState("");
+  const [propertyId, setPropertyId] = useState(fixedPropertyId ?? "");
   const [providers, setProviders] = useState<ProviderRow[]>([]);
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -73,18 +77,20 @@ export default function PropertyMaintenanceProviders({
       }));
   };
 
-  const loadProperties = async () => {
+  const loadProperties = useCallback(async () => {
     try {
       const response = await api.get(propertyEndpoint);
       const rows = normaliseProperties(response.data);
       setProperties(rows);
-      if (!propertyId && rows[0]) setPropertyId(rows[0].id);
+      setPropertyId((current) =>
+        fixedPropertyId || current || rows[0]?.id || "",
+      );
     } catch (error: any) {
       setMessage(error?.response?.data?.message || "Unable to load properties.");
     }
-  };
+  }, [propertyEndpoint, fixedPropertyId]);
 
-  const loadProviders = async () => {
+  const loadProviders = useCallback(async () => {
     if (!propertyId) {
       setProviders([]);
       return;
@@ -97,15 +103,19 @@ export default function PropertyMaintenanceProviders({
     } catch (error: any) {
       setMessage(error?.response?.data?.message || "Unable to load maintenance providers.");
     }
-  };
+  }, [propertyId]);
 
   useEffect(() => {
     void loadProperties();
-  }, [propertyEndpoint]);
+  }, [loadProperties]);
+
+  useEffect(() => {
+    if (fixedPropertyId) setPropertyId(fixedPropertyId);
+  }, [fixedPropertyId]);
 
   useEffect(() => {
     void loadProviders();
-  }, [propertyId]);
+  }, [loadProviders]);
 
   const selectedProperty = useMemo(
     () => properties.find((property) => property.id === propertyId),
@@ -184,28 +194,42 @@ export default function PropertyMaintenanceProviders({
             Select a property. Providers added by the Estate Agent or Landlord are shared across the property team. Providers added by a Tenant require Estate Agent approval.
           </Text>
 
-          <Menu
-            visible={propertyMenuOpen}
-            onDismiss={() => setPropertyMenuOpen(false)}
-            anchor={
-              <Button mode="outlined" icon="home-outline" onPress={() => setPropertyMenuOpen(true)}>
-                {selectedProperty
-                  ? `${selectedProperty.addressLine1}, ${selectedProperty.postcode}`
-                  : "Select property"}
-              </Button>
-            }
-          >
-            {properties.map((property) => (
-              <Menu.Item
-                key={property.id}
-                title={`${property.addressLine1}, ${property.postcode}`}
-                onPress={() => {
-                  setPropertyId(property.id);
-                  setPropertyMenuOpen(false);
-                }}
-              />
-            ))}
-          </Menu>
+          {hidePropertySelector ? (
+            selectedProperty ? (
+              <View style={styles.fixedProperty}>
+                <MaterialCommunityIcons name="home-outline" size={20} color={colors.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.fixedPropertyLabel}>THIS PROPERTY</Text>
+                  <Text style={styles.fixedPropertyText}>
+                    {selectedProperty.addressLine1}, {selectedProperty.postcode}
+                  </Text>
+                </View>
+              </View>
+            ) : null
+          ) : (
+            <Menu
+              visible={propertyMenuOpen}
+              onDismiss={() => setPropertyMenuOpen(false)}
+              anchor={
+                <Button mode="outlined" icon="home-outline" onPress={() => setPropertyMenuOpen(true)}>
+                  {selectedProperty
+                    ? `${selectedProperty.addressLine1}, ${selectedProperty.postcode}`
+                    : "Select property"}
+                </Button>
+              }
+            >
+              {properties.map((property) => (
+                <Menu.Item
+                  key={property.id}
+                  title={`${property.addressLine1}, ${property.postcode}`}
+                  onPress={() => {
+                    setPropertyId(property.id);
+                    setPropertyMenuOpen(false);
+                  }}
+                />
+              ))}
+            </Menu>
+          )}
 
           <Divider />
 
@@ -322,6 +346,27 @@ function InfoRow({ icon, text }: { icon: keyof typeof MaterialCommunityIcons.gly
 }
 
 const styles = StyleSheet.create({
+  fixedProperty: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primaryLight,
+  },
+  fixedPropertyLabel: {
+    color: colors.primary,
+    fontSize: 8,
+    fontWeight: "900",
+  },
+  fixedPropertyText: {
+    marginTop: 2,
+    color: colors.textPrimary,
+    fontSize: 10,
+    fontWeight: "800",
+  },
   wrapper: { gap: spacing.lg },
   headingRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
   headingIcon: { width: 48, height: 48, borderRadius: 15, backgroundColor: colors.primaryLight, alignItems: "center", justifyContent: "center" },

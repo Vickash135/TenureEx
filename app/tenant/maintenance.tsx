@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -31,11 +31,7 @@ type MaintenanceStatus =
   | "Completed"
   | "Reopened";
 
-type MaintenancePriority =
-  | "Low"
-  | "Medium"
-  | "High"
-  | "Emergency";
+type MaintenancePriority = "Low" | "Medium" | "High" | "Emergency";
 
 type MaintenanceRequest = {
   id: string;
@@ -48,19 +44,26 @@ type MaintenanceRequest = {
   createdAt: string;
   scheduledStart?: string | null;
   roomLocation?: string | null;
-  photos?: Array<{ id: string; phase: string; url: string }>;
 };
 
 type TenantProperty = {
   id: string;
   addressLine1: string;
+  addressLine2?: string | null;
   townCity?: string | null;
+  county?: string | null;
   postcode: string;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  propertyType?: string | null;
 };
 
-type AvailabilitySlot = { id: string; startAt: string; endAt: string };
-
-const initialRequests: MaintenanceRequest[] = [];
+type AvailabilitySlot = {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+};
 
 const categories = [
   "Plumbing",
@@ -79,55 +82,55 @@ const priorities: MaintenancePriority[] = [
   "Emergency",
 ];
 
-export default function MaintenanceScreen() {
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 950;
+function backendMessage(error: any) {
+  const message = error?.response?.data?.message;
+  if (Array.isArray(message)) return message.join("\n");
+  if (typeof message === "string") return message;
+  return "Unable to submit maintenance request.";
+}
 
-  const params = useLocalSearchParams<{
-    propertyId?: string | string[];
-  }>();
+function buildLocalDate(dateValue: string, timeValue: string) {
+  const dateMatch = dateValue.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const timeMatch = timeValue.trim().match(/^(\d{2}):(\d{2})$/);
+  if (!dateMatch || !timeMatch) return null;
 
-  const propertyId = Array.isArray(params.propertyId)
-    ? params.propertyId[0]
-    : params.propertyId;
+  const [, yearText, monthText, dayText] = dateMatch;
+  const [, hourText, minuteText] = timeMatch;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
 
-  const [requests, setRequests] =
-    useState<MaintenanceRequest[]>(initialRequests);
+  if (
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31 ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    return null;
+  }
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] =
-    useState("Plumbing");
-  const [priority, setPriority] =
-    useState<MaintenancePriority>("Medium");
+  const value = new Date(year, month - 1, day, hour, minute, 0, 0);
+  if (
+    value.getFullYear() !== year ||
+    value.getMonth() !== month - 1 ||
+    value.getDate() !== day ||
+    value.getHours() !== hour ||
+    value.getMinutes() !== minute
+  ) {
+    return null;
+  }
 
-  const [categoryMenu, setCategoryMenu] =
-    useState(false);
-  const [priorityMenu, setPriorityMenu] =
-    useState(false);
-  const [message, setMessage] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [properties, setProperties] = useState<TenantProperty[]>([]);
-  const [selectedPropertyId, setSelectedPropertyId] = useState(propertyId ?? "");
-  const [propertyMenu, setPropertyMenu] = useState(false);
-  const [roomLocation, setRoomLocation] = useState("");
-  const [accessPermission, setAccessPermission] = useState(false);
-  const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([
-    { id: "slot-1", startAt: "", endAt: "" },
-  ]);
-  const [pendingPhotos, setPendingPhotos] = useState<any[]>([]);
+  return value;
+}
 
-  const activeRequests = useMemo(
-    () => requests.filter((request) => request.status !== "Completed").length,
-    [requests],
-  );
-
-  const selectedProperty = useMemo(
-    () => properties.find((item) => item.id === selectedPropertyId),
-    [properties, selectedPropertyId],
-  );
-
-  const mapRequest = (row: any): MaintenanceRequest => ({
+function mapRequest(row: any): MaintenanceRequest {
+  return {
     id: row.id,
     propertyId: row.propertyId,
     title: row.title,
@@ -160,58 +163,117 @@ export default function MaintenanceScreen() {
     }),
     scheduledStart: row.scheduledStart,
     roomLocation: row.roomLocation,
-    photos: row.photos,
-  });
+  };
+}
 
-  const loadWorkflow = async () => {
+export default function MaintenanceScreen() {
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 950;
+  const params = useLocalSearchParams<{ propertyId?: string | string[] }>();
+  const requestedPropertyId = Array.isArray(params.propertyId)
+    ? params.propertyId[0]
+    : params.propertyId;
+
+  const [property, setProperty] = useState<TenantProperty | null>(null);
+  const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("Plumbing");
+  const [priority, setPriority] = useState<MaintenancePriority>("Medium");
+  const [categoryMenu, setCategoryMenu] = useState(false);
+  const [priorityMenu, setPriorityMenu] = useState(false);
+  const [roomLocation, setRoomLocation] = useState("");
+  const [accessPermission, setAccessPermission] = useState(false);
+  const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([
+    { id: "slot-1", date: "", startTime: "", endTime: "" },
+  ]);
+  const [pendingPhotos, setPendingPhotos] = useState<any[]>([]);
+  const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const activeRequests = useMemo(
+    () => requests.filter((request) => request.status !== "Completed").length,
+    [requests],
+  );
+
+  const loadWorkflow = useCallback(async () => {
+    setLoading(true);
     try {
       const [propertiesResponse, requestsResponse] = await Promise.all([
         api.get("/property-workflows/tenant/my-properties"),
         api.get("/property-workflows/maintenance-requests"),
       ]);
-      const propertyRows = (Array.isArray(propertiesResponse.data)
+
+      const activeProperties = (Array.isArray(propertiesResponse.data)
         ? propertiesResponse.data
         : []
       )
-        .map((row: any) => row.property)
+        .map((row: any) => row?.property)
         .filter(Boolean) as TenantProperty[];
-      setProperties(propertyRows);
-      if (!selectedPropertyId && propertyRows[0]) {
-        setSelectedPropertyId(propertyRows[0].id);
-      }
+
+      const exactProperty = requestedPropertyId
+        ? activeProperties.find((item) => item.id === requestedPropertyId)
+        : activeProperties[0];
+
+      const selected = exactProperty ?? activeProperties[0] ?? null;
+      setProperty(selected);
+
       const requestRows = Array.isArray(requestsResponse.data)
         ? requestsResponse.data
         : [];
+
       setRequests(
         requestRows
-          .filter((row: any) => row.tenantUserId)
+          .filter(
+            (row: any) =>
+              row.tenantUserId && (!selected || row.propertyId === selected.id),
+          )
           .map(mapRequest),
       );
+
+      if (!selected) {
+        setMessage(
+          "No active approved tenancy was found. Maintenance is available only for the property approved for your tenant account.",
+        );
+      }
     } catch (error: any) {
-      setMessage(error?.response?.data?.message || "Unable to load tenant maintenance.");
+      setMessage(
+        error?.response?.data?.message || "Unable to load tenant maintenance.",
+      );
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [requestedPropertyId]);
 
   useEffect(() => {
     void loadWorkflow();
-  }, []);
+  }, [loadWorkflow]);
 
-  const updateSlot = (id: string, field: "startAt" | "endAt", value: string) => {
+  const updateSlot = (
+    id: string,
+    field: "date" | "startTime" | "endTime",
+    value: string,
+  ) => {
     setAvailabilitySlots((current) =>
-      current.map((slot) => (slot.id === id ? { ...slot, [field]: value } : slot)),
+      current.map((slot) =>
+        slot.id === id ? { ...slot, [field]: value } : slot,
+      ),
     );
   };
 
   const addSlot = () => {
     setAvailabilitySlots((current) => [
       ...current,
-      { id: `slot-${Date.now()}`, startAt: "", endAt: "" },
+      { id: `slot-${Date.now()}`, date: "", startTime: "", endTime: "" },
     ]);
   };
 
   const removeSlot = (id: string) => {
     setAvailabilitySlots((current) =>
-      current.length === 1 ? current : current.filter((slot) => slot.id !== id),
+      current.length === 1
+        ? current
+        : current.filter((slot) => slot.id !== id),
     );
   };
 
@@ -225,41 +287,85 @@ export default function MaintenanceScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!selectedPropertyId) {
-      setMessage("Select the property for this maintenance request.");
+    if (!property?.id) {
+      setMessage(
+        "Maintenance can only be reported for your active approved tenancy property.",
+      );
       return;
     }
-    if (!title.trim()) {
-      setMessage("Enter a short issue title.");
+
+    if (title.trim().length < 3) {
+      setMessage("Issue title must contain at least 3 characters.");
       return;
     }
-    if (!description.trim()) {
-      setMessage("Describe the maintenance issue.");
+
+    if (description.trim().length < 5) {
+      setMessage("Issue description must contain at least 5 characters.");
       return;
     }
-    const validSlots = availabilitySlots.filter(
-      (slot) => slot.startAt.trim() && slot.endAt.trim(),
-    );
-    if (!validSlots.length) {
+
+    const preparedSlots: { startAt: string; endAt: string }[] = [];
+
+    for (let index = 0; index < availabilitySlots.length; index += 1) {
+      const slot = availabilitySlots[index];
+      const hasAnyValue = Boolean(
+        slot.date.trim() || slot.startTime.trim() || slot.endTime.trim(),
+      );
+
+      if (!hasAnyValue) continue;
+
+      if (!slot.date.trim() || !slot.startTime.trim() || !slot.endTime.trim()) {
+        setMessage(
+          `Complete the date, start time and end time for availability option ${index + 1}.`,
+        );
+        return;
+      }
+
+      const start = buildLocalDate(slot.date, slot.startTime);
+      const end = buildLocalDate(slot.date, slot.endTime);
+
+      if (!start || !end) {
+        setMessage(
+          `Availability option ${index + 1} has an invalid date or time. Use YYYY-MM-DD and HH:MM.`,
+        );
+        return;
+      }
+
+      if (end.getTime() <= start.getTime()) {
+        setMessage(
+          `Availability option ${index + 1} must end after it starts.`,
+        );
+        return;
+      }
+
+      preparedSlots.push({
+        startAt: start.toISOString(),
+        endAt: end.toISOString(),
+      });
+    }
+
+    if (!preparedSlots.length) {
       setMessage("Add at least one available date and time slot.");
       return;
     }
 
     setSubmitting(true);
+    setMessage("");
+
     try {
-      const response = await api.post("/property-workflows/maintenance-requests", {
-        propertyId: selectedPropertyId,
-        title: title.trim(),
-        description: description.trim(),
-        category,
-        roomLocation: roomLocation.trim() || undefined,
-        priority: priority.toUpperCase(),
-        accessPermission,
-        slots: validSlots.map((slot) => ({
-          startAt: new Date(slot.startAt).toISOString(),
-          endAt: new Date(slot.endAt).toISOString(),
-        })),
-      });
+      const response = await api.post(
+        "/property-workflows/maintenance-requests",
+        {
+          propertyId: property.id,
+          title: title.trim(),
+          description: description.trim(),
+          category,
+          roomLocation: roomLocation.trim() || undefined,
+          priority: priority.toUpperCase(),
+          accessPermission,
+          slots: preparedSlots,
+        },
+      );
 
       if (pendingPhotos.length) {
         const data = new FormData();
@@ -273,6 +379,7 @@ export default function MaintenanceScreen() {
             } as any,
           );
         });
+
         await api.post(
           `/property-workflows/maintenance-requests/${response.data.request.id}/reported-photos`,
           data,
@@ -286,14 +393,21 @@ export default function MaintenanceScreen() {
       setCategory("Plumbing");
       setPriority("Medium");
       setAccessPermission(false);
-      setAvailabilitySlots([{ id: `slot-${Date.now()}`, startAt: "", endAt: "" }]);
+      setAvailabilitySlots([
+        {
+          id: `slot-${Date.now()}`,
+          date: "",
+          startTime: "",
+          endTime: "",
+        },
+      ]);
       setPendingPhotos([]);
       setMessage(
-        "Maintenance request submitted. All approved maintenance providers for this property have been notified.",
+        "Maintenance request submitted. Approved maintenance providers for this property have been notified.",
       );
       await loadWorkflow();
     } catch (error: any) {
-      setMessage(error?.response?.data?.message || "Unable to submit maintenance request.");
+      setMessage(backendMessage(error));
     } finally {
       setSubmitting(false);
     }
@@ -301,33 +415,36 @@ export default function MaintenanceScreen() {
 
   const confirmCompletion = async (id: string, completed: boolean) => {
     try {
-      await api.patch(`/property-workflows/maintenance-requests/${id}/tenant-confirm`, {
-        completed,
-        note: completed
-          ? "Work confirmed as completed by the tenant."
-          : "The issue is not fully resolved and needs more work.",
-      });
-      setMessage(completed ? "Maintenance work confirmed as completed." : "The maintenance issue has been reopened.");
+      await api.patch(
+        `/property-workflows/maintenance-requests/${id}/tenant-confirm`,
+        {
+          completed,
+          note: completed
+            ? "Work confirmed as completed by the tenant."
+            : "The issue is not fully resolved and needs more work.",
+        },
+      );
+      setMessage(
+        completed
+          ? "Maintenance work confirmed as completed."
+          : "The maintenance issue has been reopened.",
+      );
       await loadWorkflow();
     } catch (error: any) {
-      setMessage(error?.response?.data?.message || "Unable to update maintenance request.");
+      setMessage(
+        error?.response?.data?.message ||
+          "Unable to update maintenance request.",
+      );
     }
   };
 
   return (
-    <ScreenContainer
-      scrollable
-      contentStyle={styles.screenContent}
-    >
+    <ScreenContainer scrollable contentStyle={styles.screenContent}>
       <View style={styles.page}>
         <View style={styles.topBar}>
           <Pressable
             style={styles.brand}
-            onPress={() =>
-              router.replace(
-                "/tenant/my-property" as never,
-              )
-            }
+            onPress={() => router.replace("/tenant/dashboard" as never)}
           >
             <View style={styles.logo}>
               <MaterialCommunityIcons
@@ -336,125 +453,85 @@ export default function MaintenanceScreen() {
                 color={colors.white}
               />
             </View>
-
             <View>
-              <Text style={styles.brandName}>
-                Maintenance
-              </Text>
-
-              <Text style={styles.brandSubtitle}>
-                Property {selectedProperty?.postcode ?? propertyId ?? "Not selected"}
-              </Text>
+              <Text style={styles.brandName}>Maintenance</Text>
+              <Text style={styles.brandSubtitle}>Your approved home</Text>
             </View>
           </Pressable>
 
-          <Button
-            mode="text"
-            icon="arrow-left"
-            onPress={() => router.back()}
-          >
+          <Button mode="text" icon="arrow-left" onPress={() => router.back()}>
             Back
           </Button>
         </View>
 
+        {property ? (
+          <View style={styles.propertyBanner}>
+            <View style={styles.propertyIcon}>
+              <MaterialCommunityIcons
+                name="home-outline"
+                size={29}
+                color={colors.primary}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.propertyLabel}>MAINTENANCE FOR</Text>
+              <Text style={styles.propertyAddress}>{property.addressLine1}</Text>
+              <Text style={styles.propertyMeta}>
+                {[property.townCity, property.postcode].filter(Boolean).join(", ")}
+              </Text>
+            </View>
+            <Chip icon="check-circle-outline">Active tenancy</Chip>
+          </View>
+        ) : null}
+
         <View style={styles.hero}>
           <View style={styles.heroIcon}>
             <MaterialCommunityIcons
-              name="home-outline"
+              name="progress-wrench"
               size={38}
               color={colors.primary}
             />
           </View>
-
           <View style={{ flex: 1 }}>
-            <Text style={styles.heroLabel}>
-              PROPERTY MAINTENANCE
-            </Text>
-
-            <Text style={styles.heroTitle}>
-              Report and track maintenance
-            </Text>
-
+            <Text style={styles.heroLabel}>PROPERTY MAINTENANCE</Text>
+            <Text style={styles.heroTitle}>Report and track repairs</Text>
             <Text style={styles.heroDescription}>
-              Report non-emergency maintenance issues
-              and follow their progress.
+              Report an issue for your approved tenancy property, give suitable
+              visit times and track the repair until you confirm it is resolved.
             </Text>
           </View>
-
-          <Chip icon="tools">
-            {activeRequests} active
-          </Chip>
+          <Chip icon="tools">{activeRequests} active</Chip>
         </View>
 
-        <View
-          style={[
-            styles.layout,
-            !isDesktop && styles.layoutStacked,
-          ]}
-        >
+        <View style={[styles.layout, !isDesktop && styles.layoutStacked]}>
           <View style={styles.mainColumn}>
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>
-                New maintenance request
-              </Text>
-
+              <Text style={styles.cardTitle}>Report a maintenance issue</Text>
               <Text style={styles.cardDescription}>
-                Give clear information so the issue can
-                be handled correctly.
+                This request is automatically linked to your approved property.
               </Text>
 
               <View style={styles.form}>
-                <Menu
-                  visible={propertyMenu}
-                  onDismiss={() => setPropertyMenu(false)}
-                  anchor={
-                    <Button mode="outlined" icon="home-search-outline" onPress={() => setPropertyMenu(true)}>
-                      {selectedProperty
-                        ? `${selectedProperty.addressLine1}, ${selectedProperty.postcode}`
-                        : "Select approved tenancy property"}
-                    </Button>
-                  }
-                >
-                  {properties.map((item) => (
-                    <Menu.Item
-                      key={item.id}
-                      title={`${item.addressLine1}, ${item.townCity ?? ""} ${item.postcode}`}
-                      onPress={() => {
-                        setSelectedPropertyId(item.id);
-                        setPropertyMenu(false);
-                      }}
-                    />
-                  ))}
-                </Menu>
-
                 <TextInput
                   mode="outlined"
                   label="Issue title"
                   placeholder="Example: Bathroom tap leaking"
                   value={title}
                   onChangeText={setTitle}
-                  left={
-                    <TextInput.Icon icon="format-title" />
-                  }
+                  left={<TextInput.Icon icon="format-title" />}
                 />
 
                 <View style={styles.menuRow}>
                   <View style={styles.menuField}>
                     <Menu
                       visible={categoryMenu}
-                      onDismiss={() =>
-                        setCategoryMenu(false)
-                      }
+                      onDismiss={() => setCategoryMenu(false)}
                       anchor={
                         <Button
                           mode="outlined"
                           icon="shape-outline"
-                          contentStyle={
-                            styles.menuButtonContent
-                          }
-                          onPress={() =>
-                            setCategoryMenu(true)
-                          }
+                          contentStyle={styles.menuButtonContent}
+                          onPress={() => setCategoryMenu(true)}
                         >
                           Category: {category}
                         </Button>
@@ -476,19 +553,13 @@ export default function MaintenanceScreen() {
                   <View style={styles.menuField}>
                     <Menu
                       visible={priorityMenu}
-                      onDismiss={() =>
-                        setPriorityMenu(false)
-                      }
+                      onDismiss={() => setPriorityMenu(false)}
                       anchor={
                         <Button
                           mode="outlined"
                           icon="alert-outline"
-                          contentStyle={
-                            styles.menuButtonContent
-                          }
-                          onPress={() =>
-                            setPriorityMenu(true)
-                          }
+                          contentStyle={styles.menuButtonContent}
+                          onPress={() => setPriorityMenu(true)}
                         >
                           Priority: {priority}
                         </Button>
@@ -511,15 +582,13 @@ export default function MaintenanceScreen() {
                 <TextInput
                   mode="outlined"
                   label="Issue description"
-                  placeholder="Explain where the problem is and what happened"
+                  placeholder="Explain where the problem is, what happened and when it started"
                   value={description}
                   onChangeText={setDescription}
                   multiline
                   numberOfLines={5}
                   style={styles.descriptionInput}
-                  left={
-                    <TextInput.Icon icon="text-box-outline" />
-                  }
+                  left={<TextInput.Icon icon="text-box-outline" />}
                 />
 
                 <TextInput
@@ -534,51 +603,107 @@ export default function MaintenanceScreen() {
                 <View style={styles.availabilityCard}>
                   <View style={styles.availabilityHeader}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.availabilityTitle}>Your available visit times</Text>
-                      <Text style={styles.availabilityText}>Add one or more time slots. A maintenance provider can select one that works for them.</Text>
+                      <Text style={styles.availabilityTitle}>
+                        When can the provider visit?
+                      </Text>
+                      <Text style={styles.availabilityText}>
+                        Add one or more options. Enter the date as YYYY-MM-DD and
+                        times as HH:MM, for example 2026-08-29, 09:00 to 12:00.
+                      </Text>
                     </View>
-                    <Button mode="text" icon="plus" onPress={addSlot}>Add time</Button>
+                    <Button mode="text" icon="plus" onPress={addSlot}>
+                      Add option
+                    </Button>
                   </View>
+
                   {availabilitySlots.map((slot, index) => (
                     <View key={slot.id} style={styles.slotCard}>
-                      <Text style={styles.slotLabel}>Option {index + 1}</Text>
+                      <View style={styles.slotHeader}>
+                        <Text style={styles.slotLabel}>Option {index + 1}</Text>
+                        {availabilitySlots.length > 1 ? (
+                          <Button
+                            compact
+                            mode="text"
+                            textColor={colors.error}
+                            icon="delete-outline"
+                            onPress={() => removeSlot(slot.id)}
+                          >
+                            Remove
+                          </Button>
+                        ) : null}
+                      </View>
+
                       <TextInput
                         mode="outlined"
-                        label="Available from"
-                        placeholder="2026-09-01T09:00:00+01:00"
-                        value={slot.startAt}
-                        onChangeText={(value) => updateSlot(slot.id, "startAt", value)}
+                        label="Date"
+                        placeholder="2026-08-29"
+                        value={slot.date}
+                        onChangeText={(value) =>
+                          updateSlot(slot.id, "date", value)
+                        }
+                        autoCapitalize="none"
                       />
-                      <TextInput
-                        mode="outlined"
-                        label="Available until"
-                        placeholder="2026-09-01T12:00:00+01:00"
-                        value={slot.endAt}
-                        onChangeText={(value) => updateSlot(slot.id, "endAt", value)}
-                      />
-                      {availabilitySlots.length > 1 ? (
-                        <Button mode="text" textColor={colors.error} icon="delete-outline" onPress={() => removeSlot(slot.id)}>Remove</Button>
-                      ) : null}
+
+                      <View style={styles.timeRow}>
+                        <TextInput
+                          mode="outlined"
+                          label="From"
+                          placeholder="09:00"
+                          value={slot.startTime}
+                          onChangeText={(value) =>
+                            updateSlot(slot.id, "startTime", value)
+                          }
+                          style={styles.timeField}
+                          autoCapitalize="none"
+                        />
+                        <TextInput
+                          mode="outlined"
+                          label="Until"
+                          placeholder="12:00"
+                          value={slot.endTime}
+                          onChangeText={(value) =>
+                            updateSlot(slot.id, "endTime", value)
+                          }
+                          style={styles.timeField}
+                          autoCapitalize="none"
+                        />
+                      </View>
                     </View>
                   ))}
                 </View>
 
                 <Pressable
-                  style={[styles.accessRow, accessPermission && styles.accessRowSelected]}
+                  style={[
+                    styles.accessRow,
+                    accessPermission && styles.accessRowSelected,
+                  ]}
                   onPress={() => setAccessPermission((value) => !value)}
                 >
                   <MaterialCommunityIcons
-                    name={accessPermission ? "checkbox-marked-circle-outline" : "checkbox-blank-circle-outline"}
+                    name={
+                      accessPermission
+                        ? "checkbox-marked-circle-outline"
+                        : "checkbox-blank-circle-outline"
+                    }
                     size={23}
-                    color={accessPermission ? colors.primary : colors.textMuted}
+                    color={
+                      accessPermission ? colors.primary : colors.textMuted
+                    }
                   />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.accessTitle}>Permission to access the property</Text>
-                    <Text style={styles.accessText}>Select this if an approved maintenance provider may enter as agreed even when you are not present.</Text>
+                    <Text style={styles.accessTitle}>Access permission</Text>
+                    <Text style={styles.accessText}>
+                      Select only if an approved maintenance provider may enter
+                      the property as agreed when you are not present.
+                    </Text>
                   </View>
                 </Pressable>
 
-                <Button mode="outlined" icon="camera-outline" onPress={pickIssuePhotos}>
+                <Button
+                  mode="outlined"
+                  icon="camera-outline"
+                  onPress={pickIssuePhotos}
+                >
                   Add problem photos ({pendingPhotos.length})
                 </Button>
 
@@ -587,10 +712,10 @@ export default function MaintenanceScreen() {
                     mode="contained"
                     icon="send-outline"
                     loading={submitting}
-                    disabled={submitting}
-                    onPress={handleSubmit}
+                    disabled={submitting || loading || !property}
+                    onPress={() => void handleSubmit()}
                   >
-                    Submit request
+                    Submit maintenance request
                   </Button>
                 </View>
               </View>
@@ -598,89 +723,72 @@ export default function MaintenanceScreen() {
 
             <View style={styles.sectionHeader}>
               <View>
-                <Text style={styles.sectionTitle}>
-                  Maintenance requests
-                </Text>
-
+                <Text style={styles.sectionTitle}>Your repair requests</Text>
                 <Text style={styles.sectionDescription}>
-                  View current and previous reported
-                  issues.
+                  Only requests for this tenancy property are shown.
                 </Text>
               </View>
-
               <Chip>{requests.length} total</Chip>
             </View>
 
             <View style={styles.requestList}>
-              {requests.map((request) => (
-                <RequestCard
-                  key={request.id}
-                  request={request}
-                  onConfirm={(completed) => void confirmCompletion(request.id, completed)}
-                />
-              ))}
+              {requests.length ? (
+                requests.map((request) => (
+                  <RequestCard
+                    key={request.id}
+                    request={request}
+                    onConfirm={(completed) =>
+                      void confirmCompletion(request.id, completed)
+                    }
+                  />
+                ))
+              ) : (
+                <View style={styles.emptyCard}>
+                  <MaterialCommunityIcons
+                    name="tools"
+                    size={30}
+                    color={colors.textMuted}
+                  />
+                  <Text style={styles.emptyTitle}>No maintenance requests</Text>
+                  <Text style={styles.emptyText}>
+                    New repair requests for this home will appear here.
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
 
           <View style={styles.sideColumn}>
-            <WorkflowNotifications compact title="Maintenance updates" limit={5} />
-            {selectedPropertyId ? (
+            <WorkflowNotifications
+              compact
+              title="Maintenance updates"
+              limit={5}
+            />
+
+            {property?.id ? (
               <PropertyMaintenanceProviders
-            actingRole="TENANT"
+                actingRole="TENANT"
                 propertyEndpoint="/property-workflows/tenant/my-properties"
-                title="My property maintenance people"
+                fixedPropertyId={property.id}
+                hidePropertySelector
+                title="Maintenance team"
+                subtitle="Providers linked to this home. Tenant-added providers require Estate Agent approval."
               />
             ) : null}
+
             <View style={styles.emergencyCard}>
               <MaterialCommunityIcons
                 name="alert-octagon-outline"
                 size={31}
                 color={colors.error}
               />
-
-              <Text style={styles.emergencyTitle}>
-                Emergency issue?
-              </Text>
-
+              <Text style={styles.emergencyTitle}>Emergency issue?</Text>
               <Text style={styles.emergencyText}>
-                For immediate danger, fire, gas leaks or
-                serious flooding, contact the emergency
-                services or your emergency property
-                number.
+                For immediate danger, fire, suspected gas leaks or serious
+                flooding, use the appropriate emergency service or emergency
+                property contact instead of waiting for a normal maintenance
+                request.
               </Text>
-
-              <Button
-                mode="outlined"
-                icon="phone-outline"
-                textColor={colors.error}
-                onPress={() =>
-                  setMessage(
-                    "Emergency contact integration can be added later.",
-                  )
-                }
-              >
-                Emergency contact
-              </Button>
-            </View>
-
-            <View style={styles.helpCard}>
-              <MaterialCommunityIcons
-                name="information-outline"
-                size={27}
-                color={colors.primary}
-              />
-
-              <View style={{ flex: 1 }}>
-                <Text style={styles.helpTitle}>
-                  Reporting tips
-                </Text>
-
-                <Text style={styles.helpText}>
-                  Include the room, when the issue
-                  started and whether it is becoming
-                  worse.
-                </Text>
-              </View>
             </View>
           </View>
         </View>
@@ -688,12 +796,9 @@ export default function MaintenanceScreen() {
 
       <Snackbar
         visible={Boolean(message)}
-        duration={3000}
+        duration={5000}
         onDismiss={() => setMessage("")}
-        action={{
-          label: "Close",
-          onPress: () => setMessage(""),
-        }}
+        action={{ label: "Close", onPress: () => setMessage("") }}
       >
         {message}
       </Snackbar>
@@ -713,7 +818,11 @@ function RequestCard({
       ? "check-circle-outline"
       : request.status === "In progress"
         ? "progress-wrench"
-        : "clock-outline";
+        : request.status === "Scheduled"
+          ? "calendar-check-outline"
+          : request.status === "Reopened"
+            ? "restore"
+            : "clock-outline";
 
   return (
     <View style={styles.requestCard}>
@@ -723,43 +832,49 @@ function RequestCard({
             name={statusIcon}
             size={27}
             color={
-              request.status === "Completed"
-                ? colors.success
-                : colors.primary
+              request.status === "Completed" ? colors.success : colors.primary
             }
           />
         </View>
 
         <View style={{ flex: 1 }}>
           <View style={styles.requestTitleRow}>
-            <Text style={styles.requestTitle}>
-              {request.title}
-            </Text>
-
+            <Text style={styles.requestTitle}>{request.title}</Text>
             <Chip compact>{request.status}</Chip>
           </View>
-
           <Text style={styles.requestMeta}>
-            {request.id} • {request.category} •{" "}
-            {request.priority} priority
+            {request.category} • {request.priority} priority
+            {request.roomLocation ? ` • ${request.roomLocation}` : ""}
           </Text>
         </View>
       </View>
 
-      <Text style={styles.requestDescription}>
-        {request.description}
-      </Text>
+      <Text style={styles.requestDescription}>{request.description}</Text>
 
       {request.scheduledStart ? (
-        <Text style={styles.requestDate}>Visit scheduled: {new Date(request.scheduledStart).toLocaleString()}</Text>
+        <Text style={styles.requestDate}>
+          Visit scheduled: {new Date(request.scheduledStart).toLocaleString()}
+        </Text>
       ) : null}
 
       <Text style={styles.requestDate}>Submitted {request.createdAt}</Text>
 
       {request.status === "Awaiting tenant confirmation" ? (
         <View style={styles.confirmRow}>
-          <Button mode="contained" icon="check-circle-outline" onPress={() => onConfirm(true)}>Confirm completed</Button>
-          <Button mode="outlined" icon="restore" onPress={() => onConfirm(false)}>Not fixed / reopen</Button>
+          <Button
+            mode="contained"
+            icon="check-circle-outline"
+            onPress={() => onConfirm(true)}
+          >
+            Confirm completed
+          </Button>
+          <Button
+            mode="outlined"
+            icon="restore"
+            onPress={() => onConfirm(false)}
+          >
+            Not fixed / reopen
+          </Button>
         </View>
       ) : null}
     </View>
@@ -768,7 +883,6 @@ function RequestCard({
 
 const styles = StyleSheet.create({
   screenContent: { padding: 0 },
-
   page: {
     width: "100%",
     maxWidth: 1450,
@@ -777,7 +891,6 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingBottom: 70,
   },
-
   topBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -789,13 +902,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     backgroundColor: colors.white,
   },
-
-  brand: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-
+  brand: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   logo: {
     width: 48,
     height: 48,
@@ -804,19 +911,40 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     backgroundColor: colors.primary,
   },
-
-  brandName: {
+  brandName: { color: colors.textPrimary, fontSize: 17, fontWeight: "900" },
+  brandSubtitle: { marginTop: 2, color: colors.textMuted, fontSize: 9 },
+  propertyBanner: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.xl,
+    backgroundColor: colors.primaryLight,
+  },
+  propertyIcon: {
+    width: 52,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 17,
+    backgroundColor: colors.white,
+  },
+  propertyLabel: {
+    color: colors.primary,
+    fontSize: 8,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+  propertyAddress: {
+    marginTop: 3,
     color: colors.textPrimary,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "900",
   },
-
-  brandSubtitle: {
-    marginTop: 2,
-    color: colors.textMuted,
-    fontSize: 9,
-  },
-
+  propertyMeta: { marginTop: 3, color: colors.textSecondary, fontSize: 10 },
   hero: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -828,7 +956,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     backgroundColor: colors.white,
   },
-
   heroIcon: {
     width: 67,
     height: 67,
@@ -837,48 +964,29 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     backgroundColor: colors.primaryLight,
   },
-
   heroLabel: {
     color: colors.primary,
     fontSize: 8,
     fontWeight: "900",
     letterSpacing: 1.2,
   },
-
   heroTitle: {
     marginTop: 5,
     color: colors.textPrimary,
     fontSize: 23,
     fontWeight: "900",
   },
-
   heroDescription: {
+    maxWidth: 700,
     marginTop: 6,
     color: colors.textMuted,
     fontSize: 10,
+    lineHeight: 16,
   },
-
-  layout: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.xl,
-  },
-
-  layoutStacked: {
-    flexDirection: "column",
-  },
-
-  mainColumn: {
-    flex: 1,
-    minWidth: 0,
-    gap: spacing.lg,
-  },
-
-  sideColumn: {
-    width: 330,
-    gap: spacing.lg,
-  },
-
+  layout: { flexDirection: "row", alignItems: "flex-start", gap: spacing.xl },
+  layoutStacked: { flexDirection: "column" },
+  mainColumn: { flex: 1, minWidth: 0, gap: spacing.lg },
+  sideColumn: { width: 340, maxWidth: "100%", gap: spacing.lg },
   card: {
     padding: spacing.xl,
     borderWidth: 1,
@@ -886,44 +994,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     backgroundColor: colors.white,
   },
-
-  cardTitle: {
-    color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: "900",
-  },
-
-  cardDescription: {
-    marginTop: 5,
-    color: colors.textMuted,
-    fontSize: 9,
-  },
-
-  form: {
-    gap: spacing.md,
-    marginTop: spacing.xl,
-  },
-
-  menuRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.md,
-  },
-
-  menuField: {
-    flexGrow: 1,
-    flexBasis: 240,
-  },
-
-  menuButtonContent: {
-    justifyContent: "flex-start",
-    minHeight: 54,
-  },
-
-  descriptionInput: {
-    minHeight: 130,
-  },
-
+  cardTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: "900" },
+  cardDescription: { marginTop: 5, color: colors.textMuted, fontSize: 9 },
+  form: { gap: spacing.md, marginTop: spacing.xl },
+  menuRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
+  menuField: { flexGrow: 1, flexBasis: 240 },
+  menuButtonContent: { justifyContent: "flex-start", minHeight: 54 },
+  descriptionInput: { minHeight: 130 },
   availabilityCard: {
     gap: spacing.md,
     padding: spacing.md,
@@ -934,46 +1011,65 @@ const styles = StyleSheet.create({
   },
   availabilityHeader: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "flex-start",
     gap: spacing.md,
   },
-  availabilityTitle: { color: colors.textPrimary, fontWeight: "900", fontSize: 13 },
-  availabilityText: { marginTop: 3, color: colors.textSecondary, fontSize: 10, lineHeight: 15 },
-  slotCard: { gap: spacing.sm, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.white },
-  slotLabel: { color: colors.primary, fontSize: 10, fontWeight: "900" },
-  accessRow: { flexDirection: "row", gap: spacing.md, padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg },
-  accessRowSelected: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
-  accessTitle: { color: colors.textPrimary, fontWeight: "800" },
-  accessText: { marginTop: 3, color: colors.textSecondary, fontSize: 10, lineHeight: 15 },
-  confirmRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
-
-  submitRow: {
-    alignItems: "flex-end",
+  availabilityTitle: {
+    color: colors.textPrimary,
+    fontWeight: "900",
+    fontSize: 13,
   },
-
+  availabilityText: {
+    marginTop: 3,
+    color: colors.textSecondary,
+    fontSize: 10,
+    lineHeight: 15,
+  },
+  slotCard: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.white,
+  },
+  slotHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  slotLabel: { color: colors.primary, fontSize: 10, fontWeight: "900" },
+  timeRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
+  timeField: { flexGrow: 1, flexBasis: 180 },
+  accessRow: {
+    flexDirection: "row",
+    gap: spacing.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+  },
+  accessRowSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+  },
+  accessTitle: { color: colors.textPrimary, fontWeight: "800" },
+  accessText: {
+    marginTop: 3,
+    color: colors.textSecondary,
+    fontSize: 10,
+    lineHeight: 15,
+  },
+  submitRow: { alignItems: "flex-end" },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.md,
   },
-
-  sectionTitle: {
-    color: colors.textPrimary,
-    fontSize: 15,
-    fontWeight: "900",
-  },
-
-  sectionDescription: {
-    marginTop: 4,
-    color: colors.textMuted,
-    fontSize: 9,
-  },
-
-  requestList: {
-    gap: spacing.md,
-  },
-
+  sectionTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: "900" },
+  sectionDescription: { marginTop: 4, color: colors.textMuted, fontSize: 9 },
+  requestList: { gap: spacing.md },
   requestCard: {
     padding: spacing.lg,
     borderWidth: 1,
@@ -981,13 +1077,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     backgroundColor: colors.white,
   },
-
-  requestTop: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.md,
-  },
-
+  requestTop: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
   requestIcon: {
     width: 53,
     height: 53,
@@ -996,7 +1086,6 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     backgroundColor: colors.primaryLight,
   },
-
   requestTitleRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1004,34 +1093,37 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: spacing.sm,
   },
-
-  requestTitle: {
-    flex: 1,
-    color: colors.textPrimary,
-    fontSize: 12,
-    fontWeight: "900",
-  },
-
-  requestMeta: {
-    marginTop: 5,
-    color: colors.textMuted,
-    fontSize: 8,
-  },
-
+  requestTitle: { flex: 1, color: colors.textPrimary, fontSize: 12, fontWeight: "900" },
+  requestMeta: { marginTop: 5, color: colors.textMuted, fontSize: 8 },
   requestDescription: {
     marginTop: spacing.md,
     color: colors.textSecondary,
     fontSize: 9,
     lineHeight: 15,
   },
-
   requestDate: {
     marginTop: spacing.md,
     color: colors.textMuted,
     fontSize: 8,
     fontWeight: "700",
   },
-
+  confirmRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  emptyCard: {
+    alignItems: "center",
+    gap: spacing.sm,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.xl,
+    backgroundColor: colors.white,
+  },
+  emptyTitle: { color: colors.textPrimary, fontWeight: "900" },
+  emptyText: { color: colors.textMuted, fontSize: 9, textAlign: "center" },
   emergencyCard: {
     gap: spacing.md,
     padding: spacing.lg,
@@ -1040,40 +1132,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     backgroundColor: colors.white,
   },
-
-  emergencyTitle: {
-    color: colors.textPrimary,
-    fontSize: 13,
-    fontWeight: "900",
-  },
-
-  emergencyText: {
-    color: colors.textSecondary,
-    fontSize: 9,
-    lineHeight: 16,
-  },
-
-  helpCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.xl,
-    backgroundColor: colors.primaryLight,
-  },
-
-  helpTitle: {
-    color: colors.textPrimary,
-    fontSize: 11,
-    fontWeight: "900",
-  },
-
-  helpText: {
-    marginTop: 4,
-    color: colors.textSecondary,
-    fontSize: 9,
-    lineHeight: 15,
-  },
+  emergencyTitle: { color: colors.textPrimary, fontSize: 13, fontWeight: "900" },
+  emergencyText: { color: colors.textSecondary, fontSize: 9, lineHeight: 16 },
 });
