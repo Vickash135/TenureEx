@@ -51,6 +51,10 @@ const API_BASE_URL = (
         ? "http://10.0.2.2:3000/api/v1"
         : "http://localhost:3000/api/v1")
 ).replace(/\/+$/, "");
+
+const AGREEMENT_SIGNED_WAITING_MESSAGE =
+    "Your agreement has been signed. Please wait for TenureEx Admin to send your Direct Debit setup request.";
+
 type DirectDebit = {
     id: string;
 
@@ -160,6 +164,17 @@ export default function AgentDirectDebitRoute() {
         setError,
     ] = useState("");
 
+    /*
+     * Only this exact backend message is a successful/waiting
+     * state rather than an actual error.
+     *
+     * All other error messages continue to use the existing
+     * red error design.
+     */
+    const isAgreementSignedWaiting =
+        error ===
+        AGREEMENT_SIGNED_WAITING_MESSAGE;
+
     const startDirectDebit =
         useCallback(
             async () => {
@@ -258,13 +273,13 @@ export default function AgentDirectDebitRoute() {
                 }
 
                 /*
-                DEVELOPMENT PROVIDER
-        
-                In production these references will come from
-                GoCardless / Stripe / another Direct Debit provider.
-        
-                Backend currently accepts ONLY these two fields.
-                */
+                 * DEVELOPMENT PROVIDER
+                 *
+                 * In production these references will come from
+                 * GoCardless / Stripe / another Direct Debit provider.
+                 *
+                 * Backend currently accepts ONLY these two fields.
+                 */
 
                 const providerCustomerReference =
                     generateReference(
@@ -478,30 +493,52 @@ export default function AgentDirectDebitRoute() {
                                     : "Complete the payment setup required for your Estate Agent account."}
                         </Text>
 
+                        {/* ONLY THE AGREEMENT-SIGNED WAITING MESSAGE IS GREEN */}
                         {error ? (
-                            <View
-                                style={
-                                    styles.errorCard
-                                }
-                            >
-                                <MaterialCommunityIcons
-                                    name="alert-circle-outline"
-                                    size={
-                                        21
-                                    }
-                                    color={
-                                        colors.error
-                                    }
-                                />
-
-                                <Text
+                            isAgreementSignedWaiting ? (
+                                <View
                                     style={
-                                        styles.errorText
+                                        styles.agreementSignedCard
                                     }
                                 >
-                                    {error}
-                                </Text>
-                            </View>
+                                    <MaterialCommunityIcons
+                                        name="check-circle-outline"
+                                        size={21}
+                                        color="#067647"
+                                    />
+
+                                    <Text
+                                        style={
+                                            styles.agreementSignedText
+                                        }
+                                    >
+                                        {error}
+                                    </Text>
+                                </View>
+                            ) : (
+                                /* ALL REAL ERRORS REMAIN RED */
+                                <View
+                                    style={
+                                        styles.errorCard
+                                    }
+                                >
+                                    <MaterialCommunityIcons
+                                        name="alert-circle-outline"
+                                        size={21}
+                                        color={
+                                            colors.error
+                                        }
+                                    />
+
+                                    <Text
+                                        style={
+                                            styles.errorText
+                                        }
+                                    >
+                                        {error}
+                                    </Text>
+                                </View>
+                            )
                         ) : null}
 
                         <View
@@ -1320,6 +1357,57 @@ const styles =
             lineHeight: 18,
         },
 
+        /*
+         * NEW:
+         * Used ONLY for:
+         * "Your agreement has been signed. Please wait..."
+         */
+        agreementSignedCard: {
+            flexDirection:
+                "row",
+
+            alignItems:
+                "center",
+
+            gap:
+                spacing.md,
+
+            marginTop:
+                spacing.lg,
+
+            padding:
+                spacing.lg,
+
+            borderWidth: 1,
+
+            borderColor:
+                "#ABEFC6",
+
+            borderRadius:
+                radius.md,
+
+            backgroundColor:
+                "#ECFDF3",
+        },
+
+        agreementSignedText: {
+            flex: 1,
+
+            color:
+                "#067647",
+
+            fontSize: 12,
+
+            lineHeight: 18,
+
+            fontWeight:
+                "600",
+        },
+
+        /*
+         * Existing error styles stay unchanged.
+         * Every genuine error will therefore remain red.
+         */
         errorCard: {
             flexDirection:
                 "row",
