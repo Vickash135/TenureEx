@@ -1,11 +1,10 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { Button, Card, Dialog, Divider, Menu, Portal, TextInput } from "react-native-paper";
 
 import { api } from "../../src/api/client";
-import WorkflowNotifications from "../../src/components/WorkflowNotifications";
 import { colors, radius, spacing } from "../../src/theme";
 import AgentModuleScreen from "./AgentModuleScreen";
 
@@ -362,12 +361,6 @@ export default function TenantsScreen() {
         hideRecords
         customContent={
           <View style={styles.workflow}>
-            <WorkflowNotifications
-              compact
-              title="Tenant workflow notifications"
-              limit={6}
-            />
-
             {section === "tenants" ? (
               <Card style={styles.card}>
                 <Card.Content style={styles.cardContent}>
@@ -1142,7 +1135,7 @@ function DetailSection({
   children,
 }: {
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <View style={styles.detailSection}>
