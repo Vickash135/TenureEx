@@ -2,25 +2,26 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import {
-    Button,
-    Checkbox,
-    HelperText,
-    Menu,
-    Snackbar,
-    TextInput,
+  Button,
+  Checkbox,
+  HelperText,
+  Menu,
+  Snackbar,
+  TextInput,
 } from "react-native-paper";
 
+import InternationalPhoneInput from "@/src/components/InternationalPhoneInput";
 import { colors, radius, spacing } from "../../../src/theme";
 
 type IdentificationType =
@@ -445,11 +446,10 @@ export default function TenantSignupScreen() {
                   }
                 />
 
-                <FormInput
+                <InternationalPhoneInput
                   label="Phone number *"
                   value={form.phone}
-                  keyboardType="phone-pad"
-                  errorMessage={errors.phone}
+                  error={errors.phone}
                   onChangeText={(value) =>
                     updateField("phone", value)
                   }

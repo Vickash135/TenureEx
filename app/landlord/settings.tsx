@@ -1,17 +1,18 @@
 import { useState } from "react";
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import {
-    Button,
-    Divider,
-    Switch,
-    TextInput,
+  Button,
+  Divider,
+  Switch,
+  TextInput,
 } from "react-native-paper";
 
+import InternationalPhoneInput from "@/src/components/InternationalPhoneInput";
 import { colors, radius, spacing } from "../../src/theme";
 import LandlordModuleScreen from "./LandlordModuleScreen";
 
@@ -134,13 +135,10 @@ export default function LandlordSettingsScreen() {
               }
             />
 
-            <SettingInput
+            <InternationalPhoneInput
               label="Phone number"
               value={settings.phone}
-              keyboardType="phone-pad"
-              onChangeText={(value) =>
-                update("phone", value)
-              }
+              onChangeText={(value) => update("phone", value)}
             />
 
             <SettingInput

@@ -47,7 +47,7 @@ type BackendDashboardProperty = {
   approvalStatus: "APPROVED" | "PENDING" | "REJECTED";
 };
 
-type MaintenanceStatus = "Open" | "Assigned" | "Completed";
+type MaintenanceStatus = "Open" | "Assigned" | "In progress" | "Awaiting tenant confirmation" | "Completed" | "Reopened";
 
 type MaintenanceRequest = {
   id: string;
@@ -56,7 +56,7 @@ type MaintenanceRequest = {
   reportedBy: string;
   contractor: string;
   date: string;
-  priority: "High" | "Medium" | "Low";
+  priority: "Emergency" | "High" | "Medium" | "Low";
   status: MaintenanceStatus;
 };
 
@@ -87,8 +87,6 @@ type RecentActivity = {
  */
 const demoProperties: Property[] = [];
 
-const maintenanceRequests: MaintenanceRequest[] = [];
-
 const complianceItems: ComplianceItem[] = [];
 
 const recentActivity: RecentActivity[] = [];
@@ -101,6 +99,8 @@ export default function LandlordDashboardScreen() {
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [propertiesLoading, setPropertiesLoading] = useState(true);
+  const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceRequest[]>([]);
+  const [maintenanceLoading, setMaintenanceLoading] = useState(true);
 
   useEffect(() => {
     const loadProperties = async () => {
@@ -152,6 +152,75 @@ export default function LandlordDashboardScreen() {
     void loadProperties();
   }, []);
 
+  useEffect(() => {
+    const loadMaintenance = async () => {
+      try {
+        const response = await api.get<any[]>(
+          "/property-workflows/maintenance-requests",
+        );
+
+        const rows = Array.isArray(response.data) ? response.data : [];
+        setMaintenanceRequests(
+          rows.map((row) => {
+            const status: MaintenanceStatus =
+              row.status === "COMPLETED"
+                ? "Completed"
+                : row.status === "IN_PROGRESS"
+                  ? "In progress"
+                  : row.status === "AWAITING_TENANT_CONFIRMATION"
+                    ? "Awaiting tenant confirmation"
+                    : row.status === "REOPENED"
+                      ? "Reopened"
+                      : row.assignedProvider || row.status === "SCHEDULED"
+                        ? "Assigned"
+                        : "Open";
+
+            const priority: MaintenanceRequest["priority"] =
+              row.priority === "EMERGENCY"
+                ? "Emergency"
+                : row.priority === "HIGH"
+                  ? "High"
+                  : row.priority === "LOW"
+                    ? "Low"
+                    : "Medium";
+
+            return {
+              id: row.id,
+              title: row.title || "Maintenance request",
+              property: [
+                row.property?.addressLine1,
+                row.property?.townCity,
+                row.property?.postcode,
+              ]
+                .filter(Boolean)
+                .join(", ") || "Property",
+              reportedBy:
+                [row.tenant?.firstName, row.tenant?.lastName]
+                  .filter(Boolean)
+                  .join(" ") || "Tenant",
+              contractor:
+                [row.assignedProvider?.firstName, row.assignedProvider?.lastName]
+                  .filter(Boolean)
+                  .join(" ") || "Not assigned",
+              date: row.createdAt
+                ? new Date(row.createdAt).toLocaleDateString("en-GB")
+                : "",
+              priority,
+              status,
+            };
+          }),
+        );
+      } catch (error) {
+        console.error("Failed to load landlord maintenance requests:", error);
+        setMaintenanceRequests([]);
+      } finally {
+        setMaintenanceLoading(false);
+      }
+    };
+
+    void loadMaintenance();
+  }, []);
+
   const occupiedCount = useMemo(
     () =>
       properties.filter(
@@ -191,7 +260,7 @@ export default function LandlordDashboardScreen() {
         (request) =>
           request.status !== "Completed",
       ).length,
-    [],
+    [maintenanceRequests],
   );
 
   const navigateTo = (route: Href) => {
@@ -310,25 +379,27 @@ export default function LandlordDashboardScreen() {
                 styles.maintenanceList
               }
             >
-              {maintenanceRequests.length ===
-              0 ? (
-                <Text
-                  style={
-                    styles.emptyStateText
-                  }
-                >
+              {maintenanceLoading ? (
+                <Text style={styles.emptyStateText}>
+                  Loading maintenance requests...
+                </Text>
+              ) : maintenanceRequests.length === 0 ? (
+                <Text style={styles.emptyStateText}>
                   No maintenance requests.
                 </Text>
               ) : (
-                maintenanceRequests.map(
-                  (request) => (
-                    <MaintenanceRow
-                      key={request.id}
-                      request={request}
-                      compact={!isTablet}
-                    />
-                  ),
-                )
+                maintenanceRequests.slice(0, 4).map((request) => (
+                  <MaintenanceRow
+                    key={request.id}
+                    request={request}
+                    compact={!isTablet}
+                    onPress={() =>
+                      navigateTo(
+                        "/landlord/maintenance" as Href,
+                      )
+                    }
+                  />
+                ))
               )}
             </View>
           </SectionCard>
@@ -585,19 +656,22 @@ function PropertyRow({
 function MaintenanceRow({
   request,
   compact,
+  onPress,
 }: {
   request: MaintenanceRequest;
   compact: boolean;
+  onPress?: () => void;
 }) {
   return (
     <Pressable
       style={styles.maintenanceRow}
+      onPress={onPress}
     >
       <View
         style={[
           styles.priorityIndicator,
 
-          request.priority === "High" &&
+          (request.priority === "High" || request.priority === "Emergency") &&
             styles.highPriorityIndicator,
 
           request.priority === "Medium" &&
@@ -659,8 +733,7 @@ function MaintenanceRow({
           type={
             request.status === "Completed"
               ? "success"
-              : request.status ===
-                  "Assigned"
+              : request.status === "Assigned" || request.status === "In progress"
                 ? "primary"
                 : "warning"
           }

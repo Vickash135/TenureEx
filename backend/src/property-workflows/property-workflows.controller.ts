@@ -111,6 +111,9 @@ export class PropertyWorkflowsController {
   @Get("tenant-applications") @UseGuards(JwtAuthGuard)
   tenantApplications(@CurrentUser() user: AuthenticatedUser) { return this.service.listTenantApplicationsForAgent(user.sub); }
 
+  @Get("active-tenants") @UseGuards(JwtAuthGuard)
+  activeTenants(@CurrentUser() user: AuthenticatedUser) { return this.service.listActiveTenantsForAgent(user.sub); }
+
   @Get("tenant-applications/:id") @UseGuards(JwtAuthGuard)
   tenantApplication(@CurrentUser() user: AuthenticatedUser, @Param("id", ParseUUIDPipe) id: string) { return this.service.getTenantApplicationForAgent(user.sub, id); }
 

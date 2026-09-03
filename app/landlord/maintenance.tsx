@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useEffect, useMemo, useState } from "react";
 import {
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,6 +19,7 @@ import {
   TextInput,
 } from "react-native-paper";
 
+import InternationalPhoneInput from "@/src/components/InternationalPhoneInput";
 import { api } from "../../src/api/client";
 import PropertyMaintenanceProviders from "../../src/components/PropertyMaintenanceProviders";
 import WorkflowNotifications from "../../src/components/WorkflowNotifications";
@@ -192,6 +194,24 @@ const routeOptions: MaintenanceRoute[] = [
   "Agent can arrange",
   "Use preferred contractor",
 ];
+
+function getMaintenancePhotoUrl(photo: string): string {
+  if (!photo) return "";
+  if (/^https?:\/\//i.test(photo)) return photo;
+
+  const baseUrl = String(api.defaults.baseURL || "").replace(/\/+$/, "");
+  const apiOrigin = baseUrl.replace(/\/api\/v1$/i, "");
+
+  if (photo.startsWith("/api/v1/")) {
+    return `${apiOrigin}${photo}`;
+  }
+
+  if (photo.startsWith("/")) {
+    return `${apiOrigin}${photo}`;
+  }
+
+  return `${baseUrl}/${photo}`;
+}
 
 export default function LandlordMaintenanceScreen() {
   const { width } = useWindowDimensions();
@@ -923,19 +943,12 @@ export default function LandlordMaintenanceScreen() {
                     autoCapitalize="none"
                   />
 
-                  <FormTextInput
+                  <InternationalPhoneInput
                     label="Tenant phone"
-                    value={
-                      requestForm.tenantPhone
-                    }
+                    value={requestForm.tenantPhone}
                     onChangeText={(value) =>
-                      updateForm(
-                        "tenantPhone",
-                        value,
-                      )
+                      updateForm("tenantPhone", value)
                     }
-                    icon="phone-outline"
-                    keyboardType="phone-pad"
                   />
                 </ResponsiveFields>
               </FormSection>
@@ -1171,19 +1184,12 @@ export default function LandlordMaintenanceScreen() {
                     icon="account-hard-hat-outline"
                   />
 
-                  <FormTextInput
+                  <InternationalPhoneInput
                     label="Contractor phone"
-                    value={
-                      requestForm.contractorPhone
-                    }
+                    value={requestForm.contractorPhone}
                     onChangeText={(value) =>
-                      updateForm(
-                        "contractorPhone",
-                        value,
-                      )
+                      updateForm("contractorPhone", value)
                     }
-                    icon="phone-outline"
-                    keyboardType="phone-pad"
                   />
 
                   <FormTextInput
@@ -2352,26 +2358,23 @@ function PhotoList({
   }
 
   return (
-    <View style={styles.photoList}>
-      {photos.map((photo, index) => (
-        <View
-          key={`${photo}-${index}`}
-          style={styles.photoItem}
-        >
-          <MaterialCommunityIcons
-            name="image-outline"
-            size={20}
-            color={colors.primary}
-          />
+    <View style={styles.photoGrid}>
+      {photos.map((photo, index) => {
+        const uri = getMaintenancePhotoUrl(photo);
 
-          <Text
-            style={styles.photoName}
-            numberOfLines={1}
-          >
-            {photo}
-          </Text>
-        </View>
-      ))}
+        return (
+          <View key={`${photo}-${index}`} style={styles.photoPreviewCard}>
+            <Image
+              source={{ uri }}
+              style={styles.photoPreviewImage}
+              resizeMode="cover"
+            />
+            <Text style={styles.photoPreviewLabel} numberOfLines={1}>
+              Photo {index + 1}
+            </Text>
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -3260,6 +3263,36 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 10,
     textAlign: "center",
+  },
+
+  photoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+  },
+
+  photoPreviewCard: {
+    width: 220,
+    maxWidth: "100%",
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.background,
+  },
+
+  photoPreviewImage: {
+    width: "100%",
+    height: 150,
+    backgroundColor: colors.surfaceSoft,
+  },
+
+  photoPreviewLabel: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    color: colors.textPrimary,
+    fontSize: 10,
+    fontWeight: "800",
   },
 
   photoList: {

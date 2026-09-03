@@ -2,19 +2,20 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import {
-    Button,
-    Divider,
-    Snackbar,
-    Switch,
-    TextInput,
+  Button,
+  Divider,
+  Snackbar,
+  Switch,
+  TextInput,
 } from "react-native-paper";
 
+import InternationalPhoneInput from "@/src/components/InternationalPhoneInput";
 import ScreenContainer from "../../src/components/ScreenContainer";
 import { colors, radius, spacing } from "../../src/theme";
 
@@ -193,16 +194,11 @@ export default function TenantSettingsScreen() {
               }
             />
 
-            <TextInput
-              mode="outlined"
+            <InternationalPhoneInput
               label="Telephone number"
               value={phone}
               onChangeText={setPhone}
-              keyboardType="phone-pad"
               style={styles.field}
-              left={
-                <TextInput.Icon icon="phone-outline" />
-              }
             />
 
             <TextInput

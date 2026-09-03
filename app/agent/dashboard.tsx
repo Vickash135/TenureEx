@@ -45,6 +45,19 @@ type AgencyLandlordsDashboardResponse = {
   invitations: unknown[];
 };
 
+type DashboardMaintenanceRequest = {
+  id: string;
+  title: string;
+  category?: string | null;
+  priority?: string | null;
+  status?: string | null;
+  createdAt?: string | null;
+  property?: {
+    addressLine1?: string | null;
+    postcode?: string | null;
+  } | null;
+};
+
 type StatisticItem = {
   title: string;
   value: string;
@@ -142,26 +155,6 @@ const recentActivities = [
   },
 ];
 
-const maintenanceItems = [
-  {
-    title: "Boiler not heating",
-    property: "Flat 8, Park View",
-    priority: "Urgent",
-    status: "Assigned",
-  },
-  {
-    title: "Kitchen tap leaking",
-    property: "18 Ashford Street",
-    priority: "Medium",
-    status: "New",
-  },
-  {
-    title: "Bedroom light fault",
-    property: "42 Camden Avenue",
-    priority: "Low",
-    status: "In progress",
-  },
-];
 
 const complianceItems = [
   {
@@ -200,6 +193,7 @@ export default function AgentDashboard() {
   const [dashboardProperties, setDashboardProperties] = useState<AgencyDashboardProperty[]>([]);
   const [dashboardLandlordCount, setDashboardLandlordCount] = useState(0);
   const [dashboardAgencyUserCount, setDashboardAgencyUserCount] = useState(0);
+  const [dashboardMaintenance, setDashboardMaintenance] = useState<DashboardMaintenanceRequest[]>([]);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -217,10 +211,11 @@ export default function AgentDashboard() {
     }
 
     const loadDashboardData = async () => {
-      const [landlordsResult, propertiesResult, usersResult] = await Promise.allSettled([
+      const [landlordsResult, propertiesResult, usersResult, maintenanceResult] = await Promise.allSettled([
         api.get<AgencyLandlordsDashboardResponse>("/agency-landlords"),
         api.get<AgencyDashboardProperty[]>("/agency-landlords/properties"),
         api.get<unknown[]>("/agency-users"),
+        api.get<DashboardMaintenanceRequest[]>("/property-workflows/maintenance-requests"),
       ]);
 
       if (landlordsResult.status === "fulfilled") {
@@ -233,6 +228,12 @@ export default function AgentDashboard() {
 
       if (usersResult.status === "fulfilled") {
         setDashboardAgencyUserCount(usersResult.value.data.length);
+      }
+
+      if (maintenanceResult.status === "fulfilled") {
+        setDashboardMaintenance(
+          Array.isArray(maintenanceResult.value.data) ? maintenanceResult.value.data : [],
+        );
       }
     };
 
@@ -259,9 +260,14 @@ export default function AgentDashboard() {
       if (item.title === "Landlords") {
         return { ...item, value: String(dashboardLandlordCount), change: "Linked to this agency" };
       }
+      if (item.title === "Maintenance") {
+        const active = dashboardMaintenance.filter((request) => request.status !== "COMPLETED");
+        const urgent = active.filter((request) => request.priority === "EMERGENCY" || request.priority === "HIGH");
+        return { ...item, value: String(active.length), change: `${urgent.length} urgent / high` };
+      }
       return item;
     });
-  }, [dashboardProperties, dashboardAgencyUserCount, dashboardLandlordCount]);
+  }, [dashboardProperties, dashboardAgencyUserCount, dashboardLandlordCount, dashboardMaintenance]);
 
   const visibleStatistics = useMemo(
     () =>
@@ -295,6 +301,25 @@ export default function AgentDashboard() {
       { label: "Rejected", value: rejected, percentage: Math.round((rejected / total) * 100) },
     ];
   }, [dashboardProperties]);
+
+  const liveMaintenanceItems = useMemo(() =>
+    dashboardMaintenance
+      .filter((request) => request.status !== "COMPLETED")
+      .slice(0, 5)
+      .map((request) => ({
+        id: request.id,
+        title: request.title,
+        property: [request.property?.addressLine1, request.property?.postcode].filter(Boolean).join(", ") || "Property",
+        priority: request.priority === "EMERGENCY" ? "Emergency" : request.priority === "HIGH" ? "High" : request.priority === "LOW" ? "Low" : "Medium",
+        status: String(request.status || "OPEN").replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase()),
+      })),
+    [dashboardMaintenance],
+  );
+
+  const maintenanceAttentionCount = useMemo(
+    () => dashboardMaintenance.filter((request) => request.status !== "COMPLETED").length,
+    [dashboardMaintenance],
+  );
 
   const canViewDashboard = hasAgentPermission(
     currentUser,
@@ -888,7 +913,7 @@ export default function AgentDashboard() {
                     >
                       <CardHeader
                         title="Maintenance requests"
-                        subtitle="0 requests require attention"
+                        subtitle={`${maintenanceAttentionCount} ${maintenanceAttentionCount === 1 ? "request requires" : "requests require"} attention`}
                         action="Open maintenance"
                         onPress={() =>
                           router.push("/agent/maintenance" as Href)
@@ -926,10 +951,18 @@ export default function AgentDashboard() {
                         </Text>
                       </View>
 
-                      {maintenanceItems.map((item) => (
-                        <View
-                          key={item.title}
+                      {liveMaintenanceItems.length === 0 ? (
+                        <View style={styles.maintenanceRow}>
+                          <View style={styles.issueColumn}>
+                            <Text style={styles.maintenanceTitle}>No active maintenance requests</Text>
+                            <Text style={styles.maintenanceProperty}>New tenant repair reports will appear here.</Text>
+                          </View>
+                        </View>
+                      ) : liveMaintenanceItems.map((item) => (
+                        <Pressable
+                          key={item.id}
                           style={styles.maintenanceRow}
+                          onPress={() => router.push(`/agent/maintenance-request/${item.id}` as Href)}
                         >
                           <View style={styles.issueColumn}>
                             <Text style={styles.maintenanceTitle}>
@@ -962,7 +995,7 @@ export default function AgentDashboard() {
                               type="primary"
                             />
                           </View>
-                        </View>
+                        </Pressable>
                       ))}
                     </Animated.View>
                   )}

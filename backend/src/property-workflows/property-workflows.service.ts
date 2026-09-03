@@ -263,10 +263,139 @@ export class PropertyWorkflowsService {
   }
 
   async listTenantApplicationsForAgent(agentUserId: string) {
-    const memberships = await this.prisma.agencyUser.findMany({ where: { userId: agentUserId } });
-    if (!memberships.length) throw new ForbiddenException("Estate Agent access is required.");
-    const agencyIds = memberships.map((m) => m.agencyId);
-    return this.db.tenantPropertyApplication.findMany({ where: { agencyId: { in: agencyIds } }, orderBy: { createdAt: "desc" } });
+    const memberships = await this.prisma.agencyUser.findMany({
+      where: { userId: agentUserId },
+    });
+    if (!memberships.length) {
+      throw new ForbiddenException("Estate Agent access is required.");
+    }
+
+    const agencyIds: string[] = memberships.map(
+      (membership) => membership.agencyId,
+    );
+
+    const applications = await this.db.tenantPropertyApplication.findMany({
+      where: { agencyId: { in: agencyIds } },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const tenantIds: string[] = [
+      ...new Set<string>(
+        applications
+          .map((item: any) => item.tenantUserId)
+          .filter((id: unknown): id is string => typeof id === "string"),
+      ),
+    ];
+
+    const propertyIds: string[] = [
+      ...new Set<string>(
+        applications
+          .map((item: any) => item.propertyId)
+          .filter((id: unknown): id is string => typeof id === "string"),
+      ),
+    ];
+
+    const [tenants, properties] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { id: { in: tenantIds } },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+        },
+      }),
+      this.prisma.property.findMany({
+        where: { id: { in: propertyIds } },
+        select: {
+          id: true,
+          addressLine1: true,
+          townCity: true,
+          postcode: true,
+        },
+      }),
+    ]);
+
+    return applications.map((application: any) => ({
+      ...application,
+      tenant:
+        tenants.find(
+          (tenant) => tenant.id === application.tenantUserId,
+        ) || null,
+      property:
+        properties.find(
+          (property) => property.id === application.propertyId,
+        ) || null,
+    }));
+  }
+
+  async listActiveTenantsForAgent(agentUserId: string) {
+    const memberships = await this.prisma.agencyUser.findMany({
+      where: { userId: agentUserId },
+    });
+    if (!memberships.length) {
+      throw new ForbiddenException("Estate Agent access is required.");
+    }
+
+    const agencyIds: string[] = memberships.map(
+      (membership) => membership.agencyId,
+    );
+
+    const properties = await this.prisma.property.findMany({
+      where: {
+        landlordProfile: {
+          agencyId: { in: agencyIds },
+        },
+      },
+      select: {
+        id: true,
+        addressLine1: true,
+        addressLine2: true,
+        townCity: true,
+        county: true,
+        postcode: true,
+      },
+    });
+
+    if (!properties.length) return [];
+
+    const propertyIds: string[] = properties.map(
+      (property) => property.id,
+    );
+
+    const links = await this.db.propertyTenant.findMany({
+      where: {
+        propertyId: { in: propertyIds },
+        status: "ACTIVE",
+      },
+      orderBy: { startedAt: "desc" },
+    });
+
+    const tenantIds: string[] = [
+      ...new Set<string>(
+        links
+          .map((link: any) => link.tenantUserId)
+          .filter((id: unknown): id is string => typeof id === "string"),
+      ),
+    ];
+
+    const tenants = await this.prisma.user.findMany({
+      where: { id: { in: tenantIds } },
+      include: { tenantProfile: true },
+    });
+
+    return links.map((link: any) => ({
+      ...link,
+      tenant:
+        tenants.find(
+          (tenant) => tenant.id === link.tenantUserId,
+        ) || null,
+      property:
+        properties.find(
+          (property) => property.id === link.propertyId,
+        ) || null,
+    }));
   }
 
   async getTenantApplicationForAgent(agentUserId: string, applicationId: string) {

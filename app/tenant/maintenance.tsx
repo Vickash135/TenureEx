@@ -1208,6 +1208,9 @@ export default function MaintenanceScreen() {
                   <RequestCard
                     key={request.id}
                     request={request}
+                    onOpen={() =>
+                      router.push(`/tenant/maintenance-request/${request.id}` as never)
+                    }
                     onConfirm={(completed) =>
                       void confirmCompletion(request.id, completed)
                     }
@@ -1282,10 +1285,12 @@ export default function MaintenanceScreen() {
 
 function RequestCard({
   request,
+  onOpen,
   onConfirm,
   onAddProblemPhotos,
 }: {
   request: MaintenanceRequest;
+  onOpen: () => void;
   onConfirm: (completed: boolean) => void;
   onAddProblemPhotos: () => void;
 }) {
@@ -1326,6 +1331,17 @@ function RequestCard({
       </View>
 
       <Text style={styles.requestDescription}>{request.description}</Text>
+
+      <View style={styles.requestOpenRow}>
+        <Button
+          mode="outlined"
+          compact
+          icon="open-in-new"
+          onPress={onOpen}
+        >
+          Open inquiry
+        </Button>
+      </View>
 
       {request.scheduledStart ? (
         <Text style={styles.requestDate}>
@@ -1645,6 +1661,7 @@ const styles = StyleSheet.create({
   },
   requestTitle: { flex: 1, color: colors.textPrimary, fontSize: 12, fontWeight: "900" },
   requestMeta: { marginTop: 5, color: colors.textMuted, fontSize: 8 },
+  requestOpenRow: { flexDirection: "row", justifyContent: "flex-end", marginTop: 10 },
   requestDescription: {
     marginTop: spacing.md,
     color: colors.textSecondary,

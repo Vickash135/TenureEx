@@ -3,16 +3,17 @@ import * as DocumentPicker from "expo-document-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import { ActivityIndicator, Button, Card, Divider, HelperText, TextInput } from "react-native-paper";
 
+import InternationalPhoneInput from "@/src/components/InternationalPhoneInput";
 import { api } from "../../../src/api/client";
 import { colors, radius, spacing } from "../../../src/theme";
 
@@ -206,12 +207,12 @@ export default function TenantApplicationUpdateScreen() {
                   <Text style={styles.sectionTitle}>Review and update your details</Text>
                   <Text style={styles.muted}>Existing values are pre-filled. Change only what is required, but make sure all information remains accurate.</Text>
                   <View style={[styles.grid, compact && styles.gridCompact]}>
-                    <TextInput mode="outlined" label="Phone" value={form.phone} onChangeText={(v) => setField("phone", v)} style={styles.input} />
+                    <InternationalPhoneInput label="Phone" value={form.phone} onChangeText={(v) => setField("phone", v)} style={styles.input} />
                     <TextInput mode="outlined" label="Date of birth (YYYY-MM-DD)" value={form.dateOfBirth} onChangeText={(v) => setField("dateOfBirth", v)} style={styles.input} />
                     <TextInput mode="outlined" label="Current address" value={form.currentAddress} onChangeText={(v) => setField("currentAddress", v)} style={styles.inputWide} />
                     <TextInput mode="outlined" label="Postcode" value={form.postcode} onChangeText={(v) => setField("postcode", v)} style={styles.input} />
                     <TextInput mode="outlined" label="Emergency contact name" value={form.emergencyContactName} onChangeText={(v) => setField("emergencyContactName", v)} style={styles.input} />
-                    <TextInput mode="outlined" label="Emergency contact phone" value={form.emergencyContactPhone} onChangeText={(v) => setField("emergencyContactPhone", v)} style={styles.input} />
+                    <InternationalPhoneInput label="Emergency contact phone" value={form.emergencyContactPhone} onChangeText={(v) => setField("emergencyContactPhone", v)} style={styles.input} />
                   </View>
                   <TextInput mode="outlined" label="Additional notes" value={form.additionalNotes} onChangeText={(v) => setField("additionalNotes", v)} multiline numberOfLines={4} />
                 </Card.Content>

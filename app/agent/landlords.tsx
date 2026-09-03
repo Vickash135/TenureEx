@@ -1,3 +1,4 @@
+import InternationalPhoneInput from "@/src/components/InternationalPhoneInput";
 import { useCallback, useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from "react-native";
 import { Button, Dialog, HelperText, Portal, Snackbar, Text, TextInput } from "react-native-paper";
@@ -137,7 +138,7 @@ export default function LandlordsScreen() {
                 <HelperText type="error" visible={submitted && !lastName.trim()}>Enter the last name.</HelperText>
                 <TextInput mode="outlined" label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" error={submitted && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())} />
                 <HelperText type="error" visible={submitted && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())}>Enter a valid email.</HelperText>
-                <TextInput mode="outlined" label="Phone (optional)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+                <InternationalPhoneInput label="Phone (optional)" value={phone} onChangeText={setPhone} />
               </ScrollView>
             </Dialog.ScrollArea>
             <Dialog.Actions>

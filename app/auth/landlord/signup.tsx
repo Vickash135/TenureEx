@@ -25,6 +25,7 @@ import {
   TextInput,
 } from "react-native-paper";
 
+import InternationalPhoneInput from "@/src/components/InternationalPhoneInput";
 import { api } from "../../../src/api/client";
 import TenureExLogo from "../../../src/components/Logo/TenureExLogo";
 import { colors, radius, spacing } from "../../../src/theme";
@@ -2132,16 +2133,13 @@ function PersonalDetailsStep({
         error={errors.email}
       />
 
-      <Field
+      <InternationalPhoneInput
         label="Phone number"
         value={values.phone}
         onChangeText={(value) => {
           setters.setPhone(value);
           clearError("phone");
         }}
-        placeholder="+44 7700 900000"
-        icon="phone-outline"
-        keyboardType="phone-pad"
         error={errors.phone}
       />
 

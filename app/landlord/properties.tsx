@@ -23,6 +23,7 @@ import {
   TextInput,
 } from "react-native-paper";
 
+import InternationalPhoneInput from "@/src/components/InternationalPhoneInput";
 import LandlordModuleScreen from "./LandlordModuleScreen";
 
 import { api } from "../../src/api/client";
@@ -1942,19 +1943,12 @@ export default function LandlordPropertiesScreen() {
                       icon="email-outline"
                     />
 
-                    <FormTextInput
+                    <InternationalPhoneInput
                       label="Tenant phone"
-                      value={
-                        propertyForm.tenantPhone
-                      }
+                      value={propertyForm.tenantPhone}
                       onChangeText={(value) =>
-                        updateForm(
-                          "tenantPhone",
-                          value,
-                        )
+                        updateForm("tenantPhone", value)
                       }
-                      keyboardType="phone-pad"
-                      icon="phone-outline"
                     />
                   </ResponsiveFields>
                 </FormSection>

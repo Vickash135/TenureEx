@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Text, View } from "react-native";
 
@@ -42,6 +43,7 @@ export default function MaintenanceScreen() {
                 ? "warning"
                 : "primary",
         icon: "tools",
+        onOpen: () => router.push(`/agent/maintenance-request/${request.id}` as never),
       })),
     [requests],
   );

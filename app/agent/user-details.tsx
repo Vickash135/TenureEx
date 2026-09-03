@@ -22,6 +22,7 @@ import {
   TextInput
 } from "react-native-paper";
 
+import InternationalPhoneInput from "@/src/components/InternationalPhoneInput";
 import TenureExLogo from "../../src/components/Logo/TenureExLogo";
 import {
   colors,
@@ -1132,15 +1133,13 @@ export default function UserDetailsScreen() {
                           error={errors.email}
                         />
 
-                        <FormInput
+                        <InternationalPhoneInput
                           label="Phone number"
                           value={phone}
                           onChangeText={(value) => {
                             setPhone(value);
                             clearError("phone");
                           }}
-                          icon="phone-outline"
-                          keyboardType="phone-pad"
                           error={errors.phone}
                         />
                       </View>

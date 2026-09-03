@@ -33,6 +33,7 @@ import {
   saveAgentOnboardingSession,
 } from "../../../src/auth/agent-onboarding-storage";
 
+import InternationalPhoneInput from "@/src/components/InternationalPhoneInput";
 import TenureExLogo from "../../../src/components/Logo/TenureExLogo";
 
 import {
@@ -1761,42 +1762,14 @@ export default function AgentSignupRoute() {
 
                 {/* PHONE */}
 
-                <FieldLabel
-                  text="Phone number"
-                />
-
-                <TextInput
-                  value={
-                    basicDetails.phone
+                <InternationalPhoneInput
+                  label="Phone number"
+                  value={basicDetails.phone}
+                  onChangeText={(value) =>
+                    updateBasicDetail("phone", value)
                   }
-                  onChangeText={(
-                    value,
-                  ) =>
-                    updateBasicDetail(
-                      "phone",
-                      value,
-                    )
-                  }
-                  mode="outlined"
-                  placeholder="+44 7911 123456"
-                  keyboardType="phone-pad"
-                  error={Boolean(
-                    errors.phone,
-                  )}
-                  left={
-                    <TextInput.Icon
-                      icon="phone-outline"
-                    />
-                  }
-                  outlineColor={
-                    colors.border
-                  }
-                  activeOutlineColor={
-                    colors.primary
-                  }
-                  style={
-                    styles.input
-                  }
+                  error={errors.phone}
+                  style={styles.input}
                 />
 
                 <ErrorText

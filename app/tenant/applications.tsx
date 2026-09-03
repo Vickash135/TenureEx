@@ -1,29 +1,30 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
-    router,
-    useLocalSearchParams,
+  router,
+  useLocalSearchParams,
 } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import {
-    Button,
-    Checkbox,
-    HelperText,
-    Menu,
-    Snackbar,
-    Switch,
-    TextInput,
+  Button,
+  Checkbox,
+  HelperText,
+  Menu,
+  Snackbar,
+  Switch,
+  TextInput,
 } from "react-native-paper";
 
+import InternationalPhoneInput from "@/src/components/InternationalPhoneInput";
 import { colors, radius, spacing } from "../../src/theme";
 
 type IconName =
@@ -850,17 +851,11 @@ export default function TenantApplicationsScreen() {
                       }
                     />
 
-                    <FormInput
+                    <InternationalPhoneInput
                       label="Landlord phone number"
-                      value={
-                        form.currentLandlordPhone
-                      }
-                      keyboardType="phone-pad"
+                      value={form.currentLandlordPhone}
                       onChangeText={(value) =>
-                        updateField(
-                          "currentLandlordPhone",
-                          value,
-                        )
+                        updateField("currentLandlordPhone", value)
                       }
                     />
 
@@ -1122,20 +1117,12 @@ export default function TenantApplicationsScreen() {
                         }
                       />
 
-                      <FormInput
+                      <InternationalPhoneInput
                         label="Guarantor phone *"
-                        value={
-                          form.guarantorPhone
-                        }
-                        keyboardType="phone-pad"
-                        errorMessage={
-                          errors.guarantorPhone
-                        }
+                        value={form.guarantorPhone}
+                        error={errors.guarantorPhone}
                         onChangeText={(value) =>
-                          updateField(
-                            "guarantorPhone",
-                            value,
-                          )
+                          updateField("guarantorPhone", value)
                         }
                       />
 

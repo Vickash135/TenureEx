@@ -54,6 +54,7 @@ export type AgentRecord = {
   onEdit?: () => void;
   onDelete?: () => void;
   onActivate?: () => void;
+  onOpen?: () => void;
 };
 
 type AgentModuleScreenProps = {
@@ -427,10 +428,36 @@ function AgentNavigation({
   mobile?: boolean;
   onNavigate: (route: Href) => void;
 }) {
+  const [tenantsExpanded, setTenantsExpanded] = useState(activePage === "Tenants");
   return (
     <View style={styles.navigationList}>
       {navigationItems.map((item) => {
         const active = item.label === activePage;
+        if (item.label === "Tenants") {
+          const subItems = [
+            { label: "Tenants", route: "/agent/tenants?section=tenants" as Href, icon: "account-group-outline" as IconName },
+            { label: "Property enquiries", route: "/agent/tenants?section=enquiries" as Href, icon: "home-search-outline" as IconName },
+            { label: "Tenant applications", route: "/agent/tenants?section=applications" as Href, icon: "file-account-outline" as IconName },
+          ];
+          return (
+            <View key={item.label}>
+              <Pressable
+                onPress={() => setTenantsExpanded((value) => !value)}
+                style={[styles.navigationItem, mobile && styles.mobileNavigationItem, active && styles.activeNavigationItem]}
+              >
+                <MaterialCommunityIcons name={item.icon} size={20} color={active ? colors.white : mobile ? colors.textSecondary : "rgba(255,255,255,0.68)"} />
+                <Text style={[styles.navigationText, mobile && styles.mobileNavigationText, active && styles.activeNavigationText]}>{item.label}</Text>
+                <MaterialCommunityIcons name={tenantsExpanded ? "chevron-up" : "chevron-down"} size={18} color={active ? colors.white : mobile ? colors.textSecondary : "rgba(255,255,255,0.68)"} />
+              </Pressable>
+              {tenantsExpanded ? subItems.map((subItem) => (
+                <Pressable key={subItem.label} onPress={() => onNavigate(subItem.route)} style={[styles.navigationItem, { paddingLeft: 42 }, mobile && styles.mobileNavigationItem]}>
+                  <MaterialCommunityIcons name={subItem.icon} size={17} color={mobile ? colors.textSecondary : "rgba(255,255,255,0.62)"} />
+                  <Text style={[styles.navigationText, { fontSize: 13 }, mobile && styles.mobileNavigationText]}>{subItem.label}</Text>
+                </Pressable>
+              )) : null}
+            </View>
+          );
+        }
         return (
           <Pressable
             key={item.label}
@@ -502,6 +529,12 @@ function RecordCard({ record, canManage }: { record: AgentRecord; canManage: boo
 
       <View style={styles.recordRightSection}>
         <StatusBadge text={record.status} type={record.statusType ?? "neutral"} />
+
+        {record.onOpen ? (
+          <Pressable onPress={record.onOpen} style={styles.activateButton}>
+            <Text style={styles.activateButtonText}>Open</Text>
+          </Pressable>
+        ) : null}
 
         {canManage ? (
           <View style={styles.recordActions}>

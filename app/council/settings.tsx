@@ -2,35 +2,36 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-    Pressable,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import {
-    Avatar,
-    Button,
-    Divider,
-    IconButton,
-    Menu,
-    Snackbar,
-    Switch,
-    TextInput,
+  Avatar,
+  Button,
+  Divider,
+  IconButton,
+  Menu,
+  Snackbar,
+  Switch,
+  TextInput,
 } from "react-native-paper";
 import Animated, {
-    FadeInDown,
-    FadeInLeft,
-    FadeInRight,
-    FadeInUp,
+  FadeInDown,
+  FadeInLeft,
+  FadeInRight,
+  FadeInUp,
 } from "react-native-reanimated";
 
+import InternationalPhoneInput from "@/src/components/InternationalPhoneInput";
 import ScreenContainer from "../../src/components/ScreenContainer";
 import {
-    colors,
-    radius,
-    spacing,
-    typography,
+  colors,
+  radius,
+  spacing,
+  typography,
 } from "../../src/theme";
 
 type IconName =
@@ -1254,12 +1255,10 @@ function ProfileSettings({
           autoCapitalize="none"
         />
 
-        <SettingsInput
+        <InternationalPhoneInput
           label="Telephone number"
           value={phone}
           onChangeText={setPhone}
-          icon="phone-outline"
-          keyboardType="phone-pad"
         />
 
         <SettingsInput

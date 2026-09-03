@@ -2,31 +2,32 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-    Pressable,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import {
-    Avatar,
-    Button,
-    Divider,
-    Snackbar,
-    Switch,
-    TextInput,
+  Avatar,
+  Button,
+  Divider,
+  Snackbar,
+  Switch,
+  TextInput,
 } from "react-native-paper";
 import Animated, {
-    FadeInDown,
-    FadeInUp,
+  FadeInDown,
+  FadeInUp,
 } from "react-native-reanimated";
 
+import InternationalPhoneInput from "@/src/components/InternationalPhoneInput";
 import ScreenContainer from "../../src/components/ScreenContainer";
 import {
-    colors,
-    radius,
-    spacing,
-    typography,
+  colors,
+  radius,
+  spacing,
+  typography,
 } from "../../src/theme";
 
 type IconName =
@@ -749,18 +750,11 @@ function ProfileSettings({
           !isTablet && styles.mobileFormRow,
         ]}
       >
-        <TextInput
-          mode="outlined"
+        <InternationalPhoneInput
           label="Phone number"
           value={phone}
           onChangeText={setPhone}
-          keyboardType="phone-pad"
-          left={
-            <TextInput.Icon icon="phone-outline" />
-          }
-          outlineColor={colors.border}
-          activeOutlineColor={colors.primary}
-          style={[styles.input, styles.rowInput]}
+          style={styles.rowInput}
         />
 
         <TextInput

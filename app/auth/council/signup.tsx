@@ -2,34 +2,35 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import {
-    Button,
-    Checkbox,
-    HelperText,
-    Snackbar,
-    TextInput,
+  Button,
+  Checkbox,
+  HelperText,
+  Snackbar,
+  TextInput,
 } from "react-native-paper";
 import Animated, {
-    FadeInDown,
-    FadeInLeft,
-    FadeInRight,
-    FadeInUp,
+  FadeInDown,
+  FadeInLeft,
+  FadeInRight,
+  FadeInUp,
 } from "react-native-reanimated";
 
+import InternationalPhoneInput from "@/src/components/InternationalPhoneInput";
 import ScreenContainer from "../../../src/components/ScreenContainer";
 import {
-    colors,
-    radius,
-    spacing,
-    typography,
+  colors,
+  radius,
+  spacing,
+  typography,
 } from "../../../src/theme";
 
 type IconName =
@@ -671,24 +672,11 @@ export default function CouncilSignupScreen() {
                   ) : null}
                 </View>
 
-                <TextInput
-                  mode="outlined"
+                <InternationalPhoneInput
                   label="Phone number"
-                  placeholder="Enter work phone number"
                   value={phone}
                   onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                  left={
-                    <TextInput.Icon
-                      icon="phone-outline"
-                    />
-                  }
-                  outlineColor={colors.border}
-                  activeOutlineColor={colors.primary}
-                  style={[
-                    styles.input,
-                    styles.rowInput,
-                  ]}
+                  style={styles.rowInput}
                 />
               </View>
 
