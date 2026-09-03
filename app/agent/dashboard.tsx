@@ -10,7 +10,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { Avatar, Button } from "react-native-paper";
+import { Avatar, Button, Dialog, Portal } from "react-native-paper";
 import Animated, { FadeInUp } from "react-native-reanimated";
 
 import { api, clearAuthSession, getStoredUser } from "../../src/api/client";
@@ -24,6 +24,7 @@ import {
   type AgentNavigationItem,
 } from "../../src/auth/agent-permissions";
 import TenureExLogo from "../../src/components/Logo/TenureExLogo";
+import WorkflowNotifications from "../../src/components/WorkflowNotifications";
 import {
   colors,
   radius,
@@ -56,6 +57,17 @@ type DashboardMaintenanceRequest = {
     addressLine1?: string | null;
     postcode?: string | null;
   } | null;
+};
+
+type DashboardNotification = {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  readAt?: string | null;
+  createdAt: string;
+  propertyId?: string | null;
+  metadata?: unknown;
 };
 
 type StatisticItem = {
@@ -124,37 +136,6 @@ const propertyStatus = [
   },
 ];
 
-const recentActivities = [
-  {
-    title: "New user added",
-    description: "Sarah Williams has been added as Property Manager.",
-    time: "8 minutes ago",
-    icon: "account-plus-outline" as IconName,
-    permission: "USERS_VIEW",
-  },
-  {
-    title: "Role updated",
-    description: "Maintenance Staff permissions updated.",
-    time: "25 minutes ago",
-    icon: "shield-account-outline" as IconName,
-    permission: "ROLES_VIEW",
-  },
-  {
-    title: "New landlord registered",
-    description: "Daniel Thompson completed registration.",
-    time: "1 hour ago",
-    icon: "account-tie-outline" as IconName,
-    permission: "LANDLORDS_VIEW",
-  },
-  {
-    title: "Property approved",
-    description: "24 Westbourne Road approved.",
-    time: "2 hours ago",
-    icon: "home-check-outline" as IconName,
-    permission: "PROPERTIES_VIEW",
-  },
-];
-
 
 const complianceItems = [
   {
@@ -177,6 +158,43 @@ const complianceItems = [
   },
 ];
 
+function activityIcon(type: string): IconName {
+  const normalized = String(type || "").toUpperCase();
+
+  if (normalized.includes("MAINTENANCE")) return "tools";
+  if (normalized.includes("TENANT")) return "account-key-outline";
+  if (normalized.includes("LANDLORD")) return "account-tie-outline";
+  if (normalized.includes("PROPERTY")) return "home-outline";
+  if (normalized.includes("APPROV")) return "check-decagram-outline";
+  if (normalized.includes("INVIT")) return "email-fast-outline";
+  if (normalized.includes("USER")) return "account-plus-outline";
+  if (normalized.includes("ROLE")) return "shield-account-outline";
+
+  return "bell-outline";
+}
+
+function formatRelativeActivityTime(value: string) {
+  const created = new Date(value);
+  const createdMs = created.getTime();
+
+  if (Number.isNaN(createdMs)) return "";
+
+  const seconds = Math.max(0, Math.floor((Date.now() - createdMs) / 1000));
+
+  if (seconds < 60) return "Just now";
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} ${minutes === 1 ? "minute" : "minutes"} ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} ${hours === 1 ? "hour" : "hours"} ago`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} ${days === 1 ? "day" : "days"} ago`;
+
+  return created.toLocaleDateString();
+}
+
 function getGreetingName(user: AgentCurrentUser) {
   return user.firstName || getUserDisplayName(user) || "there";
 }
@@ -194,6 +212,8 @@ export default function AgentDashboard() {
   const [dashboardLandlordCount, setDashboardLandlordCount] = useState(0);
   const [dashboardAgencyUserCount, setDashboardAgencyUserCount] = useState(0);
   const [dashboardMaintenance, setDashboardMaintenance] = useState<DashboardMaintenanceRequest[]>([]);
+  const [dashboardNotifications, setDashboardNotifications] = useState<DashboardNotification[]>([]);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -211,11 +231,18 @@ export default function AgentDashboard() {
     }
 
     const loadDashboardData = async () => {
-      const [landlordsResult, propertiesResult, usersResult, maintenanceResult] = await Promise.allSettled([
+      const [
+        landlordsResult,
+        propertiesResult,
+        usersResult,
+        maintenanceResult,
+        notificationsResult,
+      ] = await Promise.allSettled([
         api.get<AgencyLandlordsDashboardResponse>("/agency-landlords"),
         api.get<AgencyDashboardProperty[]>("/agency-landlords/properties"),
         api.get<unknown[]>("/agency-users"),
         api.get<DashboardMaintenanceRequest[]>("/property-workflows/maintenance-requests"),
+        api.get<DashboardNotification[]>("/property-workflows/notifications"),
       ]);
 
       if (landlordsResult.status === "fulfilled") {
@@ -233,6 +260,14 @@ export default function AgentDashboard() {
       if (maintenanceResult.status === "fulfilled") {
         setDashboardMaintenance(
           Array.isArray(maintenanceResult.value.data) ? maintenanceResult.value.data : [],
+        );
+      }
+
+      if (notificationsResult.status === "fulfilled") {
+        setDashboardNotifications(
+          Array.isArray(notificationsResult.value.data)
+            ? notificationsResult.value.data
+            : [],
         );
       }
     };
@@ -281,10 +316,16 @@ export default function AgentDashboard() {
 
   const visibleActivities = useMemo(
     () =>
-      recentActivities.filter((activity) =>
-        hasAgentPermission(currentUser, activity.permission),
-      ),
-    [currentUser],
+      dashboardNotifications
+        .slice(0, 6)
+        .map((notification) => ({
+          id: notification.id,
+          title: notification.title,
+          description: notification.message,
+          time: formatRelativeActivityTime(notification.createdAt),
+          icon: activityIcon(notification.type),
+        })),
+    [dashboardNotifications],
   );
 
   const livePropertyStatus = useMemo(() => {
@@ -574,14 +615,23 @@ export default function AgentDashboard() {
                 />
               </Pressable>
 
-              <Pressable style={styles.headerIconButton}>
+              <Pressable
+                style={styles.headerIconButton}
+                onPress={() => setNotificationsOpen(true)}
+              >
                 <MaterialCommunityIcons
-                  name="bell-outline"
+                  name={dashboardNotifications.some((item) => !item.readAt) ? "bell" : "bell-outline"}
                   size={22}
-                  color={colors.textSecondary}
+                  color={
+                    dashboardNotifications.some((item) => !item.readAt)
+                      ? colors.primary
+                      : colors.textSecondary
+                  }
                 />
 
-                <View style={styles.notificationDot} />
+                {dashboardNotifications.some((item) => !item.readAt) ? (
+                  <View style={styles.notificationDot} />
+                ) : null}
               </Pressable>
 
               {isTablet && (
@@ -856,12 +906,24 @@ export default function AgentDashboard() {
                         title="Recent activity"
                         subtitle="Latest agency updates"
                         action="View all"
+                        onPress={() => setNotificationsOpen(true)}
                       />
 
                       <View style={styles.activityList}>
-                        {visibleActivities.map((activity, index) => (
+                        {visibleActivities.length === 0 ? (
+                          <View style={styles.activityEmpty}>
+                            <MaterialCommunityIcons
+                              name="history"
+                              size={24}
+                              color={colors.textMuted}
+                            />
+                            <Text style={styles.activityEmptyText}>
+                              No recent agency activity yet.
+                            </Text>
+                          </View>
+                        ) : visibleActivities.map((activity) => (
                           <View
-                            key={`${activity.title}-${index}`}
+                            key={activity.id}
                             style={styles.activityItem}
                           >
                             <View style={styles.activityIcon}>
@@ -1143,6 +1205,32 @@ export default function AgentDashboard() {
           </ScrollView>
         </View>
       </View>
+
+      <Portal>
+        <Dialog
+          visible={notificationsOpen}
+          onDismiss={() => setNotificationsOpen(false)}
+          style={[
+            styles.notificationDialog,
+            { width: width < 700 ? "94%" : 560 },
+          ]}
+        >
+          <Dialog.Content style={styles.notificationDialogContent}>
+            <WorkflowNotifications
+              title="All notifications"
+              limit={100}
+              onUnreadCountChange={() => {
+                // The notification component updates read state in the backend.
+                // Reloading dashboard data later will refresh the dashboard indicator.
+              }}
+            />
+          </Dialog.Content>
+
+          <Dialog.Actions>
+            <Button onPress={() => setNotificationsOpen(false)}>Close</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </SafeAreaView>
   );
 }
@@ -1546,6 +1634,19 @@ const styles = StyleSheet.create({
     borderColor: colors.white,
   },
 
+  notificationDialog: {
+    alignSelf: "center",
+    maxWidth: 580,
+    maxHeight: "88%",
+    borderRadius: radius.xl,
+    backgroundColor: colors.white,
+  },
+
+  notificationDialogContent: {
+    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+
   headerProfile: {
     flexDirection: "row",
     alignItems: "center",
@@ -1915,6 +2016,19 @@ const styles = StyleSheet.create({
 
   activityList: {
     marginTop: spacing.lg,
+  },
+
+  activityEmpty: {
+    minHeight: 150,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+  },
+
+  activityEmptyText: {
+    color: colors.textMuted,
+    fontSize: 9,
+    textAlign: "center",
   },
 
   activityItem: {
