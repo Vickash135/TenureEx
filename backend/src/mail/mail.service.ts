@@ -65,7 +65,7 @@ export class MailService {
     this.adminEmail =
       process.env
         .TENUREEX_ADMIN_EMAIL ||
-      "kepraaonline@gmail.com";
+      "tenureex3@gmail.com";
 
     this.transporter =
       nodemailer.createTransport({
@@ -88,7 +88,7 @@ export class MailService {
       this.adminEmail.trim().toLowerCase()
     ) {
       console.warn(
-        "[TenureEx Mail] MAIL_USER and TENUREEX_ADMIN_EMAIL are the same Gmail address. SMTP can send the message, but Gmail may treat it as self-sent mail instead of a normal new Inbox notification. For reliable Admin notifications, use a separate SMTP sender mailbox and keep TENUREEX_ADMIN_EMAIL=kepraaonline@gmail.com.",
+        "[TenureEx Mail] MAIL_USER and TENUREEX_ADMIN_EMAIL are the same Gmail address. SMTP can send the message, but Gmail may treat it as self-sent mail instead of a normal new Inbox notification. For reliable Admin notifications, use a separate SMTP sender mailbox and keep TENUREEX_ADMIN_EMAIL=tenureex3@gmail.com.",
       );
     }
   }
@@ -929,6 +929,21 @@ Enter this code on the Landlord registration page to continue. The code is valid
       buttonUrl: `${this.frontendUrl}/maintenance/job-details?id=${encodeURIComponent(params.requestId)}`,
       footer: "Only approved maintenance providers for this property receive these job notifications.",
     });
+  }
+
+  async sendCouncilInspectorInvitation(params: { email: string; firstName: string; councilName: string; invitationToken: string }) {
+    const invitationUrl = `${this.frontendUrl}/auth/council/signup?invite=${encodeURIComponent(params.invitationToken)}`;
+    await this.sendMail({
+      to: params.email,
+      subject: "TenureEx Council Inspector invitation",
+      heading: "Council Inspector invitation",
+      greeting: `Hello ${params.firstName},`,
+      message: `TenureEx Admin has invited you to activate a verified Council Inspector account for ${params.councilName}. Use the secure invitation below to create your password and activate your account.`,
+      buttonText: "Activate inspector account",
+      buttonUrl: invitationUrl,
+      footer: "This secure invitation expires in 7 days.",
+    });
+    return { message: "Council Inspector invitation sent successfully." };
   }
 
   private async sendMail(

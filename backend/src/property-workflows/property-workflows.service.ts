@@ -722,6 +722,30 @@ export class PropertyWorkflowsService {
     if (!provider) throw new ForbiddenException("You do not have access to this maintenance request.");
   }
 
+  async addTenantMaintenanceSlots(tenantUserId: string, requestId: string, slots: { startAt: string; endAt: string }[]) {
+    const request = await this.db.maintenanceRequest.findUnique({ where: { id: requestId } });
+    if (!request) throw new NotFoundException("Maintenance request was not found.");
+    if (request.tenantUserId !== tenantUserId) throw new ForbiddenException("Only the tenant for this maintenance request can add availability.");
+    if (!slots.length) throw new BadRequestException("Add at least one available date and time slot.");
+    for (const slot of slots) {
+      const start = new Date(slot.startAt); const end = new Date(slot.endAt);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) throw new BadRequestException("Each availability slot must have a valid start and end time.");
+    }
+    await this.prisma.$transaction(async (tx: any) => {
+      await (tx as any).maintenanceTimeSlot.deleteMany({ where: { maintenanceRequestId: requestId, proposedBy: "TENANT", status: "AVAILABLE" } });
+      for (const slot of slots) await (tx as any).maintenanceTimeSlot.create({ data: { maintenanceRequestId: requestId, proposedBy: "TENANT", startAt: new Date(slot.startAt), endAt: new Date(slot.endAt), status: "AVAILABLE" } });
+      await (tx as any).maintenanceRequest.update({ where: { id: requestId }, data: { status: "OPEN" } });
+    });
+    const property = await this.propertyContext(request.propertyId);
+    const providers = await this.db.propertyMaintenanceProvider.findMany({ where: { propertyId: request.propertyId, status: "APPROVED" } });
+    const providerUsers = await this.prisma.user.findMany({ where: { id: { in: providers.map((p: any) => p.maintenanceUserId) } } });
+    for (const provider of providerUsers) {
+      await this.notify(provider.id, "MAINTENANCE_JOB_AVAILABLE", "Council-required maintenance available", `${request.title} at ${property.addressLine1}. The tenant has added available visit times.`, "MaintenanceRequest", requestId);
+      await this.mailService.sendMaintenanceJobAvailable({ email: provider.email, title: request.title, propertyAddress: `${property.addressLine1}, ${property.townCity}, ${property.postcode}`, requestId });
+    }
+    return this.getMaintenanceRequest(tenantUserId, requestId);
+  }
+
   async acceptMaintenanceSlot(providerUserId: string, requestId: string, slotId: string) {
     const request = await this.db.maintenanceRequest.findUnique({ where: { id: requestId } });
     if (!request) throw new NotFoundException("Maintenance request was not found.");

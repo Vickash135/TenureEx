@@ -147,6 +147,9 @@ export class PropertyWorkflowsController {
   @Get("maintenance-requests/:id") @UseGuards(JwtAuthGuard)
   maintenanceRequest(@CurrentUser() user: AuthenticatedUser, @Param("id", ParseUUIDPipe) id: string) { return this.service.getMaintenanceRequest(user.sub, id); }
 
+  @Post("maintenance-requests/:id/tenant-slots") @UseGuards(JwtAuthGuard)
+  tenantSlots(@CurrentUser() user: AuthenticatedUser, @Param("id", ParseUUIDPipe) id: string, @Body() body: { slots?: { startAt: string; endAt: string }[] }) { return this.service.addTenantMaintenanceSlots(user.sub, id, body.slots || []); }
+
   @Post("maintenance-requests/:id/accept-slot") @UseGuards(JwtAuthGuard)
   acceptSlot(@CurrentUser() user: AuthenticatedUser, @Param("id", ParseUUIDPipe) id: string, @Body() dto: AcceptMaintenanceSlotDto) { return this.service.acceptMaintenanceSlot(user.sub, id, dto.slotId); }
 

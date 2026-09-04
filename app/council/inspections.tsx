@@ -1,37 +1,38 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-    Pressable,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import {
-    Avatar,
-    Button,
-    Chip,
-    Divider,
-    IconButton,
-    Menu,
-    Searchbar,
-    Snackbar
+  Avatar,
+  Button,
+  Chip,
+  Divider,
+  IconButton,
+  Menu,
+  Searchbar,
+  Snackbar
 } from "react-native-paper";
 import Animated, {
-    FadeIn,
-    FadeInDown,
-    FadeInLeft,
-    FadeInRight,
-    FadeInUp,
+  FadeIn,
+  FadeInDown,
+  FadeInLeft,
+  FadeInRight,
+  FadeInUp,
 } from "react-native-reanimated";
 
+import { api, clearAuthSession, getStoredUser } from "../../src/api/client";
 import ScreenContainer from "../../src/components/ScreenContainer";
 import {
-    colors,
-    radius,
-    spacing,
-    typography,
+  colors,
+  radius,
+  spacing,
+  typography,
 } from "../../src/theme";
 
 type IconName =
@@ -121,145 +122,6 @@ const navigationItems: NavigationItem[] = [
   },
 ];
 
-const inspections: Inspection[] = [
-  {
-    id: "INS-2026-1048",
-    property: "14 Wellington Avenue",
-    address: "14 Wellington Avenue, Leeds",
-    postcode: "LS6 2AB",
-    landlord: "Daniel Morgan",
-    tenant: "Emily Carter",
-    date: "30 July 2026",
-    dateValue: "2026-07-30",
-    time: "10:00 AM",
-    type: "Housing standards",
-    status: "Urgent",
-    priority: "High",
-    assignedInspector: "Alex Morgan",
-    notes:
-      "Tenant reported severe damp, mould and ventilation concerns.",
-  },
-  {
-    id: "INS-2026-1051",
-    property: "62 Woodhouse Lane",
-    address: "62 Woodhouse Lane, Leeds",
-    postcode: "LS2 9JT",
-    landlord: "Priya Sharma",
-    tenant: "Oliver James",
-    date: "30 July 2026",
-    dateValue: "2026-07-30",
-    time: "1:30 PM",
-    type: "Follow-up inspection",
-    status: "Scheduled",
-    priority: "Medium",
-    assignedInspector: "Alex Morgan",
-    notes:
-      "Follow-up visit to check whether previously identified repairs were completed.",
-  },
-  {
-    id: "INS-2026-1057",
-    property: "8 Kirkstall Road",
-    address: "8 Kirkstall Road, Leeds",
-    postcode: "LS3 1HD",
-    landlord: "Jonathan Reed",
-    tenant: "Sophie Wilson",
-    date: "31 July 2026",
-    dateValue: "2026-07-31",
-    time: "9:15 AM",
-    type: "HMO compliance",
-    status: "Scheduled",
-    priority: "Normal",
-    assignedInspector: "Alex Morgan",
-    notes:
-      "Annual HMO licence and occupancy compliance inspection.",
-  },
-  {
-    id: "INS-2026-1039",
-    property: "21 Headingley Mount",
-    address: "21 Headingley Mount, Leeds",
-    postcode: "LS6 3EW",
-    landlord: "Sarah Thompson",
-    tenant: "Noah Brown",
-    date: "29 July 2026",
-    dateValue: "2026-07-29",
-    time: "11:45 AM",
-    type: "Safety assessment",
-    status: "In Progress",
-    priority: "High",
-    assignedInspector: "Alex Morgan",
-    notes:
-      "Inspection started. Fire safety documentation requires additional review.",
-  },
-  {
-    id: "INS-2026-1024",
-    property: "35 Cardigan Road",
-    address: "35 Cardigan Road, Leeds",
-    postcode: "LS6 1LJ",
-    landlord: "Michael Edwards",
-    tenant: "Amelia Green",
-    date: "27 July 2026",
-    dateValue: "2026-07-27",
-    time: "2:00 PM",
-    type: "Electrical safety",
-    status: "Completed",
-    priority: "Medium",
-    assignedInspector: "Alex Morgan",
-    notes:
-      "Electrical installation certificate reviewed and report submitted.",
-  },
-  {
-    id: "INS-2026-1062",
-    property: "91 Burley Road",
-    address: "91 Burley Road, Leeds",
-    postcode: "LS4 2EL",
-    landlord: "Rebecca Hall",
-    tenant: "George Martin",
-    date: "1 August 2026",
-    dateValue: "2026-08-01",
-    time: "10:30 AM",
-    type: "Damp and mould",
-    status: "Scheduled",
-    priority: "High",
-    assignedInspector: "Alex Morgan",
-    notes:
-      "Tenant submitted photographs showing mould in two bedrooms.",
-  },
-  {
-    id: "INS-2026-1018",
-    property: "17 Hyde Park Road",
-    address: "17 Hyde Park Road, Leeds",
-    postcode: "LS6 1PY",
-    landlord: "Andrew Collins",
-    tenant: "Grace Evans",
-    date: "25 July 2026",
-    dateValue: "2026-07-25",
-    time: "9:00 AM",
-    type: "Housing standards",
-    status: "Completed",
-    priority: "Normal",
-    assignedInspector: "Alex Morgan",
-    notes:
-      "Property passed minimum housing standards assessment.",
-  },
-  {
-    id: "INS-2026-1041",
-    property: "46 Meanwood Road",
-    address: "46 Meanwood Road, Leeds",
-    postcode: "LS7 2LP",
-    landlord: "Thomas Wright",
-    tenant: "Isla Roberts",
-    date: "29 July 2026",
-    dateValue: "2026-07-29",
-    time: "3:30 PM",
-    type: "Safety assessment",
-    status: "Cancelled",
-    priority: "Normal",
-    assignedInspector: "Alex Morgan",
-    notes:
-      "Inspection cancelled because access could not be arranged.",
-  },
-];
-
 const statusFilters: StatusFilter[] = [
   "All",
   "Scheduled",
@@ -301,6 +163,81 @@ export default function CouncilInspectionsScreen() {
     useState(false);
   const [snackbarMessage, setSnackbarMessage] =
     useState("");
+  const [inspections, setInspections] = useState<Inspection[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [loadingCases, setLoadingCases] = useState(true);
+
+  const loadInspections = async () => {
+    setLoadingCases(true);
+    try {
+      const [stored, response] = await Promise.all([
+        getStoredUser<any>("council"),
+        api.get("/council-inspections/cases"),
+      ]);
+      setCurrentUser(stored);
+      const rows = Array.isArray(response.data) ? response.data : [];
+      setInspections(rows.map((row: any) => {
+        const scheduled = row.scheduledStart ? new Date(row.scheduledStart) : null;
+        const rawStatus = String(row.status ?? "REQUESTED");
+        const status: InspectionStatus = rawStatus === "CLOSED" || rawStatus === "COMPLETED"
+          ? "Completed"
+          : rawStatus === "DECLINED"
+            ? "Cancelled"
+            : rawStatus === "SCHEDULED"
+              ? "Scheduled"
+              : rawStatus === "ACTION_REQUIRED" || String(row.priority).toUpperCase() === "URGENT"
+                ? "Urgent"
+                : "In Progress";
+        const priority: InspectionPriority = ["HIGH", "URGENT"].includes(String(row.priority).toUpperCase())
+          ? "High"
+          : String(row.priority).toUpperCase() === "MEDIUM"
+            ? "Medium"
+            : "Normal";
+        const typeLabel = String(row.category ?? "Housing standards").replace(/_/g, " ");
+        const type: InspectionType = typeLabel.toLowerCase().includes("damp")
+          ? "Damp and mould"
+          : typeLabel.toLowerCase().includes("hmo")
+            ? "HMO compliance"
+            : typeLabel.toLowerCase().includes("electrical")
+              ? "Electrical safety"
+              : typeLabel.toLowerCase().includes("follow")
+                ? "Follow-up inspection"
+                : typeLabel.toLowerCase().includes("safety")
+                  ? "Safety assessment"
+                  : "Housing standards";
+        const requester = row.requester ? `${row.requester.firstName ?? ""} ${row.requester.lastName ?? ""}`.trim() : "—";
+        return {
+          id: row.id,
+          property: row.property?.addressLine1 ?? "Property",
+          address: [row.property?.addressLine1, row.property?.townCity].filter(Boolean).join(", "),
+          postcode: row.property?.postcode ?? "",
+          landlord: requester,
+          tenant: requester,
+          date: scheduled ? scheduled.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "Awaiting schedule",
+          dateValue: scheduled ? scheduled.toISOString().slice(0, 10) : row.createdAt?.slice?.(0, 10) ?? "9999-12-31",
+          time: scheduled ? scheduled.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "—",
+          type,
+          status,
+          priority,
+          assignedInspector: row.inspector ? `${row.inspector.firstName ?? ""} ${row.inspector.lastName ?? ""}`.trim() : "Council Inspector",
+          notes: row.description ?? "",
+        };
+      }));
+    } catch (error: any) {
+      const backendMessage = error?.response?.data?.message;
+      setSnackbarMessage(typeof backendMessage === "string" ? backendMessage : "Unable to load inspection cases.");
+      setSnackbarVisible(true);
+    } finally {
+      setLoadingCases(false);
+    }
+  };
+
+  useEffect(() => { void loadInspections(); }, []);
+
+  const displayName = currentUser ? `${currentUser.firstName ?? ""} ${currentUser.lastName ?? ""}`.trim() : "Council Inspector";
+  const initials = currentUser ? `${currentUser.firstName?.[0] ?? ""}${currentUser.lastName?.[0] ?? ""}`.toUpperCase() || "CI" : "CI";
+  const councilName = currentUser?.councilProfile?.councilName ?? "Council / Local Authority";
+  const jobTitle = currentUser?.councilProfile?.jobTitle ?? "Council Inspector";
 
   const filteredInspections = useMemo(() => {
     const query = searchQuery
@@ -430,12 +367,10 @@ export default function CouncilInspectionsScreen() {
     );
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setProfileMenuVisible(false);
-
-    router.replace(
-      "/auth/council/login" as never
-    );
+    await clearAuthSession("council");
+    router.replace("/auth/council/login" as never);
   };
 
   return (
@@ -620,18 +555,18 @@ export default function CouncilInspectionsScreen() {
               <View style={styles.profileCard}>
                 <Avatar.Text
                   size={48}
-                  label="AM"
+                  label={initials}
                   labelStyle={styles.avatarLabel}
                   style={styles.avatar}
                 />
 
                 <View style={styles.profileInformation}>
                   <Text style={styles.profileName}>
-                    Alex Morgan
+                    {displayName}
                   </Text>
 
                   <Text style={styles.profileRole}>
-                    Housing Inspector
+                    {jobTitle}
                   </Text>
 
                   <View style={styles.verifiedRow}>
@@ -734,7 +669,7 @@ export default function CouncilInspectionsScreen() {
                     <Text
                       style={styles.councilName}
                     >
-                      Leeds City Council
+                      {councilName}
                     </Text>
 
                     <Text
@@ -850,7 +785,7 @@ export default function CouncilInspectionsScreen() {
                       >
                         <Avatar.Text
                           size={38}
-                          label="AM"
+                          label={initials}
                           labelStyle={
                             styles.smallAvatarLabel
                           }
@@ -865,7 +800,7 @@ export default function CouncilInspectionsScreen() {
                               styles.headerProfileName
                             }
                           >
-                            Alex Morgan
+                            {displayName}
                           </Text>
 
                           <Text
@@ -873,7 +808,7 @@ export default function CouncilInspectionsScreen() {
                               styles.headerProfileRole
                             }
                           >
-                            Housing Inspector
+                            {jobTitle}
                           </Text>
                         </View>
 

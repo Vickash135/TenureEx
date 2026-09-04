@@ -1,37 +1,38 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-    Pressable,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import {
-    Avatar,
-    Badge,
-    Button,
-    Divider,
-    IconButton,
-    Menu,
-    ProgressBar,
-    Snackbar,
+  Avatar,
+  Badge,
+  Button,
+  Divider,
+  IconButton,
+  Menu,
+  ProgressBar,
+  Snackbar,
 } from "react-native-paper";
 import Animated, {
-    FadeIn,
-    FadeInDown,
-    FadeInLeft,
-    FadeInRight,
-    FadeInUp,
+  FadeIn,
+  FadeInDown,
+  FadeInLeft,
+  FadeInRight,
+  FadeInUp,
 } from "react-native-reanimated";
 
+import { api, clearAuthSession, getStoredUser } from "../../src/api/client";
 import ScreenContainer from "../../src/components/ScreenContainer";
 import {
-    colors,
-    radius,
-    spacing,
-    typography,
+  colors,
+  radius,
+  spacing,
+  typography,
 } from "../../src/theme";
 
 type IconName =
@@ -104,113 +105,6 @@ const navigationItems: NavigationItem[] = [
   },
 ];
 
-const inspections: Inspection[] = [
-  {
-    id: "INS-2026-1048",
-    property: "14 Wellington Avenue",
-    address: "Leeds, LS6 2AB",
-    landlord: "Daniel Morgan",
-    date: "30 July 2026",
-    time: "10:00 AM",
-    type: "Housing standards",
-    status: "Urgent",
-    priority: "High",
-  },
-  {
-    id: "INS-2026-1051",
-    property: "62 Woodhouse Lane",
-    address: "Leeds, LS2 9JT",
-    landlord: "Priya Sharma",
-    date: "30 July 2026",
-    time: "1:30 PM",
-    type: "Follow-up inspection",
-    status: "Scheduled",
-    priority: "Medium",
-  },
-  {
-    id: "INS-2026-1057",
-    property: "8 Kirkstall Road",
-    address: "Leeds, LS3 1HD",
-    landlord: "Jonathan Reed",
-    date: "31 July 2026",
-    time: "9:15 AM",
-    type: "HMO compliance",
-    status: "Scheduled",
-    priority: "Normal",
-  },
-  {
-    id: "INS-2026-1039",
-    property: "21 Headingley Mount",
-    address: "Leeds, LS6 3EW",
-    landlord: "Sarah Thompson",
-    date: "29 July 2026",
-    time: "11:45 AM",
-    type: "Safety assessment",
-    status: "In Progress",
-    priority: "High",
-  },
-];
-
-const recentActivities: Activity[] = [
-  {
-    id: "activity-1",
-    icon: "file-check-outline",
-    title: "Inspection report submitted",
-    description:
-      "Report INS-2026-1034 was submitted for 17 Cardigan Road.",
-    time: "25 minutes ago",
-    background: "#E8F7EE",
-    iconColor: "#277A46",
-  },
-  {
-    id: "activity-2",
-    icon: "message-text-outline",
-    title: "New landlord message",
-    description:
-      "James Wilson replied regarding inspection access arrangements.",
-    time: "1 hour ago",
-    background: colors.primaryLight,
-    iconColor: colors.primary,
-  },
-  {
-    id: "activity-3",
-    icon: "calendar-check-outline",
-    title: "Inspection rescheduled",
-    description:
-      "Inspection INS-2026-1042 was moved to 2 August at 10:30 AM.",
-    time: "3 hours ago",
-    background: "#FFF4E5",
-    iconColor: "#B56400",
-  },
-  {
-    id: "activity-4",
-    icon: "alert-circle-outline",
-    title: "Compliance issue escalated",
-    description:
-      "A serious damp and mould concern requires follow-up action.",
-    time: "Yesterday",
-    background: "#FDECEC",
-    iconColor: "#B42318",
-  },
-];
-
-const monthlyProgress = [
-  {
-    label: "Completed inspections",
-    value: 34,
-    total: 42,
-  },
-  {
-    label: "Reports submitted",
-    value: 29,
-    total: 34,
-  },
-  {
-    label: "Cases resolved",
-    value: 21,
-    total: 30,
-  },
-];
 
 export default function CouncilDashboardScreen() {
   const { width } = useWindowDimensions();
@@ -230,6 +124,80 @@ export default function CouncilDashboardScreen() {
     useState(false);
   const [snackbarMessage, setSnackbarMessage] =
     useState("");
+  const [inspections, setInspections] = useState<Inspection[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [loadingCases, setLoadingCases] = useState(true);
+
+  const loadDashboard = async () => {
+    try {
+      const [stored, response] = await Promise.all([
+        getStoredUser<any>("council"),
+        api.get("/council-inspections/cases"),
+      ]);
+      setCurrentUser(stored);
+      const rows = Array.isArray(response.data) ? response.data : [];
+      setInspections(rows.map((row: any) => {
+        const scheduled = row.scheduledStart ? new Date(row.scheduledStart) : null;
+        const rawStatus = String(row.status ?? "REQUESTED");
+        const status: InspectionStatus = rawStatus === "COMPLETED" || rawStatus === "CLOSED"
+          ? "Completed"
+          : rawStatus === "SCHEDULED"
+            ? "Scheduled"
+            : rawStatus === "ACTION_REQUIRED" || String(row.priority).toUpperCase() === "URGENT"
+              ? "Urgent"
+              : "In Progress";
+        const priority: Priority = String(row.priority).toUpperCase() === "HIGH" || String(row.priority).toUpperCase() === "URGENT"
+          ? "High"
+          : String(row.priority).toUpperCase() === "MEDIUM"
+            ? "Medium"
+            : "Normal";
+        return {
+          id: row.id,
+          property: row.property?.addressLine1 ?? "Property",
+          address: [row.property?.townCity, row.property?.postcode].filter(Boolean).join(", "),
+          landlord: row.requester ? `${row.requester.firstName ?? ""} ${row.requester.lastName ?? ""}`.trim() : "TenureEx user",
+          date: scheduled ? scheduled.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "Awaiting schedule",
+          time: scheduled ? scheduled.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "—",
+          type: row.category ? String(row.category).replace(/_/g, " ") : "Housing condition",
+          status,
+          priority,
+        };
+      }));
+    } catch (error: any) {
+      const message = error?.response?.data?.message;
+      setSnackbarMessage(typeof message === "string" ? message : "Unable to load Council inspection dashboard.");
+      setSnackbarVisible(true);
+    } finally {
+      setLoadingCases(false);
+    }
+  };
+
+  useEffect(() => { void loadDashboard(); }, []);
+
+  const displayName = currentUser ? `${currentUser.firstName ?? ""} ${currentUser.lastName ?? ""}`.trim() : "Council Inspector";
+  const initials = currentUser ? `${currentUser.firstName?.[0] ?? ""}${currentUser.lastName?.[0] ?? ""}`.toUpperCase() || "CI" : "CI";
+  const councilName = currentUser?.councilProfile?.councilName ?? "Council / Local Authority";
+  const departmentName = currentUser?.councilProfile?.department ?? currentUser?.councilProfile?.jobTitle ?? "Housing Standards";
+  const jobTitle = currentUser?.councilProfile?.jobTitle ?? "Council Inspector";
+  const todayLabel = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const completedCount = inspections.filter((item) => item.status === "Completed").length;
+  const scheduledCount = inspections.filter((item) => item.status === "Scheduled").length;
+  const urgentCount = inspections.filter((item) => item.status === "Urgent").length;
+  const inProgressCount = inspections.filter((item) => item.status === "In Progress").length;
+  const monthlyProgress = [
+    { label: "Completed inspections", value: completedCount, total: Math.max(inspections.length, 1) },
+    { label: "Scheduled inspections", value: scheduledCount, total: Math.max(inspections.length, 1) },
+    { label: "Active cases", value: urgentCount + inProgressCount + scheduledCount, total: Math.max(inspections.length, 1) },
+  ];
+  const recentActivities: Activity[] = inspections.slice(0, 4).map((item) => ({
+    id: item.id,
+    icon: item.status === "Completed" ? "file-check-outline" : item.status === "Urgent" ? "alert-circle-outline" : "clipboard-search-outline",
+    title: `${item.status} inspection`,
+    description: `${item.property}${item.address ? ` · ${item.address}` : ""}`,
+    time: item.date,
+    background: item.status === "Urgent" ? "#FDECEC" : item.status === "Completed" ? "#E8F7EE" : colors.primaryLight,
+    iconColor: item.status === "Urgent" ? "#B42318" : item.status === "Completed" ? "#277A46" : colors.primary,
+  }));
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -255,12 +223,10 @@ export default function CouncilDashboardScreen() {
     router.push(route as never);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setProfileMenuVisible(false);
-
-    router.replace(
-      "/auth/council/login" as never
-    );
+    await clearAuthSession("council");
+    router.replace("/auth/council/login" as never);
   };
 
   const handleInspectionPress = (
@@ -510,7 +476,7 @@ export default function CouncilDashboardScreen() {
               <View style={styles.profileCard}>
                 <Avatar.Text
                   size={48}
-                  label="AM"
+                  label={initials}
                   labelStyle={
                     styles.avatarLabel
                   }
@@ -519,11 +485,11 @@ export default function CouncilDashboardScreen() {
 
                 <View style={styles.profileInformation}>
                   <Text style={styles.profileName}>
-                    Alex Morgan
+                    {displayName}
                   </Text>
 
                   <Text style={styles.profileRole}>
-                    Housing Inspector
+                    {jobTitle}
                   </Text>
 
                   <View
@@ -628,7 +594,7 @@ export default function CouncilDashboardScreen() {
                     <Text
                       style={styles.councilName}
                     >
-                      Leeds City Council
+                      {councilName}
                     </Text>
 
                     <Text
@@ -636,7 +602,7 @@ export default function CouncilDashboardScreen() {
                         styles.councilDepartment
                       }
                     >
-                      Housing Standards
+                      {departmentName}
                     </Text>
                   </View>
                 </View>
@@ -676,14 +642,13 @@ export default function CouncilDashboardScreen() {
                       styles.smallWelcomeTitle,
                   ]}
                 >
-                  {greeting}, Alex
+                  {greeting}, {currentUser?.firstName ?? "Inspector"}
                 </Text>
 
                 <Text
                   style={styles.welcomeDescription}
                 >
-                  Here is your council inspection overview
-                  for Thursday, 30 July 2026.
+                  Here is your council inspection overview for {todayLabel}.
                 </Text>
               </View>
 
@@ -772,7 +737,7 @@ export default function CouncilDashboardScreen() {
                       >
                         <Avatar.Text
                           size={38}
-                          label="AM"
+                          label={initials}
                           labelStyle={
                             styles.smallAvatarLabel
                           }
@@ -787,7 +752,7 @@ export default function CouncilDashboardScreen() {
                               styles.headerProfileName
                             }
                           >
-                            Alex Morgan
+                            {displayName}
                           </Text>
 
                           <Text
@@ -795,7 +760,7 @@ export default function CouncilDashboardScreen() {
                               styles.headerProfileRole
                             }
                           >
-                            Housing Inspector
+                            {jobTitle}
                           </Text>
                         </View>
 
@@ -957,7 +922,7 @@ export default function CouncilDashboardScreen() {
                 delay={150}
                 icon="clipboard-clock-outline"
                 label="Scheduled"
-                value="8"
+                value={String(inspections.length)}
                 description="Next 7 days"
                 background={colors.primaryLight}
                 iconColor={colors.primary}
@@ -967,7 +932,7 @@ export default function CouncilDashboardScreen() {
                 delay={210}
                 icon="progress-clock"
                 label="In progress"
-                value="3"
+                value={String(urgentCount)}
                 description="Require action"
                 background="#FFF4E5"
                 iconColor="#B56400"
@@ -977,7 +942,7 @@ export default function CouncilDashboardScreen() {
                 delay={270}
                 icon="file-check-outline"
                 label="Completed"
-                value="34"
+                value={String(completedCount)}
                 description="This month"
                 background="#E8F7EE"
                 iconColor="#277A46"
@@ -1076,7 +1041,7 @@ export default function CouncilDashboardScreen() {
                           styles.sectionDescription
                         }
                       >
-                        July 2026 performance
+                        Live inspection performance
                       </Text>
                     </View>
 
@@ -1084,7 +1049,7 @@ export default function CouncilDashboardScreen() {
                       <Text
                         style={styles.monthBadgeText}
                       >
-                        JUL
+                        LIVE
                       </Text>
                     </View>
                   </View>
@@ -1098,7 +1063,7 @@ export default function CouncilDashboardScreen() {
                           styles.progressPercentage
                         }
                       >
-                        81%
+                        {inspections.length ? Math.round((completedCount / inspections.length) * 100) : 0}%
                       </Text>
 
                       <Text
@@ -1181,8 +1146,7 @@ export default function CouncilDashboardScreen() {
                         styles.performanceNoticeText
                       }
                     >
-                      You are 12% ahead of last month's
-                      completion rate.
+                      This progress is calculated from your live assigned inspection cases.
                     </Text>
                   </View>
                 </Animated.View>
@@ -1269,11 +1233,7 @@ export default function CouncilDashboardScreen() {
                   size={20}
                   iconColor={colors.primary}
                   style={styles.refreshButton}
-                  onPress={() =>
-                    showMessage(
-                      "Recent activity refreshed."
-                    )
-                  }
+                  onPress={() => void loadDashboard()}
                 />
               </View>
 

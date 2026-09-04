@@ -1075,6 +1075,14 @@ export default function AdminDashboardScreen() {
             >
               <Button
                 mode="outlined"
+                icon="badge-account-outline"
+                onPress={() => router.push("/admin/council-inspectors" as Href)}
+              >
+                Council Inspectors
+              </Button>
+
+              <Button
+                mode="outlined"
                 icon="refresh"
                 onPress={() =>
                   void initialise()

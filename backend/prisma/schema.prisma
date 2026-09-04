@@ -186,6 +186,120 @@ model CouncilProfile {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+
+model CouncilInvitation {
+  id          String   @id @default(uuid())
+  email       String
+  firstName   String
+  lastName    String
+  councilName String
+  department  String?
+  jobTitle    String?
+  employeeId  String?
+  tokenHash   String   @unique
+  invitedByUserId String
+  status      String   @default("PENDING")
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([email])
+  @@index([status])
+}
+
+model CouncilInspectionCase {
+  id              String   @id @default(uuid())
+  propertyId      String
+  requestedByUserId String
+  inspectorUserId String?
+  category        String
+  title           String
+  description     String
+  priority        String   @default("NORMAL")
+  status          String   @default("REQUESTED")
+  accessNotes     String?
+  scheduledStart  DateTime?
+  scheduledEnd    DateTime?
+  inspectionNotes String?
+  outcome         String?
+  acceptedAt      DateTime?
+  declinedAt      DateTime?
+  completedAt     DateTime?
+  closedAt        DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([requestedByUserId])
+  @@index([inspectorUserId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model CouncilInspectionFinding {
+  id           String   @id @default(uuid())
+  inspectionId String
+  category     String
+  hazard       String?
+  severity     String
+  location     String?
+  description  String
+  recommendation String?
+  createdByUserId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([inspectionId])
+}
+
+model CouncilInspectionAction {
+  id           String   @id @default(uuid())
+  inspectionId String
+  findingId    String?
+  title        String
+  description  String
+  priority     String   @default("NORMAL")
+  status       String   @default("OPEN")
+  dueAt        DateTime?
+  maintenanceRequestId String?
+  completedAt  DateTime?
+  verifiedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([maintenanceRequestId])
+  @@index([status])
+}
+
+model CouncilInspectionEvidence {
+  id           String   @id @default(uuid())
+  inspectionId String
+  actionId     String?
+  uploadedByUserId String
+  note         String?
+  fileName     String?
+  fileUrl      String?
+  createdAt    DateTime @default(now())
+
+  @@index([inspectionId])
+  @@index([actionId])
+}
+
+model CouncilInspectionEvent {
+  id           String   @id @default(uuid())
+  inspectionId String
+  actorUserId  String
+  type         String
+  title        String
+  message      String
+  createdAt    DateTime @default(now())
+
+  @@index([inspectionId])
+  @@index([createdAt])
+}
+
 model AgencyApplication {
   id                    String                  @id @default(uuid())
   applicantUserId       String

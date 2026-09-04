@@ -82,6 +82,11 @@ const navigationItems: NavigationItem[] = [
     route: "/landlord/maintenance" as Href,
   },
   {
+    label: "Council & Inspections",
+    icon: "clipboard-search-outline",
+    route: "/landlord/council-inspections" as Href,
+  },
+  {
     label: "Documents",
     icon: "file-document-multiple-outline",
     route: "/landlord/documents" as Href,

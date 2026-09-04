@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -26,6 +26,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import InternationalPhoneInput from "@/src/components/InternationalPhoneInput";
+import { api, clearAuthSession, saveCurrentUser } from "../../src/api/client";
 import ScreenContainer from "../../src/components/ScreenContainer";
 import {
   colors,
@@ -144,38 +145,37 @@ export default function CouncilSettingsScreen() {
   const [snackbarMessage, setSnackbarMessage] =
     useState("");
 
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
   const [firstName, setFirstName] =
-    useState("Alex");
+    useState("");
 
   const [lastName, setLastName] =
-    useState("Morgan");
+    useState("");
 
-  const [email, setEmail] = useState(
-    "alex.morgan@leeds.gov.uk"
-  );
+  const [email, setEmail] = useState("");
 
   const [phone, setPhone] =
-    useState("0113 555 0184");
+    useState("");
 
   const [jobTitle, setJobTitle] =
-    useState("Housing Inspector");
+    useState("");
 
   const [employeeId, setEmployeeId] =
-    useState("LCC-HS-2048");
+    useState("");
 
   const [councilName, setCouncilName] =
-    useState("Leeds City Council");
+    useState("");
 
   const [department, setDepartment] =
-    useState("Housing Standards");
+    useState("");
 
   const [officeAddress, setOfficeAddress] =
-    useState(
-      "Merrion House, 110 Merrion Way, Leeds LS2 8BB"
-    );
+    useState("");
 
   const [managerName, setManagerName] =
-    useState("Sophie Turner");
+    useState("");
 
   const [currentPassword, setCurrentPassword] =
     useState("");
@@ -224,6 +224,45 @@ export default function CouncilSettingsScreen() {
       weeklySummary: false,
     });
 
+  const displayName = useMemo(() =>
+    `${firstName} ${lastName}`.trim() || "Council Inspector",
+    [firstName, lastName]
+  );
+  const initials = useMemo(() => {
+    const parts = [firstName, lastName].filter(Boolean);
+    return (parts.map((part) => part[0]?.toUpperCase()).join("") || "CI").slice(0, 2);
+  }, [firstName, lastName]);
+
+  useEffect(() => {
+    let active = true;
+    const loadProfile = async () => {
+      try {
+        const response = await api.get("/council-inspections/profile");
+        if (!active) return;
+        const profile = response.data ?? {};
+        const council = profile.councilProfile ?? {};
+        setFirstName(profile.firstName ?? "");
+        setLastName(profile.lastName ?? "");
+        setEmail(profile.email ?? "");
+        setPhone(profile.phone ?? "");
+        setJobTitle(council.jobTitle ?? "Council Inspector");
+        setEmployeeId(council.employeeId ?? "");
+        setCouncilName(council.councilName ?? "");
+        setDepartment(council.department ?? "");
+        setOfficeAddress(council.officeAddress ?? "");
+        setManagerName(council.managerName ?? "");
+      } catch (error: any) {
+        if (!active) return;
+        const message = error?.response?.data?.message;
+        showMessage(typeof message === "string" ? message : "Unable to load your Council Inspector profile.");
+      } finally {
+        if (active) setProfileLoading(false);
+      }
+    };
+    void loadProfile();
+    return () => { active = false; };
+  }, []);
+
   const navigateTo = (route: string) => {
     setMobileMenuVisible(false);
     router.push(route as never);
@@ -234,12 +273,10 @@ export default function CouncilSettingsScreen() {
     setSnackbarVisible(true);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setProfileMenuVisible(false);
-
-    router.replace(
-      "/auth/council/login" as never
-    );
+    await clearAuthSession("council");
+    router.replace("/auth/council/login" as never);
   };
 
   const updateNotification = (
@@ -251,74 +288,95 @@ export default function CouncilSettingsScreen() {
     }));
   };
 
-  const handleSaveProfile = () => {
-    if (!firstName.trim() || !lastName.trim()) {
-      showMessage(
-        "Please enter your first and last name."
-      );
-      return;
-    }
+  const profilePayload = () => ({
+    firstName: firstName.trim(),
+    lastName: lastName.trim(),
+    phone: phone.trim(),
+    jobTitle: jobTitle.trim(),
+    employeeId: employeeId.trim(),
+    councilName: councilName.trim(),
+    department: department.trim(),
+    officeAddress: officeAddress.trim(),
+    managerName: managerName.trim(),
+  });
 
-    if (!email.trim().includes("@")) {
-      showMessage(
-        "Please enter a valid email address."
-      );
-      return;
+  const saveProfileToBackend = async (successMessage: string) => {
+    setSaving(true);
+    try {
+      const response = await api.patch("/council-inspections/profile", profilePayload());
+      const updated = response.data ?? {};
+      const council = updated.councilProfile ?? {};
+      setFirstName(updated.firstName ?? firstName);
+      setLastName(updated.lastName ?? lastName);
+      setPhone(updated.phone ?? phone);
+      setJobTitle(council.jobTitle ?? jobTitle);
+      setEmployeeId(council.employeeId ?? employeeId);
+      setCouncilName(council.councilName ?? councilName);
+      setDepartment(council.department ?? department);
+      setOfficeAddress(council.officeAddress ?? officeAddress);
+      setManagerName(council.managerName ?? managerName);
+      await saveCurrentUser({ ...updated, accountRoles: ["COUNCIL_INSPECTOR"], userType: "COUNCIL_INSPECTOR" }, "council");
+      showMessage(successMessage);
+    } catch (error: any) {
+      const message = error?.response?.data?.message;
+      showMessage(Array.isArray(message) ? message.join("\n") : typeof message === "string" ? message : "Unable to save your Council Inspector settings.");
+    } finally {
+      setSaving(false);
     }
-
-    showMessage(
-      "Profile information saved successfully."
-    );
   };
 
-  const handleSaveCouncil = () => {
-    if (!councilName.trim() || !department.trim()) {
-      showMessage(
-        "Council name and department are required."
-      );
+  const handleSaveProfile = async () => {
+    if (!firstName.trim() || !lastName.trim()) {
+      showMessage("Please enter your first and last name.");
       return;
     }
+    if (!email.trim().includes("@")) {
+      showMessage("Your Council Inspector email address is invalid. Please contact TenureEx Admin.");
+      return;
+    }
+    await saveProfileToBackend("Profile information saved successfully.");
+  };
 
-    showMessage(
-      "Council information saved successfully."
-    );
+  const handleSaveCouncil = async () => {
+    if (!councilName.trim()) {
+      showMessage("Council or local authority is required.");
+      return;
+    }
+    await saveProfileToBackend("Council information saved successfully.");
   };
 
   const handleSaveNotifications = () => {
-    showMessage(
-      "Notification preferences saved successfully."
-    );
+    showMessage("Notification preferences updated on this device.");
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     if (!currentPassword) {
-      showMessage(
-        "Please enter your current password."
-      );
+      showMessage("Please enter your current password.");
       return;
     }
-
     if (newPassword.length < 8) {
-      showMessage(
-        "The new password must contain at least 8 characters."
-      );
+      showMessage("The new password must contain at least 8 characters.");
       return;
     }
-
     if (newPassword !== confirmPassword) {
-      showMessage(
-        "The new passwords do not match."
-      );
+      showMessage("The new passwords do not match.");
       return;
     }
-
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
-
-    showMessage(
-      "Your password has been changed successfully."
-    );
+    setSaving(true);
+    try {
+      await api.post("/council-inspections/profile/change-password", { currentPassword, newPassword });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      await clearAuthSession("council");
+      showMessage("Password changed successfully. Please sign in again.");
+      setTimeout(() => router.replace("/auth/council/login" as never), 900);
+    } catch (error: any) {
+      const message = error?.response?.data?.message;
+      showMessage(typeof message === "string" ? message : "Unable to change your password.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSaveAppearance = () => {
@@ -511,7 +569,7 @@ export default function CouncilSettingsScreen() {
               <View style={styles.profileCard}>
                 <Avatar.Text
                   size={48}
-                  label="AM"
+                  label={initials}
                   labelStyle={styles.avatarLabel}
                   style={styles.avatar}
                 />
@@ -520,11 +578,11 @@ export default function CouncilSettingsScreen() {
                   style={styles.profileInformation}
                 >
                   <Text style={styles.profileName}>
-                    Alex Morgan
+                    {displayName}
                   </Text>
 
                   <Text style={styles.profileRole}>
-                    Housing Inspector
+                    {jobTitle || "Council Inspector"}
                   </Text>
 
                   <View style={styles.verifiedRow}>
@@ -635,7 +693,7 @@ export default function CouncilSettingsScreen() {
                     <Text
                       style={styles.councilName}
                     >
-                      Leeds City Council
+                      {councilName || "Council Inspector"}
                     </Text>
 
                     <Text
@@ -643,7 +701,7 @@ export default function CouncilSettingsScreen() {
                         styles.councilDepartment
                       }
                     >
-                      Housing Standards
+                      {department || jobTitle || "Inspection Services"}
                     </Text>
                   </View>
                 </View>
@@ -740,7 +798,7 @@ export default function CouncilSettingsScreen() {
                     >
                       <Avatar.Text
                         size={38}
-                        label="AM"
+                        label={initials}
                         labelStyle={
                           styles.smallAvatarLabel
                         }
@@ -755,7 +813,7 @@ export default function CouncilSettingsScreen() {
                             styles.headerProfileName
                           }
                         >
-                          Alex Morgan
+                          {displayName}
                         </Text>
 
                         <Text
@@ -763,7 +821,7 @@ export default function CouncilSettingsScreen() {
                             styles.headerProfileRole
                           }
                         >
-                          Housing Inspector
+                          {jobTitle || "Council Inspector"}
                         </Text>
                       </View>
 
@@ -1169,7 +1227,7 @@ function ProfileSettings({
       <View style={styles.profilePhotoCard}>
         <Avatar.Text
           size={82}
-          label="AM"
+          label={([firstName, lastName].filter(Boolean).map((part) => part[0]?.toUpperCase()).join("") || "CI").slice(0, 2)}
           labelStyle={
             styles.largeProfileAvatarLabel
           }

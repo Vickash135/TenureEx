@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -25,6 +25,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import InternationalPhoneInput from "@/src/components/InternationalPhoneInput";
+import { api } from "../../../src/api/client";
 import ScreenContainer from "../../../src/components/ScreenContainer";
 import {
   colors,
@@ -89,12 +90,31 @@ const accessSteps: {
   },
 ];
 
+type CouncilInvitation = {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  councilName: string;
+  department?: string | null;
+  jobTitle?: string | null;
+  employeeId?: string | null;
+  expiresAt: string;
+};
+
 export default function CouncilSignupScreen() {
   const { width } = useWindowDimensions();
+  const params = useLocalSearchParams<{ invite?: string | string[] }>();
+  const invitationToken = Array.isArray(params.invite)
+    ? params.invite[0] ?? ""
+    : params.invite ?? "";
 
   const isDesktop = width >= 1000;
   const isTablet = width >= 700;
   const isSmallPhone = width < 390;
+
+  const [invitation, setInvitation] = useState<CouncilInvitation | null>(null);
+  const [invitationLoading, setInvitationLoading] = useState(true);
 
   const [fullName, setFullName] = useState("");
   const [employeeId, setEmployeeId] = useState("");
@@ -127,6 +147,54 @@ export default function CouncilSignupScreen() {
   const [snackbarMessage, setSnackbarMessage] =
     useState("");
 
+  useEffect(() => {
+    let active = true;
+
+    const loadInvitation = async () => {
+      if (!invitationToken) {
+        setInvitationLoading(false);
+        setSnackbarMessage("A secure invitation from TenureEx Admin is required to activate a Council Inspector account.");
+        setSnackbarVisible(true);
+        return;
+      }
+
+      try {
+        const response = await api.get(
+          `/council-inspections/invitation/${encodeURIComponent(invitationToken)}`,
+        );
+        if (!active) return;
+
+        const data = response.data as CouncilInvitation;
+        setInvitation(data);
+        setFullName(`${data.firstName ?? ""} ${data.lastName ?? ""}`.trim());
+        setEmployeeId(data.employeeId ?? "");
+        setCouncilName(data.councilName ?? "");
+        setDepartment(data.department ?? "");
+        setJobTitle(data.jobTitle ?? "Housing Inspector");
+        setEmail(data.email ?? "");
+
+        const invitedRole = councilRoles.find(
+          (role) => role.label.toLowerCase() === (data.jobTitle ?? "").toLowerCase(),
+        );
+        if (invitedRole) setSelectedRole(invitedRole.label);
+      } catch (error: any) {
+        if (!active) return;
+        const backendMessage = error?.response?.data?.message;
+        setSnackbarMessage(
+          typeof backendMessage === "string"
+            ? backendMessage
+            : "This Council Inspector invitation is invalid or has expired.",
+        );
+        setSnackbarVisible(true);
+      } finally {
+        if (active) setInvitationLoading(false);
+      }
+    };
+
+    void loadInvitation();
+    return () => { active = false; };
+  }, [invitationToken]);
+
   const emailHasError = useMemo(() => {
     return email.length > 0 && !email.includes("@");
   }, [email]);
@@ -153,52 +221,14 @@ export default function CouncilSignupScreen() {
     setSnackbarVisible(true);
   };
 
-  const handleSignup = () => {
-    if (!fullName.trim()) {
-      showMessage("Please enter your full name.");
-      return;
-    }
-
-    if (!employeeId.trim()) {
-      showMessage(
-        "Please enter your council employee ID."
-      );
-      return;
-    }
-
-    if (!councilName.trim()) {
-      showMessage(
-        "Please enter your council or local authority."
-      );
-      return;
-    }
-
-    if (!department.trim()) {
-      showMessage("Please enter your department.");
-      return;
-    }
-
-    if (!jobTitle.trim()) {
-      showMessage("Please enter your job title.");
-      return;
-    }
-
-    if (!email.trim() || !email.includes("@")) {
-      showMessage(
-        "Please enter a valid council email address."
-      );
+  const handleSignup = async () => {
+    if (!invitationToken || !invitation) {
+      showMessage("A valid TenureEx Admin invitation is required.");
       return;
     }
 
     if (!phone.trim()) {
       showMessage("Please enter your phone number.");
-      return;
-    }
-
-    if (!workAddress.trim()) {
-      showMessage(
-        "Please enter your council office address."
-      );
       return;
     }
 
@@ -221,7 +251,7 @@ export default function CouncilSignupScreen() {
 
     if (!confirmAuthority) {
       showMessage(
-        "Please confirm that you are authorised to request council access."
+        "Please confirm that the invited council employment details belong to you."
       );
       return;
     }
@@ -235,19 +265,32 @@ export default function CouncilSignupScreen() {
 
     setLoading(true);
 
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const response = await api.post(
+        `/council-inspections/invitation/${encodeURIComponent(invitationToken)}/accept`,
+        { phone, password },
+      );
 
       showMessage(
-        "Your council access request has been submitted for approval."
+        response.data?.message ??
+          "Your Council Inspector account has been activated successfully."
       );
 
       setTimeout(() => {
-        router.replace(
-          "/auth/council/login" as never
-        );
-      }, 1200);
-    }, 900);
+        router.replace("/auth/council/login" as never);
+      }, 800);
+    } catch (error: any) {
+      const backendMessage = error?.response?.data?.message;
+      showMessage(
+        Array.isArray(backendMessage)
+          ? backendMessage.join("\n")
+          : typeof backendMessage === "string"
+            ? backendMessage
+            : "Unable to activate your Council Inspector account.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -331,7 +374,7 @@ export default function CouncilSignupScreen() {
                 />
 
                 <Text style={styles.portalBadgeText}>
-                  COUNCIL ACCESS REQUEST
+                  ADMIN INVITATION ACTIVATION
                 </Text>
               </View>
 
@@ -341,14 +384,11 @@ export default function CouncilSignupScreen() {
                   isSmallPhone && styles.smallHeroTitle,
                 ]}
               >
-                Join the TenureEx council and inspection
-                portal.
+                Activate your invited Council Inspector account.
               </Text>
 
               <Text style={styles.heroDescription}>
-                Request secure access to manage housing
-                inspections, property compliance records,
-                reports and communication.
+                TenureEx Admin controls Council Inspector access. Complete the secure invitation to activate your verified account.
               </Text>
 
               <View style={styles.stepsList}>
@@ -431,14 +471,13 @@ export default function CouncilSignupScreen() {
 
                 <View style={styles.cardHeaderText}>
                   <Text style={styles.signupTitle}>
-                    Request council access
+                    Activate inspector account
                   </Text>
 
                   <Text
                     style={styles.signupDescription}
                   >
-                    Enter your official employment and
-                    council details.
+                    Review the official details from your Admin invitation and create your secure account.
                   </Text>
                 </View>
               </View>
@@ -456,6 +495,7 @@ export default function CouncilSignupScreen() {
                 <TextInput
                   mode="outlined"
                   label="Full name"
+                  disabled
                   placeholder="Enter your full name"
                   value={fullName}
                   onChangeText={setFullName}
@@ -476,6 +516,7 @@ export default function CouncilSignupScreen() {
                 <TextInput
                   mode="outlined"
                   label="Employee ID"
+                  disabled
                   placeholder="Enter employee ID"
                   value={employeeId}
                   onChangeText={setEmployeeId}
@@ -501,6 +542,7 @@ export default function CouncilSignupScreen() {
               <TextInput
                 mode="outlined"
                 label="Council or local authority"
+                disabled
                 placeholder="For example, Leeds City Council"
                 value={councilName}
                 onChangeText={setCouncilName}
@@ -524,6 +566,7 @@ export default function CouncilSignupScreen() {
                 <TextInput
                   mode="outlined"
                   label="Department"
+                  disabled
                   placeholder="Housing Services"
                   value={department}
                   onChangeText={setDepartment}
@@ -544,6 +587,7 @@ export default function CouncilSignupScreen() {
                 <TextInput
                   mode="outlined"
                   label="Job title"
+                  disabled
                   placeholder="Housing Inspector"
                   value={jobTitle}
                   onChangeText={setJobTitle}
@@ -574,9 +618,8 @@ export default function CouncilSignupScreen() {
                   return (
                     <Pressable
                       key={role.label}
-                      onPress={() =>
-                        setSelectedRole(role.label)
-                      }
+                      disabled
+                      onPress={() => undefined}
                       style={({ pressed }) => [
                         styles.roleCard,
                         selected &&
@@ -644,6 +687,7 @@ export default function CouncilSignupScreen() {
                   <TextInput
                     mode="outlined"
                     label="Council email"
+                disabled
                     placeholder="name@council.gov.uk"
                     value={email}
                     onChangeText={setEmail}
@@ -851,9 +895,7 @@ export default function CouncilSignupScreen() {
                   />
 
                   <Text style={styles.checkboxText}>
-                    I confirm that I am authorised by my
-                    council or local authority to request
-                    access to TenureEx.
+                    I confirm that the council employment details in this Admin invitation belong to me.
                   </Text>
                 </Pressable>
 
@@ -893,7 +935,7 @@ export default function CouncilSignupScreen() {
                 mode="contained"
                 icon="send-check-outline"
                 loading={loading}
-                disabled={loading}
+                disabled={loading || invitationLoading || !invitation}
                 onPress={handleSignup}
                 buttonColor={colors.primary}
                 contentStyle={
@@ -902,12 +944,12 @@ export default function CouncilSignupScreen() {
                 labelStyle={styles.primaryButtonLabel}
                 style={styles.primaryButton}
               >
-                Submit access request
+                Activate account
               </Button>
 
               <View style={styles.loginSection}>
                 <Text style={styles.loginSectionText}>
-                  Already have an approved account?
+                  Already activated your account?
                 </Text>
 
                 <Pressable
@@ -931,9 +973,7 @@ export default function CouncilSignupScreen() {
                 />
 
                 <Text style={styles.helpText}>
-                  Contact your council administrator if you
-                  do not know your employee ID or authorised
-                  portal role.
+                  If the invitation details are incorrect, contact TenureEx Admin before activating the account.
                 </Text>
               </View>
             </Animated.View>

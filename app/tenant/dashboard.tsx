@@ -110,6 +110,12 @@ const navigationItems: NavigationItem[] = [
     propertyScoped: true,
   },
   {
+    label: "Council & Inspections",
+    icon: "clipboard-search-outline",
+    route: "/tenant/council-inspections" as Href,
+    propertyScoped: true,
+  },
+  {
     label: "Payments",
     icon: "credit-card-outline",
     route: "/tenant/payments" as Href,

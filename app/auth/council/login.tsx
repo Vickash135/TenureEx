@@ -2,33 +2,34 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import {
-    Button,
-    Checkbox,
-    Snackbar,
-    TextInput,
+  Button,
+  Checkbox,
+  Snackbar,
+  TextInput,
 } from "react-native-paper";
 import Animated, {
-    FadeInDown,
-    FadeInLeft,
-    FadeInRight,
-    FadeInUp,
+  FadeInDown,
+  FadeInLeft,
+  FadeInRight,
+  FadeInUp,
 } from "react-native-reanimated";
 
+import { api, clearAuthSession, saveAuthTokens, saveCurrentUser } from "../../../src/api/client";
 import ScreenContainer from "../../../src/components/ScreenContainer";
 import {
-    colors,
-    radius,
-    spacing,
-    typography,
+  colors,
+  radius,
+  spacing,
+  typography,
 } from "../../../src/theme";
 
 type IconName =
@@ -66,11 +67,8 @@ export default function CouncilLoginScreen() {
   const isTablet = width >= 700;
   const isSmallPhone = width < 390;
 
-  const [email, setEmail] = useState(
-    "inspector@leeds.gov.uk"
-  );
-  const [password, setPassword] =
-    useState("Inspector123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] =
     useState(true);
   const [showPassword, setShowPassword] =
@@ -87,8 +85,8 @@ export default function CouncilLoginScreen() {
     setSnackbarVisible(true);
   };
 
-  const handleLogin = () => {
-    const cleanEmail = email.trim();
+  const handleLogin = async () => {
+    const cleanEmail = email.trim().toLowerCase();
 
     if (!cleanEmail) {
       showMessage("Please enter your council email.");
@@ -105,38 +103,58 @@ export default function CouncilLoginScreen() {
       return;
     }
 
-    if (password.length < 6) {
+    setLoading(true);
+
+    try {
+      await clearAuthSession("council");
+
+      const response = await api.post("/auth/login", {
+        email: cleanEmail,
+        password,
+      });
+
+      const { user, accessToken, refreshToken } = response.data ?? {};
+      const accountRoles: string[] = user?.accountRoles ?? [user?.userType];
+
+      if (!accountRoles.includes("COUNCIL_INSPECTOR")) {
+        await clearAuthSession("council");
+        showMessage("This account is not an approved Council Inspector account.");
+        return;
+      }
+
+      if (user?.status && user.status !== "ACTIVE") {
+        await clearAuthSession("council");
+        showMessage("Your Council Inspector account is not active. Please contact TenureEx Admin.");
+        return;
+      }
+
+      await saveAuthTokens(accessToken, refreshToken, "council");
+
+      const meResponse = await api.get("/auth/me");
+      const me = meResponse.data;
+      const verifiedRoles: string[] = me?.accountRoles ?? [me?.userType];
+
+      if (!verifiedRoles.includes("COUNCIL_INSPECTOR")) {
+        await clearAuthSession("council");
+        showMessage("You do not have permission to access the Council Inspector portal.");
+        return;
+      }
+
+      await saveCurrentUser(me, "council");
+      router.replace("/council/dashboard" as never);
+    } catch (error: any) {
+      await clearAuthSession("council");
+      const backendMessage = error?.response?.data?.message;
       showMessage(
-        "Your password must contain at least 6 characters."
+        Array.isArray(backendMessage)
+          ? backendMessage.join("\n")
+          : typeof backendMessage === "string"
+            ? backendMessage
+            : "Unable to sign in. Please check your email and password.",
       );
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(true);
-
-    setTimeout(() => {
-      setLoading(false);
-
-      router.replace(
-        "/council/dashboard" as never
-      );
-    }, 700);
-  };
-
-  const handleDemoLogin = () => {
-    setEmail("inspector@leeds.gov.uk");
-    setPassword("Inspector123");
-    setRememberMe(true);
-
-    setLoading(true);
-
-    setTimeout(() => {
-      setLoading(false);
-
-      router.replace(
-        "/council/dashboard" as never
-      );
-    }, 500);
   };
 
   return (
@@ -430,7 +448,7 @@ export default function CouncilLoginScreen() {
                   <View style={styles.dividerLine} />
 
                   <Text style={styles.dividerText}>
-                    OR
+                    ADMIN INVITATION
                   </Text>
 
                   <View style={styles.dividerLine} />
@@ -438,21 +456,25 @@ export default function CouncilLoginScreen() {
 
                 <Button
                   mode="outlined"
-                  icon="account-check-outline"
-                  onPress={handleDemoLogin}
+                  icon="email-check-outline"
+                  onPress={() =>
+                    router.push(
+                      "/auth/council/signup" as never
+                    )
+                  }
                   textColor={colors.primary}
                   contentStyle={
                     styles.secondaryButtonContent
                   }
                   style={styles.secondaryButton}
                 >
-                  Use demo inspector account
+                  Activate invited inspector account
                 </Button>
               </View>
 
               <View style={styles.signupSection}>
                 <Text style={styles.signupText}>
-                  Need a council account?
+                  Have an Admin invitation?
                 </Text>
 
                 <Pressable
@@ -463,7 +485,7 @@ export default function CouncilLoginScreen() {
                   }
                 >
                   <Text style={styles.signupLink}>
-                    Request access
+                    Activate account
                   </Text>
                 </Pressable>
               </View>
@@ -476,8 +498,7 @@ export default function CouncilLoginScreen() {
                 />
 
                 <Text style={styles.helpText}>
-                  Council access may require approval from
-                  your organisation administrator.
+                  Council Inspector accounts are invitation-only and are managed by TenureEx Admin.
                 </Text>
               </View>
             </Animated.View>
