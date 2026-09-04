@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   Linking,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -233,34 +234,82 @@ export default function JobDetailsScreen() {
   };
 
   const uploadEvidence = async (phase: "before" | "after") => {
-    if (!rawJob) return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsMultipleSelection: true,
-      quality: 0.8,
-    });
-    if (result.canceled) return;
+    if (!rawJob) {
+      showMessage("Maintenance job could not be loaded.");
+      return;
+    }
 
-    const data = new FormData();
-    result.assets.forEach((asset: any, index) => {
-      data.append("photos", {
-        uri: asset.uri,
-        name: asset.fileName || `${phase}-${index + 1}.jpg`,
-        type: asset.mimeType || "image/jpeg",
-      } as any);
-    });
-
-    setLoadingAction(true);
     try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsMultipleSelection: true,
+        quality: 0.8,
+      });
+
+      if (result.canceled) return;
+
+      if (!result.assets?.length) {
+        showMessage("Please select at least one photo.");
+        return;
+      }
+
+      const data = new FormData();
+
+      for (let index = 0; index < result.assets.length; index += 1) {
+        const asset: any = result.assets[index];
+        const fileName =
+          asset.fileName || `${phase}-${Date.now()}-${index + 1}.jpg`;
+        const mimeType = asset.mimeType || "image/jpeg";
+
+        if (Platform.OS === "web") {
+          // On Expo Web, the picker returns a browser/blob URI.
+          // Convert it to a real Blob before appending it to FormData.
+          const response = await fetch(asset.uri);
+          const blob = await response.blob();
+
+          data.append("photos", blob, fileName);
+        } else {
+          // Native iOS / Android FormData format.
+          data.append(
+            "photos",
+            {
+              uri: asset.uri,
+              name: fileName,
+              type: mimeType,
+            } as any,
+          );
+        }
+      }
+
+      setLoadingAction(true);
+
       await api.post(
         `/property-workflows/maintenance-requests/${rawJob.id}/${phase}-photos`,
         data,
-        { ...maintenanceRoleConfig, headers: { "Content-Type": "multipart/form-data" } },
+        maintenanceRoleConfig,
       );
-      showMessage(`${phase === "before" ? "Before" : "After"} photos uploaded successfully.`);
+
+      showMessage(
+        `${phase === "before" ? "Before" : "After"} photo${
+          result.assets.length === 1 ? "" : "s"
+        } uploaded successfully.`,
+      );
+
       await loadJob();
     } catch (error: any) {
-      showMessage(error?.response?.data?.message || "Unable to upload photos.");
+      console.error(
+        `${phase} photo upload error:`,
+        error?.response?.data || error,
+      );
+
+      const message = error?.response?.data?.message;
+
+      showMessage(
+        Array.isArray(message)
+          ? message.join(", ")
+          : message ||
+              `Unable to upload ${phase === "before" ? "before" : "after"} photos.`,
+      );
     } finally {
       setLoadingAction(false);
     }
