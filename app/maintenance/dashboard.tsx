@@ -811,7 +811,7 @@ export default function MaintenanceDashboardScreen() {
       pathname:
         "/maintenance/job-details" as never,
       params: {
-        id: requestId,
+        jobId: requestId,
       },
     });
   };

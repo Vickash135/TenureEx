@@ -32,6 +32,18 @@ import {
 type IconName =
   keyof typeof MaterialCommunityIcons.glyphMap;
 
+type CurrentUser = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string | null;
+  userType: string;
+  status: string;
+};
+
+const maintenanceRoleConfig = { _tenureExRole: "maintenance" } as any;
+
 type JobStatus =
   | "New"
   | "Accepted"
@@ -79,13 +91,18 @@ export default function AssignedJobsScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState<FilterOption>("All");
   const [maintenanceJobs, setMaintenanceJobs] = useState<MaintenanceJob[]>(initialMaintenanceJobs);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [loadError, setLoadError] = useState("");
 
   const loadJobs = async () => {
     try {
       setLoadError("");
-      const response = await api.get("/property-workflows/maintenance-requests");
+      const [meResponse, response] = await Promise.all([
+        api.get("/auth/me", maintenanceRoleConfig),
+        api.get("/property-workflows/maintenance-requests", maintenanceRoleConfig),
+      ]);
+      setCurrentUser(meResponse.data as CurrentUser);
       const rows = Array.isArray(response.data) ? response.data : [];
       const mapped: MaintenanceJob[] = rows
         .filter((row: any) => row.status !== "COMPLETED")
@@ -146,6 +163,14 @@ export default function AssignedJobsScreen() {
   const scheduledJobs = maintenanceJobs.filter(
     (job) => job.status === "Scheduled"
   ).length;
+
+  const providerName = currentUser
+    ? [currentUser.firstName, currentUser.lastName].filter(Boolean).join(" ") || currentUser.email
+    : "Maintenance Provider";
+
+  const providerInitials = currentUser
+    ? `${currentUser.firstName?.charAt(0) || ""}${currentUser.lastName?.charAt(0) || ""}`.toUpperCase() || "MP"
+    : "MP";
 
   return (
     <ScreenContainer
@@ -210,14 +235,14 @@ export default function AssignedJobsScreen() {
             >
               <View style={styles.profileAvatar}>
                 <Text style={styles.profileAvatarText}>
-                  MP
+                  {providerInitials}
                 </Text>
               </View>
 
               {isTablet ? (
                 <View>
                   <Text style={styles.profileName}>
-                    Martin Plumbing
+                    {providerName}
                   </Text>
 
                   <Text style={styles.profileRole}>

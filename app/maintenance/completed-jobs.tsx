@@ -1,34 +1,37 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-    Pressable,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import {
-    Button,
-    Chip,
-    Divider,
-    Searchbar,
+  ActivityIndicator,
+  Button,
+  Chip,
+  Divider,
+  Searchbar,
 } from "react-native-paper";
-import Animated, {
-    FadeInDown,
-    FadeInUp,
-} from "react-native-reanimated";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 
+import { api } from "../../src/api/client";
 import ScreenContainer from "../../src/components/ScreenContainer";
-import {
-    colors,
-    radius,
-    spacing,
-    typography,
-} from "../../src/theme";
+import { colors, radius, spacing, typography } from "../../src/theme";
 
-type IconName =
-  keyof typeof MaterialCommunityIcons.glyphMap;
+type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
+
+type CurrentUser = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string | null;
+  userType: string;
+  status: string;
+};
 
 type CompletedJob = {
   id: string;
@@ -36,116 +39,126 @@ type CompletedJob = {
   category: string;
   property: string;
   tenant: string;
+  completionDateIso: string;
   completedDate: string;
   completedTime: string;
-  duration: string;
-  rating: number;
-  cost: string;
   icon: IconName;
   completionNotes: string;
+  tenantCompletionNote?: string | null;
+  evidenceCount: number;
 };
 
-const completedJobs: CompletedJob[] = [
-  {
-    id: "JOB-1029",
-    title: "Replace leaking bathroom tap",
-    category: "Plumbing",
-    property: "11 Victoria Street, Leeds",
-    tenant: "Emily Roberts",
-    completedDate: "29 July 2026",
-    completedTime: "3:20 PM",
-    duration: "1 hr 15 min",
-    rating: 5,
-    cost: "£85.00",
-    icon: "faucet",
-    completionNotes:
-      "Replaced the damaged tap cartridge and tested the water supply. No further leak was found.",
-  },
-  {
-    id: "JOB-1027",
-    title: "Repair kitchen cabinet hinge",
-    category: "Carpentry",
-    property: "20 Queen Road, Bradford",
-    tenant: "William Harris",
-    completedDate: "28 July 2026",
-    completedTime: "11:45 AM",
-    duration: "45 min",
-    rating: 5,
-    cost: "£55.00",
-    icon: "hammer-screwdriver",
-    completionNotes:
-      "Removed the damaged hinge, installed a replacement and aligned the cabinet door.",
-  },
-  {
-    id: "JOB-1022",
-    title: "Restore hot water supply",
-    category: "Heating",
-    property: "8 Church Lane, Leeds",
-    tenant: "Grace Turner",
-    completedDate: "26 July 2026",
-    completedTime: "4:10 PM",
-    duration: "2 hrs",
-    rating: 4,
-    cost: "£145.00",
-    icon: "water-boiler",
-    completionNotes:
-      "Repressurised the boiler and replaced a faulty pressure sensor. Hot water was restored.",
-  },
-  {
-    id: "JOB-1018",
-    title: "Replace hallway light fitting",
-    category: "Electrical",
-    property: "67 Wood Street, Leeds",
-    tenant: "Thomas Evans",
-    completedDate: "24 July 2026",
-    completedTime: "10:30 AM",
-    duration: "1 hr",
-    rating: 5,
-    cost: "£78.00",
-    icon: "lightbulb-on-outline",
-    completionNotes:
-      "Removed the damaged fitting, installed the replacement and completed electrical safety checks.",
-  },
-  {
-    id: "JOB-1015",
-    title: "Unblock kitchen waste pipe",
-    category: "Plumbing",
-    property: "31 Bridge Avenue, Bradford",
-    tenant: "Isla Morgan",
-    completedDate: "22 July 2026",
-    completedTime: "1:50 PM",
-    duration: "1 hr 30 min",
-    rating: 4,
-    cost: "£95.00",
-    icon: "pipe",
-    completionNotes:
-      "Cleared the blockage, cleaned the waste trap and tested drainage from the kitchen sink.",
-  },
-];
-
-const dateFilters = [
-  "All",
-  "This week",
-  "This month",
-] as const;
-
+const maintenanceRoleConfig = { _tenureExRole: "maintenance" } as any;
+const dateFilters = ["All", "This week", "This month"] as const;
 type DateFilter = (typeof dateFilters)[number];
+
+function categoryIcon(category?: string): IconName {
+  const value = String(category || "").toLowerCase();
+  if (value.includes("plumb") || value.includes("water")) return "water-pump";
+  if (value.includes("heat") || value.includes("boiler")) return "water-boiler";
+  if (value.includes("electric") || value.includes("light")) return "lightbulb-outline";
+  if (value.includes("security") || value.includes("lock")) return "lock-outline";
+  if (value.includes("vent") || value.includes("fan")) return "fan";
+  return "tools";
+}
+
+function safeDate(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isThisWeek(value: string) {
+  const date = safeDate(value);
+  if (!date) return false;
+  const now = new Date();
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  start.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  const end = new Date(start);
+  end.setDate(start.getDate() + 7);
+  return date >= start && date < end;
+}
+
+function isThisMonth(value: string) {
+  const date = safeDate(value);
+  if (!date) return false;
+  const now = new Date();
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+}
 
 export default function CompletedJobsScreen() {
   const { width } = useWindowDimensions();
-
   const isDesktop = width >= 1050;
   const isTablet = width >= 700;
   const isSmallPhone = width < 390;
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedDateFilter, setSelectedDateFilter] =
-    useState<DateFilter>("All");
+  const [selectedDateFilter, setSelectedDateFilter] = useState<DateFilter>("All");
+  const [completedJobs, setCompletedJobs] = useState<CompletedJob[]>([]);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    setLoadError("");
+    try {
+      const [meResponse, jobsResponse] = await Promise.all([
+        api.get("/auth/me", maintenanceRoleConfig),
+        api.get("/property-workflows/maintenance-requests", maintenanceRoleConfig),
+      ]);
+
+      const me = meResponse.data as CurrentUser;
+      setCurrentUser(me);
+      const rows = Array.isArray(jobsResponse.data) ? jobsResponse.data : [];
+
+      const mapped: CompletedJob[] = rows
+        .filter((row: any) => row.status === "COMPLETED" && row.assignedProviderUserId === me.id)
+        .map((row: any) => {
+          const completedAt = row.tenantConfirmedAt || row.completedByProviderAt || row.updatedAt;
+          const date = safeDate(completedAt) || new Date();
+          return {
+            id: row.id,
+            title: row.title || "Maintenance job",
+            category: row.category || "Maintenance",
+            property: [row.property?.addressLine1, row.property?.townCity, row.property?.postcode]
+              .filter(Boolean)
+              .join(", ") || "Property details unavailable",
+            tenant: [row.tenant?.firstName, row.tenant?.lastName].filter(Boolean).join(" ") || "Tenant",
+            completionDateIso: date.toISOString(),
+            completedDate: date.toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "long",
+              year: "numeric",
+            }),
+            completedTime: date.toLocaleTimeString("en-GB", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            icon: categoryIcon(row.category),
+            completionNotes: row.completionNotes || "No provider completion notes were recorded.",
+            tenantCompletionNote: row.tenantCompletionNote || null,
+            evidenceCount: Array.isArray(row.photos) ? row.photos.length : 0,
+          };
+        });
+
+      setCompletedJobs(mapped);
+    } catch (error: any) {
+      const message = error?.response?.data?.message;
+      setLoadError(Array.isArray(message) ? message.join(", ") : message || "Unable to load completed maintenance jobs.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
 
   const filteredJobs = useMemo(() => {
     const cleanSearch = searchQuery.trim().toLowerCase();
-
-    return completedJobs.filter((job, index) => {
+    return completedJobs.filter((job) => {
       const matchesSearch =
         !cleanSearch ||
         job.id.toLowerCase().includes(cleanSearch) ||
@@ -156,176 +169,78 @@ export default function CompletedJobsScreen() {
 
       const matchesDate =
         selectedDateFilter === "All" ||
-        (selectedDateFilter === "This week" &&
-          index < 3) ||
-        selectedDateFilter === "This month";
+        (selectedDateFilter === "This week" && isThisWeek(job.completionDateIso)) ||
+        (selectedDateFilter === "This month" && isThisMonth(job.completionDateIso));
 
       return matchesSearch && matchesDate;
     });
-  }, [searchQuery, selectedDateFilter]);
+  }, [completedJobs, searchQuery, selectedDateFilter]);
 
-  const totalEarnings = completedJobs.reduce(
-    (total, job) =>
-      total +
-      Number(
-        job.cost.replace("£", "").replace(",", "")
-      ),
-    0
-  );
+  const completedThisWeek = completedJobs.filter((job) => isThisWeek(job.completionDateIso)).length;
+  const completedThisMonth = completedJobs.filter((job) => isThisMonth(job.completionDateIso)).length;
+  const evidencePhotos = completedJobs.reduce((total, job) => total + job.evidenceCount, 0);
 
-  const averageRating =
-    completedJobs.reduce(
-      (total, job) => total + job.rating,
-      0
-    ) / completedJobs.length;
+  const providerName = currentUser
+    ? [currentUser.firstName, currentUser.lastName].filter(Boolean).join(" ") || currentUser.email
+    : "Maintenance Provider";
+  const providerInitials = currentUser
+    ? `${currentUser.firstName?.charAt(0) || ""}${currentUser.lastName?.charAt(0) || ""}`.toUpperCase() || "MP"
+    : "MP";
 
   return (
-    <ScreenContainer
-      scrollable
-      contentStyle={styles.screenContent}
-    >
+    <ScreenContainer scrollable contentStyle={styles.screenContent}>
       <View style={styles.page}>
-        <Animated.View
-          entering={FadeInUp.duration(450)}
-          style={styles.header}
-        >
-          <Pressable
-            style={styles.brandRow}
-            onPress={() =>
-              router.replace(
-                "/maintenance/dashboard" as never
-              )
-            }
-          >
+        <Animated.View entering={FadeInUp.duration(450)} style={styles.header}>
+          <Pressable style={styles.brandRow} onPress={() => router.replace("/maintenance/dashboard" as never)}>
             <View style={styles.brandLogo}>
-              <MaterialCommunityIcons
-                name="home-city-outline"
-                size={27}
-                color={colors.white}
-              />
+              <MaterialCommunityIcons name="home-city-outline" size={27} color={colors.white} />
             </View>
-
             <View>
-              <Text style={styles.brandName}>
-                TENUREEX
-              </Text>
-
-              <Text style={styles.brandSubtitle}>
-                Maintenance Provider
-              </Text>
+              <Text style={styles.brandName}>TENUREEX</Text>
+              <Text style={styles.brandSubtitle}>Maintenance Provider</Text>
             </View>
           </Pressable>
 
           <View style={styles.headerActions}>
-            <Pressable
-              style={styles.headerIconButton}
-              onPress={() =>
-                router.push(
-                  "/maintenance/messages" as never
-                )
-              }
-            >
-              <MaterialCommunityIcons
-                name="message-text-outline"
-                size={21}
-                color={colors.textPrimary}
-              />
+            <Pressable style={styles.headerIconButton} onPress={() => router.push("/maintenance/messages" as never)}>
+              <MaterialCommunityIcons name="message-text-outline" size={21} color={colors.textPrimary} />
             </Pressable>
 
-            <Pressable
-              style={styles.profileButton}
-              onPress={() =>
-                router.push(
-                  "/maintenance/settings" as never
-                )
-              }
-            >
+            <Pressable style={styles.profileButton} onPress={() => router.push("/maintenance/settings" as never)}>
               <View style={styles.profileAvatar}>
-                <Text style={styles.profileAvatarText}>
-                  MP
-                </Text>
+                <Text style={styles.profileAvatarText}>{providerInitials}</Text>
               </View>
-
               {isTablet ? (
                 <View>
-                  <Text style={styles.profileName}>
-                    Martin Plumbing
-                  </Text>
-
-                  <Text style={styles.profileRole}>
-                    Provider account
-                  </Text>
+                  <Text style={styles.profileName}>{providerName}</Text>
+                  <Text style={styles.profileRole}>Provider account</Text>
                 </View>
               ) : null}
-
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={18}
-                color={colors.textMuted}
-              />
+              <MaterialCommunityIcons name="chevron-right" size={18} color={colors.textMuted} />
             </Pressable>
           </View>
         </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.delay(80).duration(450)}
-          style={styles.backRow}
-        >
-          <Pressable
-            style={styles.backButton}
-            onPress={() =>
-              router.replace(
-                "/maintenance/dashboard" as never
-              )
-            }
-          >
-            <MaterialCommunityIcons
-              name="arrow-left"
-              size={18}
-              color={colors.primary}
-            />
-
-            <Text style={styles.backText}>
-              Dashboard
-            </Text>
+        <Animated.View entering={FadeInDown.delay(80).duration(450)} style={styles.backRow}>
+          <Pressable style={styles.backButton} onPress={() => router.replace("/maintenance/dashboard" as never)}>
+            <MaterialCommunityIcons name="arrow-left" size={18} color={colors.primary} />
+            <Text style={styles.backText}>Dashboard</Text>
           </Pressable>
         </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.delay(120).duration(450)}
-          style={[
-            styles.pageHeading,
-            isDesktop && styles.desktopPageHeading,
-          ]}
-        >
+        <Animated.View entering={FadeInDown.delay(120).duration(450)} style={[styles.pageHeading, isDesktop && styles.desktopPageHeading]}>
           <View style={styles.headingText}>
-            <Text style={styles.eyebrow}>
-              MAINTENANCE HISTORY
-            </Text>
-
-            <Text
-              style={[
-                styles.pageTitle,
-                isSmallPhone && styles.smallPageTitle,
-              ]}
-            >
-              Completed jobs
-            </Text>
-
+            <Text style={styles.eyebrow}>MAINTENANCE HISTORY</Text>
+            <Text style={[styles.pageTitle, isSmallPhone && styles.smallPageTitle]}>Completed jobs</Text>
             <Text style={styles.pageDescription}>
-              Review completed maintenance work, provider
-              notes, customer ratings and payment totals.
+              Review maintenance work that has been completed by you and confirmed through the TenureEx workflow.
             </Text>
           </View>
 
           <Button
             mode="outlined"
             icon="clipboard-text-outline"
-            onPress={() =>
-              router.push(
-                "/maintenance/assigned-jobs" as never
-              )
-            }
+            onPress={() => router.push("/maintenance/assigned-jobs" as never)}
             textColor={colors.primary}
             style={styles.activeJobsButton}
           >
@@ -337,52 +252,17 @@ export default function CompletedJobsScreen() {
           entering={FadeInDown.delay(170).duration(450)}
           style={[
             styles.summaryGrid,
-            isDesktop
-              ? styles.desktopSummaryGrid
-              : isTablet
-                ? styles.tabletSummaryGrid
-                : styles.mobileSummaryGrid,
+            isDesktop ? styles.desktopSummaryGrid : isTablet ? styles.tabletSummaryGrid : styles.mobileSummaryGrid,
           ]}
         >
-          <SummaryCard
-            icon="check-decagram-outline"
-            label="Jobs completed"
-            value={completedJobs.length.toString()}
-            description="This month"
-          />
-
-          <SummaryCard
-            icon="star-outline"
-            label="Average rating"
-            value={averageRating.toFixed(1)}
-            description="Out of 5"
-          />
-
-          <SummaryCard
-            icon="clock-check-outline"
-            label="On-time rate"
-            value="94%"
-            description="Monthly performance"
-          />
-
-          <SummaryCard
-            icon="cash-multiple"
-            label="Total value"
-            value={`£${totalEarnings.toFixed(0)}`}
-            description="Completed jobs"
-          />
+          <SummaryCard icon="check-decagram-outline" label="Total completed" value={String(completedJobs.length)} description="Confirmed jobs" />
+          <SummaryCard icon="calendar-week-outline" label="This week" value={String(completedThisWeek)} description="Confirmed this week" />
+          <SummaryCard icon="calendar-month-outline" label="This month" value={String(completedThisMonth)} description="Confirmed this month" />
+          <SummaryCard icon="camera-outline" label="Evidence photos" value={String(evidencePhotos)} description="Stored with completed jobs" />
         </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.delay(220).duration(450)}
-          style={styles.jobsContainer}
-        >
-          <View
-            style={[
-              styles.searchSection,
-              isDesktop && styles.desktopSearchSection,
-            ]}
-          >
+        <Animated.View entering={FadeInDown.delay(220).duration(450)} style={styles.jobsContainer}>
+          <View style={[styles.searchSection, isDesktop && styles.desktopSearchSection]}>
             <Searchbar
               placeholder="Search completed jobs"
               value={searchQuery}
@@ -391,28 +271,15 @@ export default function CompletedJobsScreen() {
               style={styles.searchbar}
               inputStyle={styles.searchInput}
             />
-
             <View style={styles.filterRow}>
               {dateFilters.map((filter) => (
                 <Chip
                   key={filter}
-                  selected={
-                    selectedDateFilter === filter
-                  }
-                  onPress={() =>
-                    setSelectedDateFilter(filter)
-                  }
+                  selected={selectedDateFilter === filter}
+                  onPress={() => setSelectedDateFilter(filter)}
                   showSelectedCheck={false}
-                  style={[
-                    styles.filterChip,
-                    selectedDateFilter === filter &&
-                      styles.selectedFilterChip,
-                  ]}
-                  textStyle={[
-                    styles.filterChipText,
-                    selectedDateFilter === filter &&
-                      styles.selectedFilterChipText,
-                  ]}
+                  style={[styles.filterChip, selectedDateFilter === filter && styles.selectedFilterChip]}
+                  textStyle={[styles.filterChipText, selectedDateFilter === filter && styles.selectedFilterChipText]}
                 >
                   {filter}
                 </Chip>
@@ -422,71 +289,36 @@ export default function CompletedJobsScreen() {
 
           <View style={styles.listHeader}>
             <View>
-              <Text style={styles.listTitle}>
-                Completion history
-              </Text>
-
-              <Text style={styles.listDescription}>
-                {filteredJobs.length} completed{" "}
-                {filteredJobs.length === 1
-                  ? "job"
-                  : "jobs"}{" "}
-                found
-              </Text>
+              <Text style={styles.listTitle}>Completion history</Text>
+              <Text style={styles.listDescription}>{filteredJobs.length} completed {filteredJobs.length === 1 ? "job" : "jobs"} found</Text>
             </View>
-
-            <Button
-              mode="text"
-              icon="download-outline"
-              onPress={() => {}}
-              textColor={colors.primary}
-            >
-              Export
-            </Button>
+            <Button mode="text" icon="refresh" onPress={() => void load()} textColor={colors.primary}>Refresh</Button>
           </View>
 
           <Divider style={styles.divider} />
 
-          {filteredJobs.length > 0 ? (
+          {loading ? (
+            <View style={styles.emptyState}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.emptyTitle}>Loading completed jobs…</Text>
+            </View>
+          ) : loadError ? (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIcon}><MaterialCommunityIcons name="alert-circle-outline" size={40} color={colors.textMuted} /></View>
+              <Text style={styles.emptyTitle}>Unable to load completed jobs</Text>
+              <Text style={styles.emptyDescription}>{loadError}</Text>
+              <Button mode="outlined" onPress={() => void load()} textColor={colors.primary} style={styles.clearButton}>Retry</Button>
+            </View>
+          ) : filteredJobs.length > 0 ? (
             <View style={styles.jobList}>
-              {filteredJobs.map((job) => (
-                <CompletedJobCard
-                  key={job.id}
-                  job={job}
-                  isDesktop={isDesktop}
-                />
-              ))}
+              {filteredJobs.map((job) => <CompletedJobCard key={job.id} job={job} isDesktop={isDesktop} />)}
             </View>
           ) : (
             <View style={styles.emptyState}>
-              <View style={styles.emptyIcon}>
-                <MaterialCommunityIcons
-                  name="clipboard-check-outline"
-                  size={40}
-                  color={colors.textMuted}
-                />
-              </View>
-
-              <Text style={styles.emptyTitle}>
-                No completed jobs found
-              </Text>
-
-              <Text style={styles.emptyDescription}>
-                Try changing the selected date filter or
-                search phrase.
-              </Text>
-
-              <Button
-                mode="outlined"
-                onPress={() => {
-                  setSearchQuery("");
-                  setSelectedDateFilter("All");
-                }}
-                textColor={colors.primary}
-                style={styles.clearButton}
-              >
-                Clear filters
-              </Button>
+              <View style={styles.emptyIcon}><MaterialCommunityIcons name="clipboard-check-outline" size={40} color={colors.textMuted} /></View>
+              <Text style={styles.emptyTitle}>No completed jobs found</Text>
+              <Text style={styles.emptyDescription}>There are no completed jobs matching the current search and date filter.</Text>
+              <Button mode="outlined" onPress={() => { setSearchQuery(""); setSelectedDateFilter("All"); }} textColor={colors.primary} style={styles.clearButton}>Clear filters</Button>
             </View>
           )}
         </Animated.View>
@@ -495,245 +327,77 @@ export default function CompletedJobsScreen() {
   );
 }
 
-function SummaryCard({
-  icon,
-  label,
-  value,
-  description,
-}: {
-  icon: IconName;
-  label: string;
-  value: string;
-  description: string;
-}) {
+function SummaryCard({ icon, label, value, description }: { icon: IconName; label: string; value: string; description: string }) {
   return (
     <View style={styles.summaryCard}>
-      <View style={styles.summaryIcon}>
-        <MaterialCommunityIcons
-          name={icon}
-          size={22}
-          color={colors.primary}
-        />
-      </View>
-
+      <View style={styles.summaryIcon}><MaterialCommunityIcons name={icon} size={22} color={colors.primary} /></View>
       <View style={styles.flex}>
-        <Text style={styles.summaryValue}>
-          {value}
-        </Text>
-
-        <Text style={styles.summaryLabel}>
-          {label}
-        </Text>
-
-        <Text style={styles.summaryDescription}>
-          {description}
-        </Text>
+        <Text style={styles.summaryValue}>{value}</Text>
+        <Text style={styles.summaryLabel}>{label}</Text>
+        <Text style={styles.summaryDescription}>{description}</Text>
       </View>
     </View>
   );
 }
 
-function CompletedJobCard({
-  job,
-  isDesktop,
-}: {
-  job: CompletedJob;
-  isDesktop: boolean;
-}) {
+function CompletedJobCard({ job, isDesktop }: { job: CompletedJob; isDesktop: boolean }) {
   return (
     <Pressable
-      style={({ pressed }) => [
-        styles.jobCard,
-        pressed && styles.jobCardPressed,
-      ]}
-      onPress={() =>
-        router.push({
-          pathname:
-            "/maintenance/job-details" as never,
-          params: {
-            jobId: job.id,
-          },
-        })
-      }
+      style={({ pressed }) => [styles.jobCard, pressed && styles.jobCardPressed]}
+      onPress={() => router.push({ pathname: "/maintenance/job-details" as never, params: { jobId: job.id } })}
     >
-      <View style={styles.jobIcon}>
-        <MaterialCommunityIcons
-          name={job.icon}
-          size={25}
-          color={colors.primary}
-        />
-      </View>
-
+      <View style={styles.jobIcon}><MaterialCommunityIcons name={job.icon} size={25} color={colors.primary} /></View>
       <View style={styles.jobMain}>
-        <View
-          style={[
-            styles.jobTopRow,
-            !isDesktop && styles.mobileJobTopRow,
-          ]}
-        >
+        <View style={[styles.jobTopRow, !isDesktop && styles.mobileJobTopRow]}>
           <View style={styles.jobTitleSection}>
             <View style={styles.titleRow}>
-              <Text style={styles.jobTitle}>
-                {job.title}
-              </Text>
-
+              <Text style={styles.jobTitle}>{job.title}</Text>
               <View style={styles.completedBadge}>
-                <MaterialCommunityIcons
-                  name="check"
-                  size={13}
-                  color="#277A46"
-                />
-
-                <Text
-                  style={styles.completedBadgeText}
-                >
-                  Completed
-                </Text>
+                <MaterialCommunityIcons name="check" size={13} color="#277A46" />
+                <Text style={styles.completedBadgeText}>Completed</Text>
               </View>
             </View>
-
-            <Text style={styles.jobReference}>
-              {job.id} · {job.category}
-            </Text>
+            <Text style={styles.jobReference}>{job.id} · {job.category}</Text>
           </View>
-
-          <View style={styles.costBadge}>
-            <Text style={styles.costText}>
-              {job.cost}
-            </Text>
-          </View>
+          <View style={styles.costBadge}><Text style={styles.costText}>{job.evidenceCount} photo{job.evidenceCount === 1 ? "" : "s"}</Text></View>
         </View>
 
-        <View
-          style={[
-            styles.detailsGrid,
-            isDesktop && styles.desktopDetailsGrid,
-          ]}
-        >
-          <JobInformation
-            icon="map-marker-outline"
-            label="Property"
-            value={job.property}
-          />
-
-          <JobInformation
-            icon="account-outline"
-            label="Tenant"
-            value={job.tenant}
-          />
-
-          <JobInformation
-            icon="calendar-check-outline"
-            label="Completed"
-            value={`${job.completedDate}, ${job.completedTime}`}
-          />
-
-          <JobInformation
-            icon="timer-outline"
-            label="Duration"
-            value={job.duration}
-          />
+        <View style={[styles.detailsGrid, isDesktop && styles.desktopDetailsGrid]}>
+          <JobInformation icon="map-marker-outline" label="Property" value={job.property} />
+          <JobInformation icon="account-outline" label="Tenant" value={job.tenant} />
+          <JobInformation icon="calendar-check-outline" label="Completed" value={`${job.completedDate}, ${job.completedTime}`} />
+          <JobInformation icon="camera-outline" label="Evidence" value={`${job.evidenceCount} stored photo${job.evidenceCount === 1 ? "" : "s"}`} />
         </View>
 
         <View style={styles.notesBox}>
-          <MaterialCommunityIcons
-            name="note-text-outline"
-            size={19}
-            color={colors.primary}
-          />
-
+          <MaterialCommunityIcons name="note-text-outline" size={19} color={colors.primary} />
           <View style={styles.flex}>
-            <Text style={styles.notesLabel}>
-              Completion notes
-            </Text>
-
-            <Text
-              style={styles.notesText}
-              numberOfLines={3}
-            >
-              {job.completionNotes}
-            </Text>
+            <Text style={styles.notesLabel}>Provider completion notes</Text>
+            <Text style={styles.notesText} numberOfLines={3}>{job.completionNotes}</Text>
+            {job.tenantCompletionNote ? <Text style={styles.notesText}>Tenant confirmation: {job.tenantCompletionNote}</Text> : null}
           </View>
         </View>
 
         <View style={styles.jobFooter}>
-          <RatingStars rating={job.rating} />
-
-          <View style={styles.viewJobRow}>
-            <Text style={styles.viewJobText}>
-              View job record
-            </Text>
-
-            <MaterialCommunityIcons
-              name="arrow-right"
-              size={17}
-              color={colors.primary}
-            />
+          <View style={styles.ratingRow}>
+            <MaterialCommunityIcons name="account-check-outline" size={16} color={colors.primary} />
+            <Text style={styles.ratingText}>Tenant confirmed completion</Text>
           </View>
+          <View style={styles.viewJobRow}><Text style={styles.viewJobText}>View job record</Text><MaterialCommunityIcons name="arrow-right" size={17} color={colors.primary} /></View>
         </View>
       </View>
     </Pressable>
   );
 }
 
-function JobInformation({
-  icon,
-  label,
-  value,
-}: {
-  icon: IconName;
-  label: string;
-  value: string;
-}) {
+function JobInformation({ icon, label, value }: { icon: IconName; label: string; value: string }) {
   return (
     <View style={styles.jobInformation}>
-      <MaterialCommunityIcons
-        name={icon}
-        size={17}
-        color={colors.textMuted}
-      />
-
+      <MaterialCommunityIcons name={icon} size={17} color={colors.textMuted} />
       <View style={styles.flex}>
-        <Text style={styles.informationLabel}>
-          {label}
-        </Text>
-
-        <Text
-          style={styles.informationValue}
-          numberOfLines={2}
-        >
-          {value}
-        </Text>
+        <Text style={styles.informationLabel}>{label}</Text>
+        <Text style={styles.informationValue} numberOfLines={2}>{value}</Text>
       </View>
-    </View>
-  );
-}
-
-function RatingStars({
-  rating,
-}: {
-  rating: number;
-}) {
-  return (
-    <View style={styles.ratingRow}>
-      <View style={styles.stars}>
-        {[1, 2, 3, 4, 5].map((star) => (
-          <MaterialCommunityIcons
-            key={star}
-            name={
-              star <= rating
-                ? "star"
-                : "star-outline"
-            }
-            size={16}
-            color="#D99A17"
-          />
-        ))}
-      </View>
-
-      <Text style={styles.ratingText}>
-        {rating}.0 tenant rating
-      </Text>
     </View>
   );
 }
