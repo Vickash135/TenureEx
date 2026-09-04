@@ -80,13 +80,13 @@ const accessSteps: {
     icon: "shield-outline",
     title: "Organisation verification",
     description:
-      "TenureEx checks your council email and organisation details.",
+      "TenureEx verifies your secure Admin invitation and council information.",
   },
   {
     icon: "account-check-outline",
-    title: "Access approval",
+    title: "Account activation",
     description:
-      "You will receive access after your account has been approved.",
+      "Set your password and activate your Council Inspector account.",
   },
 ];
 
@@ -104,46 +104,63 @@ type CouncilInvitation = {
 
 export default function CouncilSignupScreen() {
   const { width } = useWindowDimensions();
-  const params = useLocalSearchParams<{ invite?: string | string[] }>();
+
+  const params =
+    useLocalSearchParams<{
+      invite?: string | string[];
+    }>();
+
   const invitationToken = Array.isArray(params.invite)
     ? params.invite[0] ?? ""
     : params.invite ?? "";
 
   const isDesktop = width >= 1000;
   const isTablet = width >= 700;
+  const isMobile = width < 700;
   const isSmallPhone = width < 390;
 
-  const [invitation, setInvitation] = useState<CouncilInvitation | null>(null);
-  const [invitationLoading, setInvitationLoading] = useState(true);
+  const [invitation, setInvitation] =
+    useState<CouncilInvitation | null>(null);
+
+  const [invitationLoading, setInvitationLoading] =
+    useState(true);
 
   const [fullName, setFullName] = useState("");
   const [employeeId, setEmployeeId] = useState("");
   const [councilName, setCouncilName] = useState("");
   const [department, setDepartment] = useState("");
   const [jobTitle, setJobTitle] = useState("");
+
   const [selectedRole, setSelectedRole] =
     useState<CouncilRole>("Housing Inspector");
+
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [workAddress, setWorkAddress] = useState("");
   const [postcode, setPostcode] = useState("");
 
   const [password, setPassword] = useState("");
+
   const [confirmPassword, setConfirmPassword] =
     useState("");
+
   const [showPassword, setShowPassword] =
     useState(false);
+
   const [showConfirmPassword, setShowConfirmPassword] =
     useState(false);
 
   const [acceptTerms, setAcceptTerms] =
     useState(false);
+
   const [confirmAuthority, setConfirmAuthority] =
     useState(false);
 
   const [loading, setLoading] = useState(false);
+
   const [snackbarVisible, setSnackbarVisible] =
     useState(false);
+
   const [snackbarMessage, setSnackbarMessage] =
     useState("");
 
@@ -153,46 +170,78 @@ export default function CouncilSignupScreen() {
     const loadInvitation = async () => {
       if (!invitationToken) {
         setInvitationLoading(false);
-        setSnackbarMessage("A secure invitation from TenureEx Admin is required to activate a Council Inspector account.");
+
+        setSnackbarMessage(
+          "A secure invitation from TenureEx Admin is required to activate a Council Inspector account."
+        );
+
         setSnackbarVisible(true);
         return;
       }
 
       try {
         const response = await api.get(
-          `/council-inspections/invitation/${encodeURIComponent(invitationToken)}`,
+          `/council-inspections/invitation/${encodeURIComponent(
+            invitationToken
+          )}`
         );
+
         if (!active) return;
 
-        const data = response.data as CouncilInvitation;
+        const data =
+          response.data as CouncilInvitation;
+
         setInvitation(data);
-        setFullName(`${data.firstName ?? ""} ${data.lastName ?? ""}`.trim());
+
+        setFullName(
+          `${data.firstName ?? ""} ${
+            data.lastName ?? ""
+          }`.trim()
+        );
+
         setEmployeeId(data.employeeId ?? "");
         setCouncilName(data.councilName ?? "");
         setDepartment(data.department ?? "");
-        setJobTitle(data.jobTitle ?? "Housing Inspector");
+        setJobTitle(
+          data.jobTitle ?? "Housing Inspector"
+        );
+
         setEmail(data.email ?? "");
 
         const invitedRole = councilRoles.find(
-          (role) => role.label.toLowerCase() === (data.jobTitle ?? "").toLowerCase(),
+          (role) =>
+            role.label.toLowerCase() ===
+            (data.jobTitle ?? "").toLowerCase()
         );
-        if (invitedRole) setSelectedRole(invitedRole.label);
+
+        if (invitedRole) {
+          setSelectedRole(invitedRole.label);
+        }
       } catch (error: any) {
         if (!active) return;
-        const backendMessage = error?.response?.data?.message;
+
+        const backendMessage =
+          error?.response?.data?.message;
+
         setSnackbarMessage(
           typeof backendMessage === "string"
             ? backendMessage
-            : "This Council Inspector invitation is invalid or has expired.",
+            : "This Council Inspector invitation is invalid or has expired."
         );
+
         setSnackbarVisible(true);
       } finally {
-        if (active) setInvitationLoading(false);
+        if (active) {
+          setInvitationLoading(false);
+        }
       }
     };
 
     void loadInvitation();
-    return () => { active = false; };
+
+    return () => {
+      active = false;
+    };
   }, [invitationToken]);
 
   const emailHasError = useMemo(() => {
@@ -223,12 +272,16 @@ export default function CouncilSignupScreen() {
 
   const handleSignup = async () => {
     if (!invitationToken || !invitation) {
-      showMessage("A valid TenureEx Admin invitation is required.");
+      showMessage(
+        "A valid TenureEx Admin invitation is required."
+      );
       return;
     }
 
     if (!phone.trim()) {
-      showMessage("Please enter your phone number.");
+      showMessage(
+        "Please enter your phone number."
+      );
       return;
     }
 
@@ -245,7 +298,9 @@ export default function CouncilSignupScreen() {
     }
 
     if (password !== confirmPassword) {
-      showMessage("The passwords do not match.");
+      showMessage(
+        "The passwords do not match."
+      );
       return;
     }
 
@@ -267,8 +322,13 @@ export default function CouncilSignupScreen() {
 
     try {
       const response = await api.post(
-        `/council-inspections/invitation/${encodeURIComponent(invitationToken)}/accept`,
-        { phone, password },
+        `/council-inspections/invitation/${encodeURIComponent(
+          invitationToken
+        )}/accept`,
+        {
+          phone,
+          password,
+        }
       );
 
       showMessage(
@@ -277,16 +337,20 @@ export default function CouncilSignupScreen() {
       );
 
       setTimeout(() => {
-        router.replace("/auth/council/login" as never);
+        router.replace(
+          "/auth/council/login" as never
+        );
       }, 800);
     } catch (error: any) {
-      const backendMessage = error?.response?.data?.message;
+      const backendMessage =
+        error?.response?.data?.message;
+
       showMessage(
         Array.isArray(backendMessage)
           ? backendMessage.join("\n")
           : typeof backendMessage === "string"
-            ? backendMessage
-            : "Unable to activate your Council Inspector account.",
+          ? backendMessage
+          : "Unable to activate your Council Inspector account."
       );
     } finally {
       setLoading(false);
@@ -301,13 +365,22 @@ export default function CouncilSignupScreen() {
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={
-          Platform.OS === "ios" ? "padding" : undefined
+          Platform.OS === "ios"
+            ? "padding"
+            : undefined
         }
       >
         <View style={styles.page}>
+          {/* =====================================================
+              HEADER
+          ===================================================== */}
+
           <Animated.View
             entering={FadeInUp.duration(450)}
-            style={styles.header}
+            style={[
+              styles.header,
+              isMobile && styles.mobileHeader,
+            ]}
           >
             <Pressable
               style={styles.brandRow}
@@ -315,27 +388,49 @@ export default function CouncilSignupScreen() {
                 router.replace("/" as never)
               }
             >
-              <View style={styles.brandLogo}>
+              <View
+                style={[
+                  styles.brandLogo,
+                  isMobile &&
+                    styles.mobileBrandLogo,
+                ]}
+              >
                 <MaterialCommunityIcons
                   name="home-city-outline"
-                  size={28}
+                  size={isMobile ? 24 : 28}
                   color={colors.white}
                 />
               </View>
 
               <View>
-                <Text style={styles.brandName}>
+                <Text
+                  style={[
+                    styles.brandName,
+                    isMobile &&
+                      styles.mobileBrandName,
+                  ]}
+                >
                   TENUREEX
                 </Text>
 
-                <Text style={styles.brandSubtitle}>
+                <Text
+                  style={[
+                    styles.brandSubtitle,
+                    isMobile &&
+                      styles.mobileBrandSubtitle,
+                  ]}
+                >
                   Council & Inspection Portal
                 </Text>
               </View>
             </Pressable>
 
             <Pressable
-              style={styles.signInButton}
+              style={[
+                styles.signInButton,
+                isMobile &&
+                  styles.mobileSignInButton,
+              ]}
               onPress={() =>
                 router.replace(
                   "/auth/council/login" as never
@@ -349,22 +444,43 @@ export default function CouncilSignupScreen() {
               />
 
               {isTablet ? (
-                <Text style={styles.signInButtonText}>
+                <Text
+                  style={
+                    styles.signInButtonText
+                  }
+                >
                   Council sign in
                 </Text>
               ) : null}
             </Pressable>
           </Animated.View>
 
+          {/* =====================================================
+              MAIN LAYOUT
+          ===================================================== */}
+
           <View
             style={[
               styles.signupLayout,
-              isDesktop && styles.desktopSignupLayout,
+              isDesktop &&
+                styles.desktopSignupLayout,
+              isMobile &&
+                styles.mobileSignupLayout,
             ]}
           >
+            {/* ===================================================
+                INTRODUCTION
+            =================================================== */}
+
             <Animated.View
-              entering={FadeInLeft.delay(100).duration(500)}
-              style={styles.introductionPanel}
+              entering={FadeInLeft.delay(
+                100
+              ).duration(500)}
+              style={[
+                styles.introductionPanel,
+                isMobile &&
+                  styles.mobileIntroductionPanel,
+              ]}
             >
               <View style={styles.portalBadge}>
                 <MaterialCommunityIcons
@@ -373,7 +489,11 @@ export default function CouncilSignupScreen() {
                   color={colors.primary}
                 />
 
-                <Text style={styles.portalBadgeText}>
+                <Text
+                  style={
+                    styles.portalBadgeText
+                  }
+                >
                   ADMIN INVITATION ACTIVATION
                 </Text>
               </View>
@@ -381,115 +501,264 @@ export default function CouncilSignupScreen() {
               <Text
                 style={[
                   styles.heroTitle,
-                  isSmallPhone && styles.smallHeroTitle,
+                  isSmallPhone &&
+                    styles.smallHeroTitle,
+                  isMobile &&
+                    styles.mobileHeroTitle,
                 ]}
               >
-                Activate your invited Council Inspector account.
+                Activate your invited Council
+                Inspector account.
               </Text>
 
-              <Text style={styles.heroDescription}>
-                TenureEx Admin controls Council Inspector access. Complete the secure invitation to activate your verified account.
+              <Text
+                style={[
+                  styles.heroDescription,
+                  isMobile &&
+                    styles.mobileHeroDescription,
+                ]}
+              >
+                TenureEx Admin controls Council
+                Inspector access. Complete the
+                secure invitation to activate your
+                verified account.
               </Text>
 
-              <View style={styles.stepsList}>
-                {accessSteps.map((step, index) => (
-                  <Animated.View
-                    key={step.title}
-                    entering={FadeInDown.delay(
-                      180 + index * 90
-                    ).duration(450)}
-                    style={styles.stepCard}
+              {/* DESKTOP / TABLET INFORMATION STEPS */}
+
+              {!isMobile ? (
+                <>
+                  <View
+                    style={styles.stepsList}
                   >
-                    <View style={styles.stepNumber}>
-                      <Text style={styles.stepNumberText}>
-                        {index + 1}
-                      </Text>
-                    </View>
+                    {accessSteps.map(
+                      (step, index) => (
+                        <Animated.View
+                          key={step.title}
+                          entering={FadeInDown.delay(
+                            180 + index * 90
+                          ).duration(450)}
+                          style={styles.stepCard}
+                        >
+                          <View
+                            style={
+                              styles.stepNumber
+                            }
+                          >
+                            <Text
+                              style={
+                                styles.stepNumberText
+                              }
+                            >
+                              {index + 1}
+                            </Text>
+                          </View>
 
-                    <View style={styles.stepIcon}>
-                      <MaterialCommunityIcons
-                        name={step.icon}
-                        size={23}
-                        color={colors.primary}
-                      />
-                    </View>
+                          <View
+                            style={
+                              styles.stepIcon
+                            }
+                          >
+                            <MaterialCommunityIcons
+                              name={step.icon}
+                              size={23}
+                              color={
+                                colors.primary
+                              }
+                            />
+                          </View>
 
-                    <View style={styles.stepText}>
-                      <Text style={styles.stepTitle}>
-                        {step.title}
+                          <View
+                            style={
+                              styles.stepText
+                            }
+                          >
+                            <Text
+                              style={
+                                styles.stepTitle
+                              }
+                            >
+                              {step.title}
+                            </Text>
+
+                            <Text
+                              style={
+                                styles.stepDescription
+                              }
+                            >
+                              {
+                                step.description
+                              }
+                            </Text>
+                          </View>
+                        </Animated.View>
+                      )
+                    )}
+                  </View>
+
+                  <View
+                    style={
+                      styles.approvalNotice
+                    }
+                  >
+                    <MaterialCommunityIcons
+                      name="shield-check-outline"
+                      size={22}
+                      color={colors.primary}
+                    />
+
+                    <View
+                      style={
+                        styles.approvalNoticeText
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.approvalNoticeTitle
+                        }
+                      >
+                        Admin invitation verified
                       </Text>
 
                       <Text
-                        style={styles.stepDescription}
+                        style={
+                          styles.approvalNoticeDescription
+                        }
                       >
-                        {step.description}
+                        Your access has already
+                        been authorised by TenureEx
+                        Admin. Complete the
+                        invitation to activate your
+                        Council Inspector account.
                       </Text>
                     </View>
-                  </Animated.View>
-                ))}
-              </View>
-
-              <View style={styles.approvalNotice}>
-                <MaterialCommunityIcons
-                  name="information-outline"
-                  size={22}
-                  color={colors.primary}
-                />
-
-                <View style={styles.approvalNoticeText}>
-                  <Text
-                    style={styles.approvalNoticeTitle}
-                  >
-                    Approval is required
-                  </Text>
-
-                  <Text
+                  </View>
+                </>
+              ) : (
+                /* MOBILE SHORT VERSION */
+                <View
+                  style={
+                    styles.mobileInvitationNotice
+                  }
+                >
+                  <View
                     style={
-                      styles.approvalNoticeDescription
+                      styles.mobileInvitationIcon
                     }
                   >
-                    New council accounts are reviewed before
-                    inspection and property information
-                    becomes available.
-                  </Text>
+                    <MaterialCommunityIcons
+                      name="shield-check-outline"
+                      size={21}
+                      color={colors.primary}
+                    />
+                  </View>
+
+                  <View
+                    style={
+                      styles.mobileInvitationTextContainer
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.mobileInvitationTitle
+                      }
+                    >
+                      Admin invitation verified
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.mobileInvitationNoticeText
+                      }
+                    >
+                      Complete the form below to
+                      activate your Council
+                      Inspector account.
+                    </Text>
+                  </View>
                 </View>
-              </View>
+              )}
             </Animated.View>
 
+            {/* ===================================================
+                SIGNUP CARD
+            =================================================== */}
+
             <Animated.View
-              entering={FadeInRight.delay(120).duration(500)}
-              style={styles.signupCard}
+              entering={FadeInRight.delay(
+                120
+              ).duration(500)}
+              style={[
+                styles.signupCard,
+                isMobile &&
+                  styles.mobileSignupCard,
+              ]}
             >
-              <View style={styles.cardHeader}>
-                <View style={styles.signupIcon}>
+              <View
+                style={[
+                  styles.cardHeader,
+                  isSmallPhone &&
+                    styles.mobileCardHeader,
+                ]}
+              >
+                <View
+                  style={[
+                    styles.signupIcon,
+                    isMobile &&
+                      styles.mobileSignupIcon,
+                  ]}
+                >
                   <MaterialCommunityIcons
                     name="account-tie-outline"
-                    size={30}
+                    size={isMobile ? 26 : 30}
                     color={colors.primary}
                   />
                 </View>
 
-                <View style={styles.cardHeaderText}>
-                  <Text style={styles.signupTitle}>
+                <View
+                  style={
+                    styles.cardHeaderText
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.signupTitle,
+                      isMobile &&
+                        styles.mobileSignupTitle,
+                    ]}
+                  >
                     Activate inspector account
                   </Text>
 
                   <Text
-                    style={styles.signupDescription}
+                    style={[
+                      styles.signupDescription,
+                      isMobile &&
+                        styles.mobileSignupDescription,
+                    ]}
                   >
-                    Review the official details from your Admin invitation and create your secure account.
+                    Review the official details
+                    from your Admin invitation and
+                    create your secure account.
                   </Text>
                 </View>
               </View>
 
-              <Text style={styles.sectionLabel}>
+              {/* =================================================
+                  PERSONAL INFORMATION
+              ================================================= */}
+
+              <Text
+                style={styles.sectionLabel}
+              >
                 PERSONAL INFORMATION
               </Text>
 
               <View
                 style={[
                   styles.formRow,
-                  !isTablet && styles.mobileFormRow,
+                  !isTablet &&
+                    styles.mobileFormRow,
                 ]}
               >
                 <TextInput
@@ -506,7 +775,9 @@ export default function CouncilSignupScreen() {
                     />
                   }
                   outlineColor={colors.border}
-                  activeOutlineColor={colors.primary}
+                  activeOutlineColor={
+                    colors.primary
+                  }
                   style={[
                     styles.input,
                     styles.rowInput,
@@ -527,7 +798,9 @@ export default function CouncilSignupScreen() {
                     />
                   }
                   outlineColor={colors.border}
-                  activeOutlineColor={colors.primary}
+                  activeOutlineColor={
+                    colors.primary
+                  }
                   style={[
                     styles.input,
                     styles.rowInput,
@@ -535,7 +808,13 @@ export default function CouncilSignupScreen() {
                 />
               </View>
 
-              <Text style={styles.sectionLabel}>
+              {/* =================================================
+                  COUNCIL INFORMATION
+              ================================================= */}
+
+              <Text
+                style={styles.sectionLabel}
+              >
                 COUNCIL INFORMATION
               </Text>
 
@@ -553,14 +832,17 @@ export default function CouncilSignupScreen() {
                   />
                 }
                 outlineColor={colors.border}
-                activeOutlineColor={colors.primary}
+                activeOutlineColor={
+                  colors.primary
+                }
                 style={styles.input}
               />
 
               <View
                 style={[
                   styles.formRow,
-                  !isTablet && styles.mobileFormRow,
+                  !isTablet &&
+                    styles.mobileFormRow,
                 ]}
               >
                 <TextInput
@@ -577,7 +859,9 @@ export default function CouncilSignupScreen() {
                     />
                   }
                   outlineColor={colors.border}
-                  activeOutlineColor={colors.primary}
+                  activeOutlineColor={
+                    colors.primary
+                  }
                   style={[
                     styles.input,
                     styles.rowInput,
@@ -598,7 +882,9 @@ export default function CouncilSignupScreen() {
                     />
                   }
                   outlineColor={colors.border}
-                  activeOutlineColor={colors.primary}
+                  activeOutlineColor={
+                    colors.primary
+                  }
                   style={[
                     styles.input,
                     styles.rowInput,
@@ -606,11 +892,23 @@ export default function CouncilSignupScreen() {
                 />
               </View>
 
-              <Text style={styles.fieldLabel}>
+              {/* =================================================
+                  ROLE
+              ================================================= */}
+
+              <Text
+                style={styles.fieldLabel}
+              >
                 Portal role
               </Text>
 
-              <View style={styles.roleGrid}>
+              <View
+                style={[
+                  styles.roleGrid,
+                  isMobile &&
+                    styles.mobileRoleGrid,
+                ]}
+              >
                 {councilRoles.map((role) => {
                   const selected =
                     selectedRole === role.label;
@@ -622,14 +920,21 @@ export default function CouncilSignupScreen() {
                       onPress={() => undefined}
                       style={({ pressed }) => [
                         styles.roleCard,
+
+                        isMobile &&
+                          styles.mobileRoleCard,
+
                         selected &&
                           styles.selectedRoleCard,
-                        pressed && styles.pressedCard,
+
+                        pressed &&
+                          styles.pressedCard,
                       ]}
                     >
                       <View
                         style={[
                           styles.roleIcon,
+
                           selected &&
                             styles.selectedRoleIcon,
                         ]}
@@ -648,6 +953,7 @@ export default function CouncilSignupScreen() {
                       <Text
                         style={[
                           styles.roleLabel,
+
                           selected &&
                             styles.selectedRoleLabel,
                         ]}
@@ -673,21 +979,30 @@ export default function CouncilSignupScreen() {
                 })}
               </View>
 
-              <Text style={styles.sectionLabel}>
+              {/* =================================================
+                  CONTACT INFORMATION
+              ================================================= */}
+
+              <Text
+                style={styles.sectionLabel}
+              >
                 CONTACT INFORMATION
               </Text>
 
               <View
                 style={[
                   styles.formRow,
-                  !isTablet && styles.mobileFormRow,
+                  !isTablet &&
+                    styles.mobileFormRow,
                 ]}
               >
-                <View style={styles.rowInput}>
+                <View
+                  style={styles.rowInput}
+                >
                   <TextInput
                     mode="outlined"
                     label="Council email"
-                disabled
+                    disabled
                     placeholder="name@council.gov.uk"
                     value={email}
                     onChangeText={setEmail}
@@ -700,8 +1015,12 @@ export default function CouncilSignupScreen() {
                         icon="email-outline"
                       />
                     }
-                    outlineColor={colors.border}
-                    activeOutlineColor={colors.primary}
+                    outlineColor={
+                      colors.border
+                    }
+                    activeOutlineColor={
+                      colors.primary
+                    }
                     style={styles.input}
                   />
 
@@ -709,9 +1028,12 @@ export default function CouncilSignupScreen() {
                     <HelperText
                       type="error"
                       visible={emailHasError}
-                      style={styles.helperText}
+                      style={
+                        styles.helperText
+                      }
                     >
-                      Enter a valid work email address.
+                      Enter a valid work email
+                      address.
                     </HelperText>
                   ) : null}
                 </View>
@@ -738,7 +1060,9 @@ export default function CouncilSignupScreen() {
                   />
                 }
                 outlineColor={colors.border}
-                activeOutlineColor={colors.primary}
+                activeOutlineColor={
+                  colors.primary
+                }
                 style={styles.input}
               />
 
@@ -755,18 +1079,27 @@ export default function CouncilSignupScreen() {
                   />
                 }
                 outlineColor={colors.border}
-                activeOutlineColor={colors.primary}
+                activeOutlineColor={
+                  colors.primary
+                }
                 style={styles.input}
               />
 
-              <Text style={styles.sectionLabel}>
+              {/* =================================================
+                  SECURITY
+              ================================================= */}
+
+              <Text
+                style={styles.sectionLabel}
+              >
                 ACCOUNT SECURITY
               </Text>
 
               <View
                 style={[
                   styles.formRow,
-                  !isTablet && styles.mobileFormRow,
+                  !isTablet &&
+                    styles.mobileFormRow,
                 ]}
               >
                 <TextInput
@@ -775,7 +1108,9 @@ export default function CouncilSignupScreen() {
                   placeholder="Create a password"
                   value={password}
                   onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
+                  secureTextEntry={
+                    !showPassword
+                  }
                   autoCapitalize="none"
                   left={
                     <TextInput.Icon
@@ -797,7 +1132,9 @@ export default function CouncilSignupScreen() {
                     />
                   }
                   outlineColor={colors.border}
-                  activeOutlineColor={colors.primary}
+                  activeOutlineColor={
+                    colors.primary
+                  }
                   style={[
                     styles.input,
                     styles.rowInput,
@@ -809,14 +1146,16 @@ export default function CouncilSignupScreen() {
                   label="Confirm password"
                   placeholder="Re-enter password"
                   value={confirmPassword}
-                  onChangeText={setConfirmPassword}
+                  onChangeText={
+                    setConfirmPassword
+                  }
                   secureTextEntry={
                     !showConfirmPassword
                   }
                   autoCapitalize="none"
                   error={
-                    confirmPassword.length > 0 &&
-                    !passwordsMatch
+                    confirmPassword.length >
+                      0 && !passwordsMatch
                   }
                   left={
                     <TextInput.Icon
@@ -838,7 +1177,9 @@ export default function CouncilSignupScreen() {
                     />
                   }
                   outlineColor={colors.border}
-                  activeOutlineColor={colors.primary}
+                  activeOutlineColor={
+                    colors.primary
+                  }
                   style={[
                     styles.input,
                     styles.rowInput,
@@ -846,10 +1187,18 @@ export default function CouncilSignupScreen() {
                 />
               </View>
 
-              <View style={styles.passwordRules}>
+              {/* =================================================
+                  PASSWORD RULES
+              ================================================= */}
+
+              <View
+                style={styles.passwordRules}
+              >
                 <PasswordRule
                   text="At least 8 characters"
-                  valid={passwordChecks.length}
+                  valid={
+                    passwordChecks.length
+                  }
                 />
 
                 <PasswordRule
@@ -862,7 +1211,9 @@ export default function CouncilSignupScreen() {
 
                 <PasswordRule
                   text="Contains at least one number"
-                  valid={passwordChecks.number}
+                  valid={
+                    passwordChecks.number
+                  }
                 />
 
                 <PasswordRule
@@ -871,9 +1222,19 @@ export default function CouncilSignupScreen() {
                 />
               </View>
 
-              <View style={styles.confirmationSection}>
+              {/* =================================================
+                  CONFIRMATIONS
+              ================================================= */}
+
+              <View
+                style={
+                  styles.confirmationSection
+                }
+              >
                 <Pressable
-                  style={styles.checkboxRow}
+                  style={
+                    styles.checkboxRow
+                  }
                   onPress={() =>
                     setConfirmAuthority(
                       !confirmAuthority
@@ -894,15 +1255,25 @@ export default function CouncilSignupScreen() {
                     color={colors.primary}
                   />
 
-                  <Text style={styles.checkboxText}>
-                    I confirm that the council employment details in this Admin invitation belong to me.
+                  <Text
+                    style={
+                      styles.checkboxText
+                    }
+                  >
+                    I confirm that the council
+                    employment details in this
+                    Admin invitation belong to me.
                   </Text>
                 </Pressable>
 
                 <Pressable
-                  style={styles.checkboxRow}
+                  style={
+                    styles.checkboxRow
+                  }
                   onPress={() =>
-                    setAcceptTerms(!acceptTerms)
+                    setAcceptTerms(
+                      !acceptTerms
+                    )
                   }
                 >
                   <Checkbox
@@ -912,18 +1283,32 @@ export default function CouncilSignupScreen() {
                         : "unchecked"
                     }
                     onPress={() =>
-                      setAcceptTerms(!acceptTerms)
+                      setAcceptTerms(
+                        !acceptTerms
+                      )
                     }
                     color={colors.primary}
                   />
 
-                  <Text style={styles.checkboxText}>
+                  <Text
+                    style={
+                      styles.checkboxText
+                    }
+                  >
                     I agree to the{" "}
-                    <Text style={styles.inlineLink}>
+                    <Text
+                      style={
+                        styles.inlineLink
+                      }
+                    >
                       Terms of Use
                     </Text>{" "}
                     and{" "}
-                    <Text style={styles.inlineLink}>
+                    <Text
+                      style={
+                        styles.inlineLink
+                      }
+                    >
                       Privacy Policy
                     </Text>
                     .
@@ -931,25 +1316,46 @@ export default function CouncilSignupScreen() {
                 </Pressable>
               </View>
 
+              {/* =================================================
+                  ACTIVATE BUTTON
+              ================================================= */}
+
               <Button
                 mode="contained"
                 icon="send-check-outline"
                 loading={loading}
-                disabled={loading || invitationLoading || !invitation}
+                disabled={
+                  loading ||
+                  invitationLoading ||
+                  !invitation
+                }
                 onPress={handleSignup}
                 buttonColor={colors.primary}
                 contentStyle={
                   styles.primaryButtonContent
                 }
-                labelStyle={styles.primaryButtonLabel}
+                labelStyle={
+                  styles.primaryButtonLabel
+                }
                 style={styles.primaryButton}
               >
                 Activate account
               </Button>
 
-              <View style={styles.loginSection}>
-                <Text style={styles.loginSectionText}>
-                  Already activated your account?
+              {/* =================================================
+                  LOGIN
+              ================================================= */}
+
+              <View
+                style={styles.loginSection}
+              >
+                <Text
+                  style={
+                    styles.loginSectionText
+                  }
+                >
+                  Already activated your
+                  account?
                 </Text>
 
                 <Pressable
@@ -959,26 +1365,45 @@ export default function CouncilSignupScreen() {
                     )
                   }
                 >
-                  <Text style={styles.loginSectionLink}>
+                  <Text
+                    style={
+                      styles.loginSectionLink
+                    }
+                  >
                     Sign in
                   </Text>
                 </Pressable>
               </View>
 
-              <View style={styles.helpSection}>
+              {/* =================================================
+                  HELP
+              ================================================= */}
+
+              <View
+                style={styles.helpSection}
+              >
                 <MaterialCommunityIcons
                   name="help-circle-outline"
                   size={19}
                   color={colors.textMuted}
                 />
 
-                <Text style={styles.helpText}>
-                  If the invitation details are incorrect, contact TenureEx Admin before activating the account.
+                <Text
+                  style={styles.helpText}
+                >
+                  If the invitation details are
+                  incorrect, contact TenureEx
+                  Admin before activating the
+                  account.
                 </Text>
               </View>
             </Animated.View>
           </View>
         </View>
+
+        {/* =======================================================
+            SNACKBAR
+        ======================================================= */}
 
         <Snackbar
           visible={snackbarVisible}
@@ -1016,14 +1441,17 @@ function PasswordRule({
         }
         size={17}
         color={
-          valid ? "#277A46" : colors.textMuted
+          valid
+            ? "#277A46"
+            : colors.textMuted
         }
       />
 
       <Text
         style={[
           styles.passwordRuleText,
-          valid && styles.validPasswordRuleText,
+          valid &&
+            styles.validPasswordRuleText,
         ]}
       >
         {text}
@@ -1048,6 +1476,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
 
+  // =========================================================
+  // HEADER
+  // =========================================================
+
   header: {
     minHeight: 70,
     flexDirection: "row",
@@ -1059,10 +1491,16 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
 
+  mobileHeader: {
+    minHeight: 62,
+    gap: spacing.sm,
+  },
+
   brandRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
+    flexShrink: 1,
   },
 
   brandLogo: {
@@ -1074,6 +1512,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
 
+  mobileBrandLogo: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+  },
+
   brandName: {
     color: colors.primary,
     fontSize: 14,
@@ -1081,11 +1525,20 @@ const styles = StyleSheet.create({
     letterSpacing: 2.3,
   },
 
+  mobileBrandName: {
+    fontSize: 13,
+    letterSpacing: 2,
+  },
+
   brandSubtitle: {
     marginTop: 2,
     color: colors.textMuted,
     fontSize: 9,
     fontWeight: "700",
+  },
+
+  mobileBrandSubtitle: {
+    fontSize: 8,
   },
 
   signInButton: {
@@ -1100,11 +1553,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
 
+  mobileSignInButton: {
+    width: 44,
+    height: 44,
+    minHeight: 44,
+    paddingHorizontal: 0,
+    justifyContent: "center",
+  },
+
   signInButtonText: {
     color: colors.primary,
     fontSize: 9,
     fontWeight: "900",
   },
+
+  // =========================================================
+  // MAIN LAYOUT
+  // =========================================================
 
   signupLayout: {
     gap: spacing.xl,
@@ -1116,9 +1581,25 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
 
+  mobileSignupLayout: {
+    gap: spacing.lg,
+    paddingVertical: spacing.lg,
+  },
+
+  // =========================================================
+  // INTRODUCTION
+  // =========================================================
+
   introductionPanel: {
     flex: 0.8,
     padding: spacing.xl,
+  },
+
+  mobileIntroductionPanel: {
+    flex: 0,
+    width: "100%",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.md,
   },
 
   portalBadge: {
@@ -1146,9 +1627,15 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
 
+  mobileHeroTitle: {
+    marginTop: spacing.lg,
+    fontSize: 30,
+    lineHeight: 38,
+  },
+
   smallHeroTitle: {
-    fontSize: 29,
-    lineHeight: 36,
+    fontSize: 27,
+    lineHeight: 34,
   },
 
   heroDescription: {
@@ -1158,6 +1645,15 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 22,
   },
+
+  mobileHeroDescription: {
+    fontSize: 13,
+    lineHeight: 20,
+  },
+
+  // =========================================================
+  // DESKTOP STEPS
+  // =========================================================
 
   stepsList: {
     gap: spacing.md,
@@ -1223,6 +1719,10 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 
+  // =========================================================
+  // DESKTOP INVITATION NOTICE
+  // =========================================================
+
   approvalNotice: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -1250,6 +1750,51 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
 
+  // =========================================================
+  // MOBILE INVITATION NOTICE
+  // =========================================================
+
+  mobileInvitationNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.primaryLight,
+  },
+
+  mobileInvitationIcon: {
+    width: 42,
+    height: 42,
+    flexShrink: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 13,
+    backgroundColor: colors.white,
+  },
+
+  mobileInvitationTextContainer: {
+    flex: 1,
+  },
+
+  mobileInvitationTitle: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+
+  mobileInvitationNoticeText: {
+    marginTop: 3,
+    color: colors.textSecondary,
+    fontSize: 10,
+    lineHeight: 16,
+  },
+
+  // =========================================================
+  // SIGNUP CARD
+  // =========================================================
+
   signupCard: {
     flex: 1.2,
     width: "100%",
@@ -1272,10 +1817,23 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
 
+  mobileSignupCard: {
+    flex: 0,
+    width: "100%",
+    maxWidth: "100%",
+    alignSelf: "stretch",
+    padding: spacing.md,
+    borderRadius: radius.lg,
+  },
+
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
+  },
+
+  mobileCardHeader: {
+    alignItems: "flex-start",
   },
 
   signupIcon: {
@@ -1288,6 +1846,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryLight,
   },
 
+  mobileSignupIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+  },
+
   cardHeaderText: {
     flex: 1,
   },
@@ -1297,12 +1861,26 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
 
+  mobileSignupTitle: {
+    fontSize: 20,
+    lineHeight: 26,
+  },
+
   signupDescription: {
     ...typography.bodyMedium,
     marginTop: spacing.sm,
     color: colors.textSecondary,
     lineHeight: 20,
   },
+
+  mobileSignupDescription: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+
+  // =========================================================
+  // FORM
+  // =========================================================
 
   sectionLabel: {
     marginTop: spacing.xl,
@@ -1332,9 +1910,11 @@ const styles = StyleSheet.create({
   rowInput: {
     flex: 1,
     minWidth: 0,
+    width: "100%",
   },
 
   input: {
+    width: "100%",
     marginBottom: spacing.md,
     backgroundColor: colors.white,
   },
@@ -1344,11 +1924,20 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
 
+  // =========================================================
+  // ROLES
+  // =========================================================
+
   roleGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
     marginBottom: spacing.md,
+  },
+
+  mobileRoleGrid: {
+    flexDirection: "column",
+    flexWrap: "nowrap",
   },
 
   roleCard: {
@@ -1362,6 +1951,12 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.md,
     backgroundColor: colors.white,
+  },
+
+  mobileRoleCard: {
+    width: "100%",
+    minWidth: 0,
+    flex: 0,
   },
 
   selectedRoleCard: {
@@ -1398,6 +1993,10 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
 
+  // =========================================================
+  // PASSWORD RULES
+  // =========================================================
+
   passwordRules: {
     gap: spacing.sm,
     marginTop: spacing.sm,
@@ -1421,6 +2020,10 @@ const styles = StyleSheet.create({
     color: "#277A46",
     fontWeight: "700",
   },
+
+  // =========================================================
+  // CHECKBOX
+  // =========================================================
 
   confirmationSection: {
     gap: spacing.sm,
@@ -1447,7 +2050,12 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
 
+  // =========================================================
+  // BUTTON
+  // =========================================================
+
   primaryButton: {
+    width: "100%",
     borderRadius: radius.md,
   },
 
@@ -1460,6 +2068,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "900",
   },
+
+  // =========================================================
+  // LOGIN
+  // =========================================================
 
   loginSection: {
     flexDirection: "row",
@@ -1479,6 +2091,10 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "900",
   },
+
+  // =========================================================
+  // HELP
+  // =========================================================
 
   helpSection: {
     flexDirection: "row",
