@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   Pressable,
@@ -62,6 +62,13 @@ export default function CouncilInspectionHub({
   portal: PortalType;
 }) {
   const { width } = useWindowDimensions();
+  const params = useLocalSearchParams<{
+    propertyId?: string | string[];
+  }>();
+
+  const requestedPropertyId = Array.isArray(params.propertyId)
+    ? params.propertyId[0] || ""
+    : params.propertyId || "";
 
   const isMobile = width < 720;
   const isSmallMobile = width < 470;
@@ -139,6 +146,25 @@ export default function CouncilInspectionHub({
   useEffect(() => {
     void load();
   }, []);
+
+  // If the tenant arrived from a property-specific route such as
+  // /tenant/council-inspections?propertyId=..., automatically select
+  // that property once the eligible property list has loaded.
+  useEffect(() => {
+    if (!requestedPropertyId || !properties.length) {
+      return;
+    }
+
+    const isEligible = properties.some(
+      (property) => property.id === requestedPropertyId
+    );
+
+    if (isEligible) {
+      setPropertyId((current) =>
+        current || requestedPropertyId
+      );
+    }
+  }, [requestedPropertyId, properties]);
 
   // =========================================================
   // FILTER
@@ -316,6 +342,18 @@ export default function CouncilInspectionHub({
           icon="plus"
           onPress={() => {
             setMessage("");
+
+            const routeProperty = properties.find(
+              (property) =>
+                property.id === requestedPropertyId
+            );
+
+            if (routeProperty) {
+              setPropertyId(routeProperty.id);
+            } else if (properties.length === 1) {
+              setPropertyId(properties[0].id);
+            }
+
             setOpen(true);
           }}
           style={[

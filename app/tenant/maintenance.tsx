@@ -275,6 +275,8 @@ export default function MaintenanceScreen() {
   const [accessPermission, setAccessPermission] = useState(false);
   const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([
     { id: "slot-1", date: "", startTime: "", endTime: "" },
+    { id: "slot-2", date: "", startTime: "", endTime: "" },
+    { id: "slot-3", date: "", startTime: "", endTime: "" },
   ]);
   const [pendingPhotos, setPendingPhotos] = useState<any[]>([]);
   const [message, setMessage] = useState("");
@@ -384,20 +386,6 @@ export default function MaintenanceScreen() {
     }
   };
 
-  const addSlot = () => {
-    setAvailabilitySlots((current) => [
-      ...current,
-      { id: `slot-${Date.now()}`, date: "", startTime: "", endTime: "" },
-    ]);
-  };
-
-  const removeSlot = (id: string) => {
-    setAvailabilitySlots((current) =>
-      current.length === 1
-        ? current
-        : current.filter((slot) => slot.id !== id),
-    );
-  };
 
   const pickIssuePhotos = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -487,12 +475,9 @@ export default function MaintenanceScreen() {
     setPriority("Medium");
     setAccessPermission(false);
     setAvailabilitySlots([
-      {
-        id: `slot-${Date.now()}`,
-        date: "",
-        startTime: "",
-        endTime: "",
-      },
+      { id: "slot-1", date: "", startTime: "", endTime: "" },
+      { id: "slot-2", date: "", startTime: "", endTime: "" },
+      { id: "slot-3", date: "", startTime: "", endTime: "" },
     ]);
     setPendingPhotos([]);
     setFailedPhotoRequestId("");
@@ -608,19 +593,20 @@ export default function MaintenanceScreen() {
       return;
     }
 
+    if (availabilitySlots.length !== 3) {
+      failSubmit("Please provide exactly 3 visit availability options.");
+      return;
+    }
+
     const preparedSlots: { startAt: string; endAt: string }[] = [];
+    const now = new Date();
 
     for (let index = 0; index < availabilitySlots.length; index += 1) {
       const slot = availabilitySlots[index];
-      const hasAnyValue = Boolean(
-        slot.date.trim() || slot.startTime.trim() || slot.endTime.trim(),
-      );
-
-      if (!hasAnyValue) continue;
 
       if (!slot.date.trim() || !slot.startTime.trim() || !slot.endTime.trim()) {
         failSubmit(
-          `Complete the date, start time and end time for availability option ${index + 1}.`,
+          `Availability option ${index + 1} is required. Select its date, start time and end time.`,
         );
         return;
       }
@@ -631,6 +617,13 @@ export default function MaintenanceScreen() {
       if (!start || !end) {
         failSubmit(
           `Availability option ${index + 1} has an invalid date or time. Please choose the date and times again.`,
+        );
+        return;
+      }
+
+      if (start.getTime() <= now.getTime()) {
+        failSubmit(
+          `Availability option ${index + 1} must start in the future.`,
         );
         return;
       }
@@ -648,8 +641,12 @@ export default function MaintenanceScreen() {
       });
     }
 
-    if (!preparedSlots.length) {
-      failSubmit("Add at least one available date and time slot.");
+    const uniqueSlots = new Set(
+      preparedSlots.map((slot) => `${slot.startAt}|${slot.endAt}`),
+    );
+
+    if (uniqueSlots.size !== 3) {
+      failSubmit("Please choose 3 different availability options.");
       return;
     }
 
@@ -919,30 +916,21 @@ export default function MaintenanceScreen() {
                         When can the provider visit?
                       </Text>
                       <Text style={styles.availabilityText}>
-                        Add one or more visit options. Choose a date from the
-                        calendar and select the start and end times.
+                        Please provide exactly 3 different visit options. All
+                        three dates and time ranges are required so the
+                        maintenance provider can select one suitable slot.
                       </Text>
                     </View>
-                    <Button mode="text" icon="plus" onPress={addSlot}>
-                      Add option
-                    </Button>
+                    <Chip icon="calendar-clock">3 required</Chip>
                   </View>
 
                   {availabilitySlots.map((slot, index) => (
                     <View key={slot.id} style={styles.slotCard}>
                       <View style={styles.slotHeader}>
                         <Text style={styles.slotLabel}>Option {index + 1}</Text>
-                        {availabilitySlots.length > 1 ? (
-                          <Button
-                            compact
-                            mode="text"
-                            textColor={colors.error}
-                            icon="delete-outline"
-                            onPress={() => removeSlot(slot.id)}
-                          >
-                            Remove
-                          </Button>
-                        ) : null}
+                        <Chip compact icon="check-circle-outline">
+                          Required
+                        </Chip>
                       </View>
 
                       {Platform.OS === "web" ? (

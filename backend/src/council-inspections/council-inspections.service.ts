@@ -35,8 +35,51 @@ export class CouncilInspectionsService {
   async acceptInvitation(token:string,body:any){ const i=await this.invitationFromToken(token); const password=this.clean(body.password),phone=this.clean(body.phone); if(password.length<8) throw new BadRequestException("Password must contain at least 8 characters."); const passwordHash=await argon2.hash(password); const result=await this.db.$transaction(async (tx: any)=>{ const user=await tx.user.create({data:{firstName:i.firstName,lastName:i.lastName,email:i.email,phone:phone||null,passwordHash,userType:UserType.COUNCIL_INSPECTOR,status:UserStatus.ACTIVE,emailVerified:true,activatedAt:new Date(),councilProfile:{create:{councilName:i.councilName,department:i.department,employeeId:i.employeeId,jobTitle:i.jobTitle}}}}); await tx.councilInvitation.update({where:{id:i.id},data:{status:"ACCEPTED",acceptedAt:new Date()}}); return user; }); return {message:"Council Inspector account activated.",userId:result.id}; }
   async directory(user:AuthenticatedUser){ if(user.userType===UserType.MAINTENANCE_PROVIDER) throw new ForbiddenException(); return this.db.user.findMany({where:{userType:UserType.COUNCIL_INSPECTOR,status:UserStatus.ACTIVE,emailVerified:true},orderBy:[{firstName:"asc"},{lastName:"asc"}],select:{id:true,firstName:true,lastName:true,email:true,phone:true,councilProfile:true}}); }
   private async propertyWithOwner(propertyId:string){ const p=await this.db.property.findUnique({where:{id:propertyId},include:{landlordProfile:{include:{agency:true,user:true}}}}); if(!p) throw new NotFoundException("Property not found."); return p; }
-  private async canAccessProperty(user:AuthenticatedUser,propertyId:string){ if(user.userType===UserType.TENUREEX_ADMIN||user.userType===UserType.TENUREEX_STAFF) return true; const p=await this.propertyWithOwner(propertyId); if(user.userType===UserType.LANDLORD) return p.landlordProfile.userId===user.sub; if(user.userType===UserType.TENANT) return !!await this.db.propertyTenant.findFirst({where:{propertyId,tenantUserId:user.sub,status:"ACTIVE"}}); if(user.userType===UserType.ESTATE_AGENT){ if(!p.landlordProfile.agencyId) return false; return !!await this.db.agencyUser.findFirst({where:{agencyId:p.landlordProfile.agencyId,userId:user.sub}}); } return false; }
-  async accessibleProperties(user:AuthenticatedUser){ if(user.userType===UserType.TENANT){ const links=await this.db.propertyTenant.findMany({where:{tenantUserId:user.sub,status:"ACTIVE"}}); return this.db.property.findMany({where:{id:{in:links.map(x=>x.propertyId)}},select:{id:true,addressLine1:true,townCity:true,postcode:true,councilName:true}}); } if(user.userType===UserType.LANDLORD){ const lp=await this.db.landlordProfile.findUnique({where:{userId:user.sub}}); return lp?this.db.property.findMany({where:{landlordProfileId:lp.id},select:{id:true,addressLine1:true,townCity:true,postcode:true,councilName:true}}):[]; } if(user.userType===UserType.ESTATE_AGENT){ const memberships=await this.db.agencyUser.findMany({where:{userId:user.sub}}); const landlords=await this.db.landlordProfile.findMany({where:{agencyId:{in:memberships.map(x=>x.agencyId)}}}); return this.db.property.findMany({where:{landlordProfileId:{in:landlords.map(x=>x.id)}},select:{id:true,addressLine1:true,townCity:true,postcode:true,councilName:true}}); } return []; }
+  private async tenantAccessiblePropertyIds(userId:string){
+    const [links, applications, tenantUser] = await Promise.all([
+      this.db.propertyTenant.findMany({
+        where:{tenantUserId:userId,status:"ACTIVE"},
+        select:{propertyId:true},
+      }),
+      (this.db as any).tenantPropertyApplication.findMany({
+        where:{tenantUserId:userId,status:"APPROVED"},
+        select:{propertyId:true},
+      }),
+      this.db.user.findUnique({
+        where:{id:userId},
+        select:{email:true},
+      }),
+    ]);
+
+    const activeIds = links.map((x:any)=>x.propertyId);
+    const approvedApplicationIds = applications.map((x:any)=>x.propertyId);
+
+    if (!approvedApplicationIds.length || !tenantUser?.email) {
+      return [...new Set(activeIds)];
+    }
+
+    // Compatibility fallback for older approved tenant records where the
+    // PropertyTenant link is missing. Only accept the property when it is
+    // still occupied by the same tenant email, preventing an old approved
+    // application from granting access after the tenancy has moved on.
+    const compatibleProperties = await this.db.property.findMany({
+      where:{
+        id:{in:approvedApplicationIds},
+        propertyStatus:"OCCUPIED",
+        tenantEmail:{equals:tenantUser.email,mode:"insensitive"},
+      },
+      select:{id:true},
+    });
+
+    return [
+      ...new Set([
+        ...activeIds,
+        ...compatibleProperties.map((x:any)=>x.id),
+      ]),
+    ];
+  }
+  private async canAccessProperty(user:AuthenticatedUser,propertyId:string){ if(user.userType===UserType.TENUREEX_ADMIN||user.userType===UserType.TENUREEX_STAFF) return true; const p=await this.propertyWithOwner(propertyId); if(user.userType===UserType.LANDLORD) return p.landlordProfile.userId===user.sub; if(user.userType===UserType.TENANT){ const ids=await this.tenantAccessiblePropertyIds(user.sub); return ids.includes(propertyId); } if(user.userType===UserType.ESTATE_AGENT){ if(!p.landlordProfile.agencyId) return false; return !!await this.db.agencyUser.findFirst({where:{agencyId:p.landlordProfile.agencyId,userId:user.sub}}); } return false; }
+  async accessibleProperties(user:AuthenticatedUser){ if(user.userType===UserType.TENANT){ const propertyIds=await this.tenantAccessiblePropertyIds(user.sub); if(!propertyIds.length) return []; return this.db.property.findMany({where:{id:{in:propertyIds}},select:{id:true,addressLine1:true,townCity:true,postcode:true,councilName:true}}); } if(user.userType===UserType.LANDLORD){ const lp=await this.db.landlordProfile.findUnique({where:{userId:user.sub}}); return lp?this.db.property.findMany({where:{landlordProfileId:lp.id},select:{id:true,addressLine1:true,townCity:true,postcode:true,councilName:true}}):[]; } if(user.userType===UserType.ESTATE_AGENT){ const memberships=await this.db.agencyUser.findMany({where:{userId:user.sub}}); const landlords=await this.db.landlordProfile.findMany({where:{agencyId:{in:memberships.map(x=>x.agencyId)}}}); return this.db.property.findMany({where:{landlordProfileId:{in:landlords.map(x=>x.id)}},select:{id:true,addressLine1:true,townCity:true,postcode:true,councilName:true}}); } return []; }
   async createCase(user:AuthenticatedUser,body:any){ if(user.userType !== UserType.TENANT && user.userType !== UserType.LANDLORD && user.userType !== UserType.ESTATE_AGENT) throw new ForbiddenException("This account cannot request a council inspection."); const propertyId=this.clean(body.propertyId); if(!await this.canAccessProperty(user,propertyId)) throw new ForbiddenException("You cannot request an inspection for this property."); const inspectorId=this.clean(body.inspectorUserId); const inspector=await this.db.user.findFirst({where:{id:inspectorId,userType:UserType.COUNCIL_INSPECTOR,status:UserStatus.ACTIVE}}); if(!inspector) throw new BadRequestException("Please select an active Council Inspector."); const title=this.clean(body.title),description=this.clean(body.description),category=this.clean(body.category)||"HOUSING_CONDITION"; if(!title||!description) throw new BadRequestException("Title and description are required."); const c=await (this.db as any).councilInspectionCase.create({data:{propertyId,requestedByUserId:user.sub,inspectorUserId:inspector.id,title,description,category,priority:this.clean(body.priority)||"NORMAL",accessNotes:this.clean(body.accessNotes)||null}}); await this.event(c.id,user.sub,"CREATED","Inspection requested",title); await this.notify(inspector.id,"COUNCIL_INSPECTION_REQUEST","New inspection request",title,c.id); return this.getCase(user,c.id); }
   private async canAccessCase(user:AuthenticatedUser,c:any){ if(user.userType === UserType.TENUREEX_ADMIN || user.userType === UserType.TENUREEX_STAFF) return true; if(user.userType===UserType.COUNCIL_INSPECTOR) return c.inspectorUserId===user.sub; if(c.requestedByUserId===user.sub) return true; return this.canAccessProperty(user,c.propertyId); }
   async listCases(user:AuthenticatedUser,status?:string){ let where:any={}; if(status&&status!=="ALL") where.status=status; if(user.userType===UserType.COUNCIL_INSPECTOR) where.inspectorUserId=user.sub; else if(user.userType===UserType.TENANT) where= {...where, OR:[{requestedByUserId:user.sub},{propertyId:{in:(await this.accessibleProperties(user)).map((x:any)=>x.id)}}]}; else if(user.userType===UserType.LANDLORD||user.userType===UserType.ESTATE_AGENT) where.propertyId={in:(await this.accessibleProperties(user)).map((x:any)=>x.id)}; else if(user.userType !== UserType.TENUREEX_ADMIN && user.userType !== UserType.TENUREEX_STAFF) throw new ForbiddenException(); const cases=await (this.db as any).councilInspectionCase.findMany({where,orderBy:{createdAt:"desc"}}); return this.enrichCases(cases); }

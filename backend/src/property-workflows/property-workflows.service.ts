@@ -637,7 +637,46 @@ export class PropertyWorkflowsService {
   async createMaintenanceRequest(userId: string, dto: CreateMaintenanceRequestDto) {
     const tenantLink = await this.db.propertyTenant.findFirst({ where: { propertyId: dto.propertyId, tenantUserId: userId, status: "ACTIVE" } });
     if (!tenantLink) throw new ForbiddenException("Only an approved tenant for this property can create a maintenance request.");
-    for (const slot of dto.slots) if (new Date(slot.endAt) <= new Date(slot.startAt)) throw new BadRequestException("Each availability slot must end after it starts.");
+    if (!Array.isArray(dto.slots) || dto.slots.length !== 3) {
+      throw new BadRequestException("Exactly 3 availability slots are required.");
+    }
+
+    const now = new Date();
+    const uniqueSlots = new Set<string>();
+
+    for (const slot of dto.slots) {
+      const start = new Date(slot.startAt);
+      const end = new Date(slot.endAt);
+
+      if (
+        Number.isNaN(start.getTime()) ||
+        Number.isNaN(end.getTime())
+      ) {
+        throw new BadRequestException(
+          "Each availability slot must have a valid start and end time.",
+        );
+      }
+
+      if (start <= now) {
+        throw new BadRequestException(
+          "Each availability slot must start in the future.",
+        );
+      }
+
+      if (end <= start) {
+        throw new BadRequestException(
+          "Each availability slot must end after it starts.",
+        );
+      }
+
+      const key = `${start.toISOString()}|${end.toISOString()}`;
+      if (uniqueSlots.has(key)) {
+        throw new BadRequestException(
+          "The 3 availability slots must be different.",
+        );
+      }
+      uniqueSlots.add(key);
+    }
     const request = await this.prisma.$transaction(async (tx: any) => {
       const row = await (tx as any).maintenanceRequest.create({ data: { propertyId: dto.propertyId, tenantUserId: userId, tenantProfileId: tenantLink.tenantProfileId, title: dto.title.trim(), description: dto.description.trim(), category: dto.category.trim(), roomLocation: this.clean(dto.roomLocation), priority: dto.priority || "MEDIUM", accessPermission: dto.accessPermission || false, status: "OPEN" } });
       for (const slot of dto.slots) await (tx as any).maintenanceTimeSlot.create({ data: { maintenanceRequestId: row.id, proposedBy: "TENANT", startAt: new Date(slot.startAt), endAt: new Date(slot.endAt), status: "AVAILABLE" } });
@@ -715,21 +754,81 @@ export class PropertyWorkflowsService {
   }
 
   private async ensureMaintenanceRequestAccess(userId: string, request: any) {
-    if (request.tenantUserId === userId || request.assignedProviderUserId === userId) return;
-    const { role } = await this.actorRoleForProperty(userId, request.propertyId);
-    if (["LANDLORD", "ESTATE_AGENT"].includes(role)) return;
-    const provider = await this.db.propertyMaintenanceProvider.findFirst({ where: { propertyId: request.propertyId, maintenanceUserId: userId, status: "APPROVED" } });
-    if (!provider) throw new ForbiddenException("You do not have access to this maintenance request.");
+    // Tenant who created the request can always view it.
+    if (request.tenantUserId === userId) return;
+
+    // The provider already assigned to the request can always view it.
+    if (request.assignedProviderUserId === userId) return;
+
+    // Maintenance-provider access must be checked BEFORE actorRoleForProperty().
+    // actorRoleForProperty() only recognises LANDLORD, ESTATE_AGENT and TENANT,
+    // so calling it first incorrectly rejects valid maintenance providers.
+    const provider = await this.db.propertyMaintenanceProvider.findFirst({
+      where: {
+        propertyId: request.propertyId,
+        maintenanceUserId: userId,
+        status: "APPROVED",
+      },
+    });
+
+    // Approved providers can inspect jobs that are currently available to accept.
+    if (provider && (request.status === "OPEN" || request.status === "REOPENED")) return;
+
+    // Landlord / Estate Agent access.
+    try {
+      const { role } = await this.actorRoleForProperty(userId, request.propertyId);
+      if (["LANDLORD", "ESTATE_AGENT"].includes(role)) return;
+    } catch {
+      // Ignore the generic property-role error here so maintenance providers get
+      // the correct maintenance-specific access response below.
+    }
+
+    throw new ForbiddenException("You do not have access to this maintenance request.");
   }
 
   async addTenantMaintenanceSlots(tenantUserId: string, requestId: string, slots: { startAt: string; endAt: string }[]) {
     const request = await this.db.maintenanceRequest.findUnique({ where: { id: requestId } });
     if (!request) throw new NotFoundException("Maintenance request was not found.");
     if (request.tenantUserId !== tenantUserId) throw new ForbiddenException("Only the tenant for this maintenance request can add availability.");
-    if (!slots.length) throw new BadRequestException("Add at least one available date and time slot.");
+    if (!Array.isArray(slots) || slots.length !== 3) {
+      throw new BadRequestException("Exactly 3 availability slots are required.");
+    }
+
+    const now = new Date();
+    const uniqueSlots = new Set<string>();
+
     for (const slot of slots) {
-      const start = new Date(slot.startAt); const end = new Date(slot.endAt);
-      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) throw new BadRequestException("Each availability slot must have a valid start and end time.");
+      const start = new Date(slot.startAt);
+      const end = new Date(slot.endAt);
+
+      if (
+        Number.isNaN(start.getTime()) ||
+        Number.isNaN(end.getTime())
+      ) {
+        throw new BadRequestException(
+          "Each availability slot must have a valid start and end time.",
+        );
+      }
+
+      if (start <= now) {
+        throw new BadRequestException(
+          "Each availability slot must start in the future.",
+        );
+      }
+
+      if (end <= start) {
+        throw new BadRequestException(
+          "Each availability slot must end after it starts.",
+        );
+      }
+
+      const key = `${start.toISOString()}|${end.toISOString()}`;
+      if (uniqueSlots.has(key)) {
+        throw new BadRequestException(
+          "The 3 availability slots must be different.",
+        );
+      }
+      uniqueSlots.add(key);
     }
     await this.prisma.$transaction(async (tx: any) => {
       await (tx as any).maintenanceTimeSlot.deleteMany({ where: { maintenanceRequestId: requestId, proposedBy: "TENANT", status: "AVAILABLE" } });
