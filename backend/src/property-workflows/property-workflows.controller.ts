@@ -12,12 +12,13 @@ import {
   UseGuards,
   UseInterceptors,
 } from "@nestjs/common";
-import { FileInterceptor, FilesInterceptor } from "@nestjs/platform-express";
+import { FileFieldsInterceptor, FileInterceptor, FilesInterceptor } from "@nestjs/platform-express";
 import { randomUUID } from "crypto";
 import { existsSync, mkdirSync } from "fs";
 import { diskStorage } from "multer";
 import { extname, join } from "path";
 import { CurrentUser, type AuthenticatedUser } from "../auth/decorators/current-user.decorator";
+import { AdminAuthGuard } from "../auth/guards/admin-auth.guard";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import {
   AcceptMaintenanceSlotDto,
@@ -38,6 +39,9 @@ import { PropertyWorkflowsService } from "./property-workflows.service";
 const maintenanceUploadDirectory = join(process.cwd(), "uploads", "maintenance");
 if (!existsSync(maintenanceUploadDirectory)) mkdirSync(maintenanceUploadDirectory, { recursive: true });
 
+const maintenanceDocumentsUploadDirectory = join(process.cwd(), "uploads", "maintenance", "provider-documents");
+if (!existsSync(maintenanceDocumentsUploadDirectory)) mkdirSync(maintenanceDocumentsUploadDirectory, { recursive: true });
+
 const tenantIdentificationUploadDirectory = join(process.cwd(), "uploads", "tenants", "identification");
 if (!existsSync(tenantIdentificationUploadDirectory)) mkdirSync(tenantIdentificationUploadDirectory, { recursive: true });
 
@@ -50,6 +54,23 @@ const tenantIdentificationUpload = FileInterceptor("identificationFile", {
   fileFilter: (_req, file, cb) => {
     if (!["application/pdf", "image/jpeg", "image/png"].includes(file.mimetype)) {
       return cb(new BadRequestException("Identification document must be a PDF, JPG, JPEG or PNG file."), false);
+    }
+    cb(null, true);
+  },
+});
+
+const maintenanceProviderDocumentsUpload = FileFieldsInterceptor([
+  { name: "identificationFile", maxCount: 1 },
+  { name: "certificates", maxCount: 8 },
+], {
+  storage: diskStorage({
+    destination: (_req, _file, cb) => cb(null, maintenanceDocumentsUploadDirectory),
+    filename: (_req, file, cb) => cb(null, `${randomUUID()}${extname(file.originalname).toLowerCase()}`),
+  }),
+  limits: { fileSize: 10 * 1024 * 1024, files: 9 },
+  fileFilter: (_req, file, cb) => {
+    if (!["application/pdf", "image/jpeg", "image/png"].includes(file.mimetype)) {
+      return cb(new BadRequestException("Provider documents must be PDF, JPG, JPEG or PNG files."), false);
     }
     cb(null, true);
   },
@@ -100,6 +121,25 @@ export class PropertyWorkflowsController {
   @Patch("tenant-application-update/:token")
   resubmitTenantApplication(@Param("token") token: string, @Body() dto: ResubmitTenantApplicationDto) { return this.service.resubmitTenantApplication(token, dto); }
   @Get("maintenance-invitations/:token") inspectMaintenanceInvitation(@Param("token") token: string) { return this.service.inspectMaintenanceInvitation(token); }
+
+  @Post("maintenance-invitations/:token/documents")
+  @UseInterceptors(maintenanceProviderDocumentsUpload)
+  async uploadMaintenanceProviderDocuments(
+    @Param("token") token: string,
+    @UploadedFiles() files: { identificationFile?: Express.Multer.File[]; certificates?: Express.Multer.File[] },
+  ) {
+    await this.service.inspectMaintenanceInvitation(token);
+    const identification = files?.identificationFile?.[0];
+    if (!identification) throw new BadRequestException("An ID / verification document is required.");
+    const certificates = files?.certificates || [];
+    return {
+      idDocumentUrl: `/api/v1/uploads/maintenance/provider-documents/${identification.filename}`,
+      idDocumentName: identification.originalname,
+      certificateUrls: certificates.map((file) => `/api/v1/uploads/maintenance/provider-documents/${file.filename}`),
+      certificateNames: certificates.map((file) => file.originalname),
+    };
+  }
+
   @Post("maintenance-invitations/complete") completeMaintenanceInvitation(@Body() dto: CompleteMaintenanceInvitationDto) { return this.service.completeMaintenanceInvitation(dto); }
 
   @Post("tenant-invitations") @UseGuards(JwtAuthGuard)
@@ -122,6 +162,12 @@ export class PropertyWorkflowsController {
 
   @Get("tenant/my-properties") @UseGuards(JwtAuthGuard)
   tenantProperties(@CurrentUser() user: AuthenticatedUser) { return this.service.listTenantProperties(user.sub); }
+
+  @Get("admin/maintenance-providers") @UseGuards(JwtAuthGuard, AdminAuthGuard)
+  adminMaintenanceProviders() { return this.service.listMaintenanceProvidersForAdmin(); }
+
+  @Patch("admin/maintenance-providers/:id/review") @UseGuards(JwtAuthGuard, AdminAuthGuard)
+  adminReviewMaintenanceProvider(@CurrentUser() user: AuthenticatedUser, @Param("id", ParseUUIDPipe) id: string, @Body() dto: ReviewMaintenanceProviderDto) { return this.service.reviewMaintenanceProviderByAdmin(user.sub, id, dto); }
 
   @Post("maintenance-invitations") @UseGuards(JwtAuthGuard)
   inviteMaintenance(@CurrentUser() user: AuthenticatedUser, @Body() dto: InviteMaintenanceDto) { return this.service.inviteMaintenance(user.sub, dto); }

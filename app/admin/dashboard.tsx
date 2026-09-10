@@ -1083,6 +1083,14 @@ export default function AdminDashboardScreen() {
 
               <Button
                 mode="outlined"
+                icon="tools"
+                onPress={() => router.push("/admin/maintenance-providers" as Href)}
+              >
+                Maintenance Providers
+              </Button>
+
+              <Button
+                mode="outlined"
                 icon="refresh"
                 onPress={() =>
                   void initialise()

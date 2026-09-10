@@ -1,22 +1,22 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-    Pressable,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import {
-    Button,
-    Chip,
-    Divider,
-    TextInput,
+  Button,
+  Chip,
+  Divider,
+  TextInput,
 } from "react-native-paper";
 
 import ScreenContainer from "../../src/components/ScreenContainer";
 import { colors, radius, spacing } from "../../src/theme";
+import TenantModuleScreen from "./TenantModuleScreen";
 
 type Conversation = {
   id: string;
@@ -145,47 +145,12 @@ export default function MessagesScreen() {
   };
 
   return (
-    <ScreenContainer
+    <TenantModuleScreen pageTitle="Messages" activePage="Messages">
+      <ScreenContainer
       scrollable
       contentStyle={styles.screenContent}
     >
       <View style={styles.page}>
-        <View style={styles.topBar}>
-          <Pressable
-            style={styles.brand}
-            onPress={() =>
-              router.replace(
-                "/tenant/dashboard" as never,
-              )
-            }
-          >
-            <View style={styles.logo}>
-              <MaterialCommunityIcons
-                name="message-text-outline"
-                size={27}
-                color={colors.white}
-              />
-            </View>
-
-            <View>
-              <Text style={styles.brandName}>
-                Messages
-              </Text>
-
-              <Text style={styles.brandSubtitle}>
-                Tenant communication
-              </Text>
-            </View>
-          </Pressable>
-
-          <Button
-            mode="text"
-            icon="arrow-left"
-            onPress={() => router.back()}
-          >
-            Back
-          </Button>
-        </View>
 
         <View
           style={[
@@ -397,6 +362,7 @@ export default function MessagesScreen() {
         </View>
       </View>
     </ScreenContainer>
+    </TenantModuleScreen>
   );
 }
 

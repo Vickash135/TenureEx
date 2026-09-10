@@ -1,31 +1,31 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
-    router,
-    useLocalSearchParams,
+  router,
+  useLocalSearchParams,
 } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-    Alert,
-    Pressable,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  Alert,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View
 } from "react-native";
 import {
-    Button,
-    Chip,
-    Divider,
-    ProgressBar,
-    Snackbar,
+  Button,
+  Chip,
+  Divider,
+  ProgressBar,
+  Snackbar,
 } from "react-native-paper";
 
 import ScreenContainer from "../../src/components/ScreenContainer";
 import {
-    colors,
-    radius,
-    spacing,
+  colors,
+  radius,
+  spacing,
 } from "../../src/theme";
+import TenantModuleScreen from "./TenantModuleScreen";
 
 type IconName =
   keyof typeof MaterialCommunityIcons.glyphMap;
@@ -369,51 +369,12 @@ export default function TenantDocumentsScreen() {
     };
 
   return (
-    <ScreenContainer
+    <TenantModuleScreen pageTitle="Documents" activePage="Documents">
+      <ScreenContainer
       scrollable
       contentStyle={styles.screenContent}
     >
       <View style={styles.page}>
-        <View style={styles.topBar}>
-          <Pressable
-            style={styles.brand}
-            onPress={() =>
-              router.push(
-                "/tenant/dashboard" as never,
-              )
-            }
-          >
-            <View style={styles.logo}>
-              <MaterialCommunityIcons
-                name="home-city-outline"
-                size={27}
-                color={colors.white}
-              />
-            </View>
-
-            <View>
-              <Text style={styles.brandName}>
-                TenureEx
-              </Text>
-
-              <Text
-                style={
-                  styles.brandSubtitle
-                }
-              >
-                Application documents
-              </Text>
-            </View>
-          </Pressable>
-
-          <Button
-            mode="text"
-            icon="arrow-left"
-            onPress={() => router.back()}
-          >
-            Back
-          </Button>
-        </View>
 
         <View style={styles.progressSteps}>
           <ProgressStep
@@ -904,6 +865,7 @@ export default function TenantDocumentsScreen() {
         {message}
       </Snackbar>
     </ScreenContainer>
+    </TenantModuleScreen>
   );
 }
 

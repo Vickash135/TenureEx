@@ -2,16 +2,17 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo } from "react";
 import {
-    Pressable,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import { Button, Chip, Divider } from "react-native-paper";
 
 import ScreenContainer from "../../src/components/ScreenContainer";
 import { colors, radius, spacing } from "../../src/theme";
+import TenantModuleScreen from "./TenantModuleScreen";
 
 type IconName =
   keyof typeof MaterialCommunityIcons.glyphMap;
@@ -87,65 +88,12 @@ export default function MyPropertyScreen() {
   }, [propertyId]);
 
   return (
-    <ScreenContainer
+    <TenantModuleScreen pageTitle="My Home" activePage="My Home">
+      <ScreenContainer
       scrollable
       contentStyle={styles.screenContent}
     >
       <View style={styles.page}>
-        <View style={styles.topBar}>
-          <Pressable
-            style={styles.brand}
-            onPress={() =>
-              router.replace("/tenant/dashboard" as never)
-            }
-          >
-            <View style={styles.logo}>
-              <MaterialCommunityIcons
-                name="home-city-outline"
-                size={27}
-                color={colors.white}
-              />
-            </View>
-
-            <View>
-              <Text style={styles.brandName}>
-                TenureEx
-              </Text>
-
-              <Text style={styles.brandSubtitle}>
-                My property
-              </Text>
-            </View>
-          </Pressable>
-
-          <View style={styles.topBarActions}>
-            <Pressable
-              style={styles.topBarButton}
-              onPress={() =>
-                router.push("/tenant/messages" as never)
-              }
-            >
-              <MaterialCommunityIcons
-                name="message-text-outline"
-                size={21}
-                color={colors.textPrimary}
-              />
-            </Pressable>
-
-            <Pressable
-              style={styles.topBarButton}
-              onPress={() =>
-                router.push("/tenant/settings" as never)
-              }
-            >
-              <MaterialCommunityIcons
-                name="cog-outline"
-                size={21}
-                color={colors.textPrimary}
-              />
-            </Pressable>
-          </View>
-        </View>
 
         <View style={styles.hero}>
           <View style={styles.heroIcon}>
@@ -413,6 +361,7 @@ export default function MyPropertyScreen() {
         </View>
       </View>
     </ScreenContainer>
+    </TenantModuleScreen>
   );
 }
 

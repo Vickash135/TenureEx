@@ -572,12 +572,12 @@ export class PropertyWorkflowsService {
     let user = await this.prisma.user.findUnique({ where: { email }, include: { maintenanceProfile: true } });
     if (user?.passwordHash && !(await argon2.verify(user.passwordHash, dto.password))) throw new BadRequestException("Enter your existing TenureEx password to add the Maintenance Provider role.");
     const passwordHash = user?.passwordHash || await argon2.hash(dto.password);
-    const autoApproved = invitation.invitedByRole !== "TENANT";
+    const autoApproved = false; // Provider identity must be reviewed by TenureEx Admin.
     const result = await this.prisma.$transaction(async (tx: any) => {
       if (!user) user = await tx.user.create({ data: { firstName: dto.firstName.trim(), lastName: dto.lastName.trim(), email, phone: this.clean(dto.phone), passwordHash, userType: "MAINTENANCE_PROVIDER", status: autoApproved ? "ACTIVE" : "PENDING_REVIEW", emailVerified: true, phoneVerified: false, activatedAt: autoApproved ? new Date() : null } });
       const maintenanceUser = user!;
       let profile = await tx.maintenanceProviderProfile.findUnique({ where: { userId: maintenanceUser.id } });
-      if (!profile) profile = await tx.maintenanceProviderProfile.create({ data: { userId: maintenanceUser.id, businessName: this.clean(dto.businessName), tradeType: this.clean(dto.tradeType) || invitation.tradeType, registrationNumber: this.clean(dto.registrationNumber), insuranceExpiry: dto.insuranceExpiry ? new Date(dto.insuranceExpiry) : null, approved: autoApproved } });
+      if (!profile) profile = await tx.maintenanceProviderProfile.create({ data: { userId: maintenanceUser.id, providerType: dto.providerType, businessName: this.clean(dto.businessName), companyNumber: this.clean(dto.companyNumber), tradeType: this.clean(dto.tradeType) || invitation.tradeType, serviceArea: this.clean(dto.serviceArea), businessAddress: this.clean(dto.businessAddress), registrationNumber: this.clean(dto.registrationNumber), insuranceExpiry: dto.insuranceExpiry ? new Date(dto.insuranceExpiry) : null, idDocumentUrl: dto.idDocumentUrl, idDocumentName: dto.idDocumentName, certificateUrls: dto.certificateUrls || [], certificateNames: dto.certificateNames || [], approved: autoApproved } });
       else if (autoApproved && !profile.approved) profile = await tx.maintenanceProviderProfile.update({ where: { id: profile.id }, data: { approved: true } });
       await this.addRole(tx, maintenanceUser.id, "GLOBAL_MAINTENANCE_PROVIDER", "Maintenance Provider");
       const association = await (tx as any).propertyMaintenanceProvider.upsert({ where: { propertyId_maintenanceProfileId: { propertyId: property.id, maintenanceProfileId: profile.id } }, update: { addedByUserId: invitation.invitedByUserId, addedByRole: invitation.invitedByRole, status: autoApproved ? "APPROVED" : "PENDING_APPROVAL", approvedAt: autoApproved ? new Date() : null }, create: { propertyId: property.id, maintenanceUserId: maintenanceUser.id, maintenanceProfileId: profile.id, addedByUserId: invitation.invitedByUserId, addedByRole: invitation.invitedByRole, status: autoApproved ? "APPROVED" : "PENDING_APPROVAL", approvedAt: autoApproved ? new Date() : null } });
@@ -585,9 +585,28 @@ export class PropertyWorkflowsService {
       return association;
     });
     const agents = await this.prisma.agencyUser.findMany({ where: { agencyId: property.landlordProfile.agencyId! } });
-    for (const a of agents) await this.notify(a.userId, autoApproved ? "MAINTENANCE_PROVIDER_ADDED" : "MAINTENANCE_PROVIDER_APPROVAL_REQUIRED", autoApproved ? "Maintenance provider added" : "Maintenance provider approval required", `${dto.firstName} ${dto.lastName} registered for ${property.addressLine1}.`, "PropertyMaintenanceProvider", result.id);
-    await this.notify(property.landlordProfile.userId, "MAINTENANCE_PROVIDER_REGISTERED", "Maintenance provider registered", `${dto.firstName} ${dto.lastName} is ${autoApproved ? "available" : "awaiting Estate Agent approval"} for ${property.addressLine1}.`, "PropertyMaintenanceProvider", result.id);
-    return { message: autoApproved ? "Maintenance provider registration completed." : "Registration completed and sent to the Estate Agent for approval.", status: result.status, associationId: result.id };
+    for (const a of agents) await this.notify(a.userId, "MAINTENANCE_PROVIDER_APPROVAL_REQUIRED", "Maintenance provider approval required", `${dto.firstName} ${dto.lastName} registered for ${property.addressLine1}.`, "PropertyMaintenanceProvider", result.id);
+    await this.notify(property.landlordProfile.userId, "MAINTENANCE_PROVIDER_REGISTERED", "Maintenance provider registered", `${dto.firstName} ${dto.lastName} registered for ${property.addressLine1} and is awaiting verification/approval.`, "PropertyMaintenanceProvider", result.id);
+    return { message: "Registration completed. TenureEx Admin will review your verification documents; the property association also remains subject to the normal property approval workflow.", status: result.status, associationId: result.id };
+  }
+
+  async listMaintenanceProvidersForAdmin() {
+    return this.prisma.maintenanceProviderProfile.findMany({
+      include: { user: { select: { id: true, firstName: true, lastName: true, email: true, phone: true, status: true, createdAt: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async reviewMaintenanceProviderByAdmin(adminUserId: string, profileId: string, dto: ReviewMaintenanceProviderDto) {
+    const profile = await this.prisma.maintenanceProviderProfile.findUnique({ where: { id: profileId }, include: { user: true } });
+    if (!profile) throw new NotFoundException("Maintenance provider profile was not found.");
+    const approved = dto.action === "APPROVE";
+    await this.prisma.$transaction(async (tx: any) => {
+      await tx.maintenanceProviderProfile.update({ where: { id: profileId }, data: { approved } });
+      await tx.user.update({ where: { id: profile.userId }, data: { status: approved ? "ACTIVE" : "REJECTED", activatedAt: approved ? (profile.user.activatedAt || new Date()) : profile.user.activatedAt } });
+    });
+    await this.notify(profile.userId, approved ? "MAINTENANCE_PROVIDER_APPROVED" : "MAINTENANCE_PROVIDER_REJECTED", approved ? "Maintenance provider account approved" : "Maintenance provider account not approved", approved ? "TenureEx Admin approved your provider verification documents and account." : (dto.message?.trim() || "TenureEx Admin could not approve your provider account."), "MaintenanceProviderProfile", profileId);
+    return { id: profileId, approved, reviewedByUserId: adminUserId };
   }
 
   async listMaintenanceProperties(userId: string) {
@@ -622,10 +641,8 @@ export class PropertyWorkflowsService {
     const updated = await this.prisma.$transaction(async (tx: any) => {
       const row = await (tx as any).propertyMaintenanceProvider.update({ where: { id: associationId }, data: { status: approved ? "APPROVED" : "REJECTED", approvedByUserId: approved ? agentUserId : null, approvedAt: approved ? new Date() : null, rejectedAt: approved ? null : new Date(), rejectionReason: approved ? null : this.clean(dto.message) } });
       if (approved) {
-        const otherPending = await (tx as any).propertyMaintenanceProvider.count({ where: { maintenanceProfileId: link.maintenanceProfileId, status: "APPROVED" } });
-        if (otherPending >= 1) await tx.maintenanceProviderProfile.update({ where: { id: link.maintenanceProfileId }, data: { approved: true } });
-        const u = await tx.user.findUnique({ where: { id: link.maintenanceUserId } });
-        if (u?.userType === "MAINTENANCE_PROVIDER" && u.status !== "ACTIVE") await tx.user.update({ where: { id: u.id }, data: { status: "ACTIVE", activatedAt: u.activatedAt || new Date() } });
+        // Property association approval is separate from TenureEx Admin identity verification.
+        // The provider account remains pending until Admin approves the provider profile/documents.
       }
       return row;
     });
@@ -666,6 +683,14 @@ export class PropertyWorkflowsService {
       if (end <= start) {
         throw new BadRequestException(
           "Each availability slot must end after it starts.",
+        );
+      }
+
+      const startMinutes = start.getHours() * 60 + start.getMinutes();
+      const endMinutes = end.getHours() * 60 + end.getMinutes();
+      if (startMinutes < 8 * 60 || endMinutes > 19 * 60) {
+        throw new BadRequestException(
+          "Maintenance availability must be between 08:00 and 19:00.",
         );
       }
 
@@ -819,6 +844,14 @@ export class PropertyWorkflowsService {
       if (end <= start) {
         throw new BadRequestException(
           "Each availability slot must end after it starts.",
+        );
+      }
+
+      const startMinutes = start.getHours() * 60 + start.getMinutes();
+      const endMinutes = end.getHours() * 60 + end.getMinutes();
+      if (startMinutes < 8 * 60 || endMinutes > 19 * 60) {
+        throw new BadRequestException(
+          "Maintenance availability must be between 08:00 and 19:00.",
         );
       }
 

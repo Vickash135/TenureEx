@@ -20,6 +20,8 @@ import Animated, {
   FadeInDown,
   FadeInUp,
 } from "react-native-reanimated";
+import MaintenanceNotificationBell from "../../src/components/MaintenanceNotificationBell";
+import MaintenancePortalNavigation from "../../src/components/MaintenancePortalNavigation";
 
 import InternationalPhoneInput from "@/src/components/InternationalPhoneInput";
 import ScreenContainer from "../../src/components/ScreenContainer";
@@ -264,6 +266,7 @@ export default function MaintenanceSettingsScreen() {
           </Pressable>
 
           <View style={styles.headerActions}>
+            <MaintenanceNotificationBell />
             <Pressable
               style={styles.headerButton}
               onPress={() =>
@@ -307,6 +310,8 @@ export default function MaintenanceSettingsScreen() {
             </Pressable>
           </View>
         </Animated.View>
+
+        <MaintenancePortalNavigation />
 
         <Animated.View
           entering={FadeInDown.delay(80).duration(450)}

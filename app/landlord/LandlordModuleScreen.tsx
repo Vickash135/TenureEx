@@ -14,6 +14,7 @@ import { Avatar, Button } from "react-native-paper";
 
 import { api, clearAuthSession, getStoredUser, saveCurrentUser } from "../../src/api/client";
 import TenureExLogo from "../../src/components/Logo/TenureExLogo";
+import WorkflowNotificationBell from "../../src/components/WorkflowNotificationBell";
 import {
   colors,
   radius,
@@ -262,15 +263,7 @@ export default function LandlordModuleScreen({
             </View>
 
             <View style={styles.topBarActions}>
-              <Pressable style={styles.headerIconButton}>
-                <MaterialCommunityIcons
-                  name="bell-outline"
-                  size={22}
-                  color={colors.textSecondary}
-                />
-
-                <View style={styles.notificationDot} />
-              </Pressable>
+              <WorkflowNotificationBell role="landlord" />
 
               {isTablet ? (
                 <View style={styles.profile}>

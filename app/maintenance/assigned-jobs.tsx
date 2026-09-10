@@ -18,10 +18,11 @@ import Animated, {
   FadeInDown,
   FadeInUp,
 } from "react-native-reanimated";
+import MaintenanceNotificationBell from "../../src/components/MaintenanceNotificationBell";
+import MaintenancePortalNavigation from "../../src/components/MaintenancePortalNavigation";
 
 import { api } from "../../src/api/client";
 import ScreenContainer from "../../src/components/ScreenContainer";
-import WorkflowNotifications from "../../src/components/WorkflowNotifications";
 import {
   colors,
   radius,
@@ -210,6 +211,7 @@ export default function AssignedJobsScreen() {
           </Pressable>
 
           <View style={styles.headerActions}>
+            <MaintenanceNotificationBell />
             <Pressable
               style={styles.headerIconButton}
               onPress={() =>
@@ -259,6 +261,8 @@ export default function AssignedJobsScreen() {
             </Pressable>
           </View>
         </Animated.View>
+
+        <MaintenancePortalNavigation />
 
         <Animated.View
           entering={FadeInDown.delay(80).duration(450)}
@@ -361,8 +365,6 @@ export default function AssignedJobsScreen() {
             value={scheduledJobs.toString()}
           />
         </Animated.View>
-
-        <WorkflowNotifications title="Job notifications" limit={6} />
 
         <Animated.View
           entering={FadeInDown.delay(220).duration(450)}

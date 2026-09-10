@@ -11,11 +11,12 @@ import {
 import {
   ActivityIndicator,
   Avatar,
-  Badge,
   Button,
   Divider,
-  Menu,
+  Menu
 } from "react-native-paper";
+import MaintenanceNotificationBell from "../../src/components/MaintenanceNotificationBell";
+import MaintenancePortalNavigation from "../../src/components/MaintenancePortalNavigation";
 
 import {
   api,
@@ -942,33 +943,7 @@ export default function MaintenanceDashboardScreen() {
               )}
             </Pressable>
 
-            <View
-              style={
-                styles.notificationButton
-              }
-            >
-              <MaterialCommunityIcons
-                name="bell-outline"
-                size={22}
-                color={
-                  colors.textPrimary
-                }
-              />
-
-              {unreadNotifications.length >
-              0 ? (
-                <Badge
-                  style={
-                    styles.notificationBadge
-                  }
-                >
-                  {unreadNotifications.length >
-                  99
-                    ? "99+"
-                    : unreadNotifications.length}
-                </Badge>
-              ) : null}
-            </View>
+            <MaintenanceNotificationBell />
 
             <Menu
               visible={menuVisible}
@@ -1097,6 +1072,8 @@ export default function MaintenanceDashboardScreen() {
             </Button>
           </View>
         ) : null}
+
+        <MaintenancePortalNavigation />
 
         <View
           style={[
@@ -1511,89 +1488,6 @@ export default function MaintenanceDashboardScreen() {
               >
                 View full schedule
               </Button>
-            </View>
-
-            <View style={styles.sideCard}>
-              <View
-                style={styles.cardHeader}
-              >
-                <View style={styles.flex}>
-                  <Text
-                    style={styles.cardTitle}
-                  >
-                    Recent updates
-                  </Text>
-
-                  <Text
-                    style={
-                      styles.cardSubtitle
-                    }
-                  >
-                    Real workflow
-                    notifications for your
-                    account
-                  </Text>
-                </View>
-
-                <View
-                  style={
-                    styles.notificationIcon
-                  }
-                >
-                  <MaterialCommunityIcons
-                    name="bell-outline"
-                    size={21}
-                    color={colors.primary}
-                  />
-                </View>
-              </View>
-
-              <View
-                style={
-                  styles.notificationList
-                }
-              >
-                {recentNotifications.length ? (
-                  recentNotifications.map(
-                    (notification) => (
-                      <NotificationItem
-                        key={
-                          notification.id
-                        }
-                        notification={
-                          notification
-                        }
-                        onPress={() =>
-                          void openNotification(
-                            notification,
-                          )
-                        }
-                      />
-                    ),
-                  )
-                ) : (
-                  <View
-                    style={
-                      styles.scheduleEmpty
-                    }
-                  >
-                    <MaterialCommunityIcons
-                      name="bell-check-outline"
-                      size={28}
-                      color={
-                        colors.textMuted
-                      }
-                    />
-                    <Text
-                      style={
-                        styles.scheduleEmptyText
-                      }
-                    >
-                      No notifications yet.
-                    </Text>
-                  </View>
-                )}
-              </View>
             </View>
 
             <View

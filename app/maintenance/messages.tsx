@@ -2,34 +2,36 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useMemo, useRef, useState } from "react";
 import {
-    FlatList,
-    KeyboardAvoidingView,
-    TextInput as NativeTextInput,
-    Platform,
-    Pressable,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  FlatList,
+  KeyboardAvoidingView,
+  TextInput as NativeTextInput,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import {
-    Avatar,
-    Badge,
-    Divider,
-    Searchbar,
-    Snackbar
+  Avatar,
+  Badge,
+  Divider,
+  Searchbar,
+  Snackbar
 } from "react-native-paper";
 import Animated, {
-    FadeInDown,
-    FadeInUp,
+  FadeInDown,
+  FadeInUp,
 } from "react-native-reanimated";
+import MaintenanceNotificationBell from "../../src/components/MaintenanceNotificationBell";
+import MaintenancePortalNavigation from "../../src/components/MaintenancePortalNavigation";
 
 import ScreenContainer from "../../src/components/ScreenContainer";
 import {
-    colors,
-    radius,
-    spacing,
-    typography,
+  colors,
+  radius,
+  spacing,
+  typography,
 } from "../../src/theme";
 
 type IconName =
@@ -377,6 +379,7 @@ export default function MaintenanceMessagesScreen() {
             </Pressable>
 
             <View style={styles.headerActions}>
+            <MaintenanceNotificationBell />
               <Pressable
                 style={styles.headerButton}
                 onPress={() =>
@@ -434,7 +437,9 @@ export default function MaintenanceMessagesScreen() {
             </View>
           </Animated.View>
 
-          <Animated.View
+          <MaintenancePortalNavigation />
+
+        <Animated.View
             entering={FadeInDown.delay(80).duration(450)}
             style={styles.pageHeading}
           >

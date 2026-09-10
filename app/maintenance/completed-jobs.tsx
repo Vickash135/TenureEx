@@ -16,6 +16,8 @@ import {
   Searchbar,
 } from "react-native-paper";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
+import MaintenanceNotificationBell from "../../src/components/MaintenanceNotificationBell";
+import MaintenancePortalNavigation from "../../src/components/MaintenancePortalNavigation";
 
 import { api } from "../../src/api/client";
 import ScreenContainer from "../../src/components/ScreenContainer";
@@ -202,6 +204,7 @@ export default function CompletedJobsScreen() {
           </Pressable>
 
           <View style={styles.headerActions}>
+            <MaintenanceNotificationBell />
             <Pressable style={styles.headerIconButton} onPress={() => router.push("/maintenance/messages" as never)}>
               <MaterialCommunityIcons name="message-text-outline" size={21} color={colors.textPrimary} />
             </Pressable>
@@ -220,6 +223,8 @@ export default function CompletedJobsScreen() {
             </Pressable>
           </View>
         </Animated.View>
+
+        <MaintenancePortalNavigation />
 
         <Animated.View entering={FadeInDown.delay(80).duration(450)} style={styles.backRow}>
           <Pressable style={styles.backButton} onPress={() => router.replace("/maintenance/dashboard" as never)}>

@@ -81,10 +81,18 @@ export class CompleteMaintenanceInvitationDto {
   @IsString() @MinLength(1) lastName!: string;
   @IsString() @MinLength(8) password!: string;
   @IsOptional() @IsString() phone?: string;
+  @IsIn(["INDIVIDUAL", "BUSINESS"]) providerType!: "INDIVIDUAL" | "BUSINESS";
   @IsOptional() @IsString() businessName?: string;
+  @IsOptional() @IsString() companyNumber?: string;
   @IsOptional() @IsString() tradeType?: string;
+  @IsOptional() @IsString() serviceArea?: string;
+  @IsOptional() @IsString() businessAddress?: string;
   @IsOptional() @IsString() registrationNumber?: string;
   @IsOptional() @IsDateString() insuranceExpiry?: string;
+  @IsString() @MinLength(1) idDocumentUrl!: string;
+  @IsString() @MinLength(1) idDocumentName!: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) certificateUrls?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) certificateNames?: string[];
 }
 
 export class ReviewMaintenanceProviderDto {

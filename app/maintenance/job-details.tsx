@@ -19,10 +19,11 @@ import {
   TextInput,
 } from "react-native-paper";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
+import MaintenanceNotificationBell from "../../src/components/MaintenanceNotificationBell";
+import MaintenancePortalNavigation from "../../src/components/MaintenancePortalNavigation";
 
 import { api } from "../../src/api/client";
 import ScreenContainer from "../../src/components/ScreenContainer";
-import WorkflowNotifications from "../../src/components/WorkflowNotifications";
 import { colors, radius, spacing, typography } from "../../src/theme";
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
@@ -393,6 +394,7 @@ export default function JobDetailsScreen() {
           </Pressable>
 
           <View style={styles.headerActions}>
+            <MaintenanceNotificationBell />
             <Pressable style={styles.headerIconButton} onPress={() => router.push("/maintenance/messages" as never)}>
               <MaterialCommunityIcons name="message-text-outline" size={21} color={colors.textPrimary} />
             </Pressable>
@@ -404,14 +406,14 @@ export default function JobDetailsScreen() {
           </View>
         </Animated.View>
 
+        <MaintenancePortalNavigation />
+
         <Animated.View entering={FadeInDown.delay(80).duration(450)} style={styles.backRow}>
           <Pressable style={styles.backButton} onPress={() => router.replace("/maintenance/assigned-jobs" as never)}>
             <MaterialCommunityIcons name="arrow-left" size={18} color={colors.primary} />
             <Text style={styles.backText}>Assigned jobs</Text>
           </Pressable>
         </Animated.View>
-
-        <WorkflowNotifications compact title="Job updates" limit={4} />
 
         <Animated.View entering={FadeInDown.delay(120).duration(450)} style={[styles.jobHeading, isDesktop && styles.desktopJobHeading]}>
           <View style={styles.jobHeadingMain}>

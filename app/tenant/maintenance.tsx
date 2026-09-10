@@ -22,8 +22,8 @@ import {
 import { api } from "../../src/api/client";
 import PropertyMaintenanceProviders from "../../src/components/PropertyMaintenanceProviders";
 import ScreenContainer from "../../src/components/ScreenContainer";
-import WorkflowNotifications from "../../src/components/WorkflowNotifications";
 import { colors, radius, spacing } from "../../src/theme";
+import TenantModuleScreen from "./TenantModuleScreen";
 
 type MaintenanceStatus =
   | "Open"
@@ -177,6 +177,7 @@ type WebPickerFieldProps = {
   value: string;
   onChange: (value: string) => void;
   min?: string;
+  max?: string;
 };
 
 function WebPickerField({
@@ -185,6 +186,7 @@ function WebPickerField({
   value,
   onChange,
   min,
+  max,
 }: WebPickerFieldProps) {
   return (
     <View style={styles.webPickerField}>
@@ -193,6 +195,7 @@ function WebPickerField({
         type,
         value,
         min,
+        max,
         step: type === "time" ? 900 : undefined,
         onChange: (event: any) => onChange(event.target.value),
         style: {
@@ -635,6 +638,13 @@ export default function MaintenanceScreen() {
         return;
       }
 
+      const startMinutes = start.getHours() * 60 + start.getMinutes();
+      const endMinutes = end.getHours() * 60 + end.getMinutes();
+      if (startMinutes < 8 * 60 || endMinutes > 19 * 60) {
+        failSubmit(`Availability option ${index + 1} must be between 08:00 and 19:00.`);
+        return;
+      }
+
       preparedSlots.push({
         startAt: start.toISOString(),
         endAt: end.toISOString(),
@@ -748,30 +758,9 @@ export default function MaintenanceScreen() {
   };
 
   return (
-    <ScreenContainer scrollable contentStyle={styles.screenContent}>
+    <TenantModuleScreen pageTitle="Maintenance" activePage="Maintenance">
+      <ScreenContainer scrollable contentStyle={styles.screenContent}>
       <View style={styles.page}>
-        <View style={styles.topBar}>
-          <Pressable
-            style={styles.brand}
-            onPress={() => router.replace("/tenant/dashboard" as never)}
-          >
-            <View style={styles.logo}>
-              <MaterialCommunityIcons
-                name="tools"
-                size={27}
-                color={colors.white}
-              />
-            </View>
-            <View>
-              <Text style={styles.brandName}>Maintenance</Text>
-              <Text style={styles.brandSubtitle}>Your approved home</Text>
-            </View>
-          </Pressable>
-
-          <Button mode="text" icon="arrow-left" onPress={() => router.back()}>
-            Back
-          </Button>
-        </View>
 
         {property ? (
           <View style={styles.propertyBanner}>
@@ -916,7 +905,7 @@ export default function MaintenanceScreen() {
                         When can the provider visit?
                       </Text>
                       <Text style={styles.availabilityText}>
-                        Please provide exactly 3 different visit options. All
+                        Please provide exactly 3 different visit options between 08:00 and 19:00. All
                         three dates and time ranges are required so the
                         maintenance provider can select one suitable slot.
                       </Text>
@@ -951,6 +940,8 @@ export default function MaintenanceScreen() {
                                 label="Available from"
                                 type="time"
                                 value={slot.startTime}
+                                min="08:00"
+                                max="18:45"
                                 onChange={(value) =>
                                   updateSlot(slot.id, "startTime", value)
                                 }
@@ -962,6 +953,8 @@ export default function MaintenanceScreen() {
                                 label="Available until"
                                 type="time"
                                 value={slot.endTime}
+                                min="08:15"
+                                max="19:00"
                                 onChange={(value) =>
                                   updateSlot(slot.id, "endTime", value)
                                 }
@@ -1065,7 +1058,12 @@ export default function MaintenanceScreen() {
                                 minimumDate={
                                   pickerTarget.field === "date"
                                     ? new Date()
-                                    : undefined
+                                    : (() => { const d = new Date(); d.setHours(8, 0, 0, 0); return d; })()
+                                }
+                                maximumDate={
+                                  pickerTarget.field === "date"
+                                    ? undefined
+                                    : (() => { const d = new Date(); d.setHours(19, 0, 0, 0); return d; })()
                                 }
                                 minuteInterval={15}
                                 onChange={handleNativePickerChange}
@@ -1224,12 +1222,6 @@ export default function MaintenanceScreen() {
           </View>
 
           <View style={styles.sideColumn}>
-            <WorkflowNotifications
-              compact
-              title="Maintenance updates"
-              limit={5}
-            />
-
             {property?.id ? (
               <PropertyMaintenanceProviders
                 actingRole="TENANT"
@@ -1268,6 +1260,7 @@ export default function MaintenanceScreen() {
         {message}
       </Snackbar>
     </ScreenContainer>
+    </TenantModuleScreen>
   );
 }
 

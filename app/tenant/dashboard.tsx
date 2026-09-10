@@ -20,6 +20,7 @@ import {
   saveCurrentUser,
 } from "../../src/api/client";
 import TenureExLogo from "../../src/components/Logo/TenureExLogo";
+import WorkflowNotificationBell from "../../src/components/WorkflowNotificationBell";
 import { colors, radius, spacing } from "../../src/theme";
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
@@ -379,20 +380,7 @@ export default function TenantDashboardScreen() {
             </View>
 
             <View style={styles.topBarActions}>
-              <Pressable
-                style={styles.headerIconButton}
-                onPress={() =>
-                  router.push(
-                    "/tenant/messages" as Href,
-                  )
-                }
-              >
-                <MaterialCommunityIcons
-                  name="bell-outline"
-                  size={22}
-                  color={colors.textSecondary}
-                />
-              </Pressable>
+              <WorkflowNotificationBell role="tenant" />
 
               {isTablet ? (
                 <Pressable

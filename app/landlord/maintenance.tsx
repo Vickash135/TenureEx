@@ -22,7 +22,6 @@ import {
 import InternationalPhoneInput from "@/src/components/InternationalPhoneInput";
 import { api } from "../../src/api/client";
 import PropertyMaintenanceProviders from "../../src/components/PropertyMaintenanceProviders";
-import WorkflowNotifications from "../../src/components/WorkflowNotifications";
 import { colors, radius, spacing } from "../../src/theme";
 import LandlordModuleScreen from "./LandlordModuleScreen";
 
@@ -677,8 +676,6 @@ export default function LandlordMaintenanceScreen() {
         ]}
       >
         <View style={styles.pageContent}>
-          <WorkflowNotifications compact title="Maintenance notifications" limit={6} />
-
           <PropertyMaintenanceProviders
             actingRole="LANDLORD"
             propertyEndpoint="/landlord-properties"

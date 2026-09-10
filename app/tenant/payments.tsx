@@ -1,22 +1,22 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-    Pressable,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View
 } from "react-native";
 import {
-    Button,
-    Chip,
-    Divider,
-    Snackbar,
+  Button,
+  Chip,
+  Divider,
+  Snackbar,
 } from "react-native-paper";
 
 import ScreenContainer from "../../src/components/ScreenContainer";
 import { colors, radius, spacing } from "../../src/theme";
+import TenantModuleScreen from "./TenantModuleScreen";
 
 type PaymentStatus =
   | "Paid"
@@ -154,47 +154,12 @@ export default function PaymentsScreen() {
   };
 
   return (
-    <ScreenContainer
+    <TenantModuleScreen pageTitle="Payments" activePage="Payments">
+      <ScreenContainer
       scrollable
       contentStyle={styles.screenContent}
     >
       <View style={styles.page}>
-        <View style={styles.topBar}>
-          <Pressable
-            style={styles.brand}
-            onPress={() =>
-              router.replace(
-                "/tenant/my-property" as never,
-              )
-            }
-          >
-            <View style={styles.logo}>
-              <MaterialCommunityIcons
-                name="credit-card-outline"
-                size={27}
-                color={colors.white}
-              />
-            </View>
-
-            <View>
-              <Text style={styles.brandName}>
-                Payments
-              </Text>
-
-              <Text style={styles.brandSubtitle}>
-                Property {propertyId ?? "PROP-001"}
-              </Text>
-            </View>
-          </Pressable>
-
-          <Button
-            mode="text"
-            icon="arrow-left"
-            onPress={() => router.back()}
-          >
-            Back
-          </Button>
-        </View>
 
         <View style={styles.hero}>
           <View style={styles.heroIcon}>
@@ -392,6 +357,7 @@ export default function PaymentsScreen() {
         {message}
       </Snackbar>
     </ScreenContainer>
+    </TenantModuleScreen>
   );
 }
 
