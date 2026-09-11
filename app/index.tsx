@@ -53,7 +53,7 @@ const portals: Portal[] = [
     features: ["Property overview", "Maintenance visibility", "Document access", "Council inspection updates"],
   },
   {
-    icon: "account-home-outline",
+    icon: "account-outline",
     title: "Tenant Portal",
     tag: "Simple tenant experience",
     description: "Tenants can manage their home, maintenance availability, documents, applications and inspection activity.",
@@ -381,7 +381,7 @@ export default function LandingPage() {
                 ].map(([value, label, bar]) => (
                   <View key={String(label)} style={styles.funnelRow}>
                     <View style={styles.funnelValue}><Text style={styles.funnelValueText}>{String(value)}</Text></View>
-                    <View style={styles.funnelTrack}><View style={[styles.funnelFill, { width: `${bar}%` }]} /></View>
+                    <View style={styles.funnelTrack}><View style={[styles.funnelFill, { width: `${Number(bar)}%` as `${number}%` }]} /></View>
                     <Text style={styles.funnelLabel}>{String(label)}</Text>
                   </View>
                 ))}
