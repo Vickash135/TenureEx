@@ -91,13 +91,6 @@ const featureCards = [
   ["chart-timeline-variant-shimmer", "Built to evolve", "TenureEx is currently in testing and continues to add automation and intelligence features."],
 ] as const;
 
-const loginOptions = [
-  ["Estate Agent", "/auth/agent/login", "office-building-cog-outline"],
-  ["Landlord", "/auth/landlord/login", "home-account"],
-  ["Tenant", "/auth/tenant/login", "account-outline"],
-  ["Maintenance", "/auth/maintenance/login", "tools"],
-  ["Council / Inspector", "/auth/council/login", "clipboard-check-outline"],
-] as const;
 
 function SectionHeading({ eyebrow, title, subtitle, light = false }: { eyebrow: string; title: string; subtitle: string; light?: boolean }) {
   return (
@@ -116,7 +109,6 @@ export default function LandingPage() {
   const compact = width < 720;
 
   const [demoOpen, setDemoOpen] = useState(false);
-  const [loginOpen, setLoginOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -150,7 +142,6 @@ export default function LandingPage() {
   const heroShiftB = floatB.interpolate({ inputRange: [0, 1], outputRange: [0, 18] });
 
   const openDemo = () => {
-    setLoginOpen(false);
     setError("");
     setSuccess(false);
     setDemoOpen(true);
@@ -207,27 +198,6 @@ export default function LandingPage() {
             ) : null}
 
             <View style={styles.navActions}>
-              {tablet ? (
-                <View>
-                  <Pressable style={styles.signInBtn} onPress={() => setLoginOpen((v) => !v)}>
-                    <MaterialCommunityIcons name="account-outline" size={18} color={NAVY} />
-                    <Text style={styles.signInText}>Sign in</Text>
-                    <MaterialCommunityIcons name={loginOpen ? "chevron-up" : "chevron-down"} size={17} color={NAVY} />
-                  </Pressable>
-                  {loginOpen ? (
-                    <View style={styles.loginMenu}>
-                      <Text style={styles.loginMenuTitle}>Choose your portal</Text>
-                      {loginOptions.map(([label, route, icon]) => (
-                        <Pressable key={label} style={styles.loginOption} onPress={() => { setLoginOpen(false); router.push(route as Href); }}>
-                          <View style={styles.loginOptionIcon}><MaterialCommunityIcons name={icon as IconName} size={19} color={TEAL} /></View>
-                          <Text style={styles.loginOptionText}>{label}</Text>
-                          <MaterialCommunityIcons name="chevron-right" size={18} color="#91A7AB" />
-                        </Pressable>
-                      ))}
-                    </View>
-                  ) : null}
-                </View>
-              ) : null}
               <Pressable style={styles.demoNavBtn} onPress={openDemo}>
                 <Text style={styles.demoNavText}>{compact ? "Demo" : "Book a Demo"}</Text>
                 <MaterialCommunityIcons name="arrow-up-right" size={17} color="#fff" />
@@ -503,13 +473,6 @@ export default function LandingPage() {
         </View>
       </ScrollView>
 
-      {compact ? (
-        <Pressable style={styles.mobileSignIn} onPress={() => router.push("/auth/agent/login" as Href)}>
-          <MaterialCommunityIcons name="login" size={18} color="#fff" />
-          <Text style={styles.mobileSignInText}>Sign in</Text>
-        </Pressable>
-      ) : null}
-
       <Modal visible={demoOpen} transparent animationType="fade" onRequestClose={() => setDemoOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setDemoOpen(false)}>
           <Pressable style={[styles.demoModal, compact && styles.demoModalCompact]} onPress={(event) => event.stopPropagation()}>
@@ -562,15 +525,8 @@ const styles = StyleSheet.create({
   navLinks: { flexDirection: "row", alignItems: "center", gap: 28 },
   navLink: { color: "#4D686E", fontSize: 13, fontWeight: "700" },
   navActions: { flexDirection: "row", alignItems: "center", gap: 10 },
-  signInBtn: { minHeight: 42, paddingHorizontal: 14, borderRadius: 11, borderWidth: 1, borderColor: "#D5E2E3", flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#fff" },
-  signInText: { color: NAVY, fontWeight: "800", fontSize: 13 },
   demoNavBtn: { minHeight: 43, paddingHorizontal: 17, borderRadius: 11, backgroundColor: TEAL, flexDirection: "row", alignItems: "center", gap: 7 },
   demoNavText: { color: "#fff", fontWeight: "800", fontSize: 13 },
-  loginMenu: { position: "absolute", top: 50, right: 0, width: 260, padding: 10, borderRadius: 16, backgroundColor: "#fff", borderWidth: 1, borderColor: "#D9E5E6", shadowColor: "#052D34", shadowOpacity: 0.14, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 8, zIndex: 500 },
-  loginMenuTitle: { paddingHorizontal: 10, paddingVertical: 9, color: "#778D92", fontSize: 11, fontWeight: "800", letterSpacing: 1 },
-  loginOption: { minHeight: 46, paddingHorizontal: 9, borderRadius: 10, flexDirection: "row", alignItems: "center", gap: 9 },
-  loginOptionIcon: { width: 32, height: 32, borderRadius: 9, backgroundColor: "#EAF6F5", alignItems: "center", justifyContent: "center" },
-  loginOptionText: { flex: 1, color: TEXT, fontSize: 13, fontWeight: "700" },
   hero: { paddingTop: 76, paddingBottom: 0, overflow: "hidden" },
   heroGrid: { ...StyleSheet.absoluteFillObject, opacity: 0.08, backgroundColor: "transparent", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" },
   heroInner: { width: "100%", maxWidth: 1240, alignSelf: "center", minHeight: 600, paddingHorizontal: 28, paddingBottom: 56, flexDirection: "row", alignItems: "center", gap: 48 },
@@ -735,8 +691,6 @@ const styles = StyleSheet.create({
   footerLink: { color: "#A8BFC3", fontSize: 12, marginBottom: 9 },
   footerBottom: { width: "100%", maxWidth: 1200, alignSelf: "center", marginTop: 40, paddingTop: 20, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.09)", flexDirection: "row", justifyContent: "space-between", flexWrap: "wrap", gap: 10 },
   footerLegal: { color: "#718C91", fontSize: 10 },
-  mobileSignIn: { position: "absolute", right: 14, bottom: 16, minHeight: 45, paddingHorizontal: 15, borderRadius: 999, backgroundColor: NAVY, flexDirection: "row", alignItems: "center", gap: 7, shadowColor: "#000", shadowOpacity: 0.22, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 7 },
-  mobileSignInText: { color: "#fff", fontSize: 12, fontWeight: "800" },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(2,24,29,0.70)", alignItems: "center", justifyContent: "center", padding: 20 },
   demoModal: { width: "100%", maxWidth: 520, borderRadius: 24, backgroundColor: "#fff", padding: 30, shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 30, shadowOffset: { width: 0, height: 15 }, elevation: 16, overflow: "hidden" },
   demoModalCompact: { padding: 22, borderRadius: 20 },
