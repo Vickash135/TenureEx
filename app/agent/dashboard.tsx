@@ -10,7 +10,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { Avatar, Button, Dialog, Portal } from "react-native-paper";
+import { Avatar, Button } from "react-native-paper";
 import Animated, { FadeInUp } from "react-native-reanimated";
 
 import { api, clearAuthSession, getStoredUser } from "../../src/api/client";
@@ -24,7 +24,7 @@ import {
   type AgentNavigationItem,
 } from "../../src/auth/agent-permissions";
 import TenureExLogo from "../../src/components/Logo/TenureExLogo";
-import WorkflowNotifications from "../../src/components/WorkflowNotifications";
+import NotificationCenterBell from "../../src/components/NotificationCenterBell";
 import {
   colors,
   radius,
@@ -206,6 +206,7 @@ export default function AgentDashboard() {
   const isTablet = width >= 700;
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notificationModalSignal, setNotificationModalSignal] = useState(0);
   const [currentUser, setCurrentUser] = useState<AgentCurrentUser | null>(null);
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [dashboardProperties, setDashboardProperties] = useState<AgencyDashboardProperty[]>([]);
@@ -213,7 +214,6 @@ export default function AgentDashboard() {
   const [dashboardAgencyUserCount, setDashboardAgencyUserCount] = useState(0);
   const [dashboardMaintenance, setDashboardMaintenance] = useState<DashboardMaintenanceRequest[]>([]);
   const [dashboardNotifications, setDashboardNotifications] = useState<DashboardNotification[]>([]);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -615,24 +615,7 @@ export default function AgentDashboard() {
                 />
               </Pressable>
 
-              <Pressable
-                style={styles.headerIconButton}
-                onPress={() => setNotificationsOpen(true)}
-              >
-                <MaterialCommunityIcons
-                  name={dashboardNotifications.some((item) => !item.readAt) ? "bell" : "bell-outline"}
-                  size={22}
-                  color={
-                    dashboardNotifications.some((item) => !item.readAt)
-                      ? colors.primary
-                      : colors.textSecondary
-                  }
-                />
-
-                {dashboardNotifications.some((item) => !item.readAt) ? (
-                  <View style={styles.notificationDot} />
-                ) : null}
-              </Pressable>
+              <NotificationCenterBell role="agent" openAllSignal={notificationModalSignal} />
 
               {isTablet && (
                 <View style={styles.headerProfile}>
@@ -906,7 +889,7 @@ export default function AgentDashboard() {
                         title="Recent activity"
                         subtitle="Latest agency updates"
                         action="View all"
-                        onPress={() => setNotificationsOpen(true)}
+                        onPress={() => setNotificationModalSignal((value) => value + 1)}
                       />
 
                       <View style={styles.activityList}>
@@ -1206,31 +1189,7 @@ export default function AgentDashboard() {
         </View>
       </View>
 
-      <Portal>
-        <Dialog
-          visible={notificationsOpen}
-          onDismiss={() => setNotificationsOpen(false)}
-          style={[
-            styles.notificationDialog,
-            { width: width < 700 ? "94%" : 560 },
-          ]}
-        >
-          <Dialog.Content style={styles.notificationDialogContent}>
-            <WorkflowNotifications
-              title="All notifications"
-              limit={100}
-              onUnreadCountChange={() => {
-                // The notification component updates read state in the backend.
-                // Reloading dashboard data later will refresh the dashboard indicator.
-              }}
-            />
-          </Dialog.Content>
 
-          <Dialog.Actions>
-            <Button onPress={() => setNotificationsOpen(false)}>Close</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
     </SafeAreaView>
   );
 }

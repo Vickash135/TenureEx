@@ -16,13 +16,12 @@ import {
   Menu
 } from "react-native-paper";
 import MaintenanceNotificationBell from "../../src/components/MaintenanceNotificationBell";
-import MaintenancePortalNavigation from "../../src/components/MaintenancePortalNavigation";
 
 import {
   api,
   clearAuthSession,
 } from "../../src/api/client";
-import ScreenContainer from "../../src/components/ScreenContainer";
+import ScreenContainer from "../../src/components/MaintenanceScreenContainer";
 import {
   colors,
   radius,
@@ -1073,7 +1072,6 @@ export default function MaintenanceDashboardScreen() {
           </View>
         ) : null}
 
-        <MaintenancePortalNavigation />
 
         <View
           style={[

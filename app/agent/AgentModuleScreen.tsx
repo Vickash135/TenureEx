@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Pressable,
   SafeAreaView,
@@ -11,9 +11,9 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { Avatar, Button, Dialog, Portal } from "react-native-paper";
+import { Avatar, Button } from "react-native-paper";
 
-import { api, clearAuthSession, getStoredUser } from "../../src/api/client";
+import { clearAuthSession, getStoredUser } from "../../src/api/client";
 import {
   getAllowedAgentNavigation,
   getPageCreatePermission,
@@ -27,7 +27,7 @@ import {
   type AgentNavigationItem,
 } from "../../src/auth/agent-permissions";
 import TenureExLogo from "../../src/components/Logo/TenureExLogo";
-import WorkflowNotifications from "../../src/components/WorkflowNotifications";
+import NotificationCenterBell from "../../src/components/NotificationCenterBell";
 import {
   colors,
   radius,
@@ -98,8 +98,6 @@ export default function AgentModuleScreen({
   const [selectedFilter, setSelectedFilter] = useState("All");
   const [currentUser, setCurrentUser] = useState<AgentCurrentUser | null>(null);
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -109,27 +107,6 @@ export default function AgentModuleScreen({
     };
     void loadUser();
   }, []);
-
-  const loadNotificationCount = useCallback(async () => {
-    try {
-      const response = await api.get("/property-workflows/notifications");
-      const data = Array.isArray(response.data)
-        ? response.data
-        : response.data?.items ?? [];
-
-      setUnreadNotificationCount(
-        data.filter((item: { readAt?: string | null }) => !item.readAt).length,
-      );
-    } catch {
-      // Do not block the workspace if notifications cannot be loaded.
-      setUnreadNotificationCount(0);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!currentUser) return;
-    void loadNotificationCount();
-  }, [currentUser, loadNotificationCount]);
 
   const allowedNavigationItems = useMemo(
     () => getAllowedAgentNavigation(currentUser),
@@ -251,21 +228,7 @@ export default function AgentModuleScreen({
             )}
 
             <View style={styles.topBarActions}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Open notifications"
-                onPress={() => setNotificationsOpen(true)}
-                style={styles.headerIconButton}
-              >
-                <MaterialCommunityIcons
-                  name={unreadNotificationCount > 0 ? "bell" : "bell-outline"}
-                  size={22}
-                  color={unreadNotificationCount > 0 ? colors.primary : colors.textSecondary}
-                />
-                {unreadNotificationCount > 0 ? (
-                  <View style={styles.notificationDot} />
-                ) : null}
-              </Pressable>
+              <NotificationCenterBell role="agent" />
 
               {isTablet && (
                 <View style={styles.profile}>
@@ -397,28 +360,7 @@ export default function AgentModuleScreen({
         </View>
       </View>
 
-      <Portal>
-        <Dialog
-          visible={notificationsOpen}
-          onDismiss={() => setNotificationsOpen(false)}
-          style={[
-            styles.notificationDialog,
-            { width: width < 700 ? "94%" : 520 },
-          ]}
-        >
-          <Dialog.Content style={styles.notificationDialogContent}>
-            <WorkflowNotifications
-              title="Notifications"
-              limit={20}
-              onUnreadCountChange={setUnreadNotificationCount}
-            />
-          </Dialog.Content>
 
-          <Dialog.Actions>
-            <Button onPress={() => setNotificationsOpen(false)}>Close</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
     </SafeAreaView>
   );
 }

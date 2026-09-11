@@ -21,10 +21,9 @@ import Animated, {
   FadeInUp,
 } from "react-native-reanimated";
 import MaintenanceNotificationBell from "../../src/components/MaintenanceNotificationBell";
-import MaintenancePortalNavigation from "../../src/components/MaintenancePortalNavigation";
 
 import InternationalPhoneInput from "@/src/components/InternationalPhoneInput";
-import ScreenContainer from "../../src/components/ScreenContainer";
+import ScreenContainer from "../../src/components/MaintenanceScreenContainer";
 import {
   colors,
   radius,
@@ -311,7 +310,6 @@ export default function MaintenanceSettingsScreen() {
           </View>
         </Animated.View>
 
-        <MaintenancePortalNavigation />
 
         <Animated.View
           entering={FadeInDown.delay(80).duration(450)}

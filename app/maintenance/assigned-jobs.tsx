@@ -19,10 +19,9 @@ import Animated, {
   FadeInUp,
 } from "react-native-reanimated";
 import MaintenanceNotificationBell from "../../src/components/MaintenanceNotificationBell";
-import MaintenancePortalNavigation from "../../src/components/MaintenancePortalNavigation";
 
 import { api } from "../../src/api/client";
-import ScreenContainer from "../../src/components/ScreenContainer";
+import ScreenContainer from "../../src/components/MaintenanceScreenContainer";
 import {
   colors,
   radius,
@@ -262,7 +261,6 @@ export default function AssignedJobsScreen() {
           </View>
         </Animated.View>
 
-        <MaintenancePortalNavigation />
 
         <Animated.View
           entering={FadeInDown.delay(80).duration(450)}
