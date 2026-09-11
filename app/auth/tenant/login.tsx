@@ -221,6 +221,18 @@ export default function TenantLoginScreen() {
                     ) : null}
 
                     <View style={styles.formPanel}>
+                        <Button
+                            mode="text"
+                            icon="arrow-left"
+                            compact
+                            style={styles.backButton}
+                            contentStyle={styles.backButtonContent}
+                            labelStyle={styles.backButtonLabel}
+                            onPress={() => router.push("/rent" as never)}
+                        >
+                            Back
+                        </Button>
+
                         {!isDesktop ? (
                             <View style={styles.mobileBrand}>
                                 <View style={styles.mobileLogo}>
@@ -541,6 +553,21 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: "center",
         padding: 46,
+    },
+
+    backButton: {
+        alignSelf: "flex-start",
+        marginBottom: spacing.lg,
+    },
+
+    backButtonContent: {
+        minHeight: 38,
+    },
+
+    backButtonLabel: {
+        color: colors.primary,
+        fontSize: 11,
+        fontWeight: "800",
     },
 
     mobileBrand: {

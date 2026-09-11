@@ -96,7 +96,7 @@ export default function AdminDemoRequestsScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.topBar}>
         <Pressable onPress={() => router.push("/admin/dashboard" as Href)} style={styles.brandWrap}>
-          <TenureExLogo width={128} height={38} />
+          <TenureExLogo compact />
         </Pressable>
         <View style={styles.topActions}>
           <Pressable onPress={() => router.push("/admin/dashboard" as Href)} style={styles.secondaryButton}>

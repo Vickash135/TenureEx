@@ -176,7 +176,7 @@ export default function CouncilLoginScreen() {
             <Pressable
               style={styles.brandRow}
               onPress={() =>
-                router.replace("/" as never)
+                router.replace("/rent" as never)
               }
             >
               <View style={styles.brandLogo}>
@@ -201,7 +201,7 @@ export default function CouncilLoginScreen() {
             <Pressable
               style={styles.backButton}
               onPress={() =>
-                router.replace("/" as never)
+                router.replace("/rent" as never)
               }
             >
               <MaterialCommunityIcons

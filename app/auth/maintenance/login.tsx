@@ -151,7 +151,7 @@ export default function MaintenanceLoginScreen() {
         >
           <Pressable
             style={styles.brandRow}
-            onPress={() => router.replace("/" as never)}
+            onPress={() => router.replace("/rent" as never)}
           >
             <View style={styles.brandLogo}>
               <MaterialCommunityIcons
@@ -382,7 +382,7 @@ export default function MaintenanceLoginScreen() {
 
           <Pressable
             style={styles.backButton}
-            onPress={() => router.replace("/" as never)}
+            onPress={() => router.replace("/rent" as never)}
           >
             <MaterialCommunityIcons
               name="arrow-left"

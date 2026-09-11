@@ -295,7 +295,7 @@ export default function LandlordLoginScreen() {
   };
 
   const handleBack = () => {
-    router.replace("/" as Href);
+    router.replace("/rent" as Href);
   };
 
   return (

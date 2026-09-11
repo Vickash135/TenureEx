@@ -54,7 +54,7 @@ const AGENT_DASHBOARD_ROUTE =
 const AGENT_SIGNUP_ROUTE =
   "/auth/agent/signup" as Href;
 
-const MAIN_PAGE_ROUTE = "/" as Href;
+const MAIN_PAGE_ROUTE = "/rent" as Href;
 
 type EstateAgentUser = {
   id: string;
