@@ -946,6 +946,71 @@ Enter this code on the Landlord registration page to continue. The code is valid
     return { message: "Council Inspector invitation sent successfully." };
   }
 
+  // =========================================================
+  // PUBLIC DEMO REQUESTS
+  // =========================================================
+
+  async sendAdminDemoRequestNotification(
+    params: {
+      email: string;
+      requestId: string;
+    },
+  ) {
+    const adminUrl = `${this.frontendUrl}/admin/demo-requests`;
+
+    await this.sendMail({
+      to: this.adminEmail,
+      subject: "New TenureEx demo request",
+      heading: "New demo request",
+      greeting: "Hello TenureEx Admin,",
+      message: `
+A new visitor has requested access to the TenureEx testing environment.
+
+Email:
+${params.email}
+
+Review the request in the TenureEx Admin Portal. Approving the request will automatically email the visitor with the testing access link.
+      `.trim(),
+      buttonText: "Review demo request",
+      buttonUrl: adminUrl,
+      footer: `Demo request reference: ${params.requestId}`,
+    });
+
+    return { message: "Admin demo request notification sent successfully." };
+  }
+
+  async sendDemoAccessApproved(
+    params: {
+      email: string;
+    },
+  ) {
+    const configuredAccessUrl = process.env.TENUREEX_DEMO_ACCESS_URL?.trim();
+    const accessUrl = configuredAccessUrl
+      ? configuredAccessUrl.replace(/\/+$/, "").endsWith("/rent")
+        ? configuredAccessUrl.replace(/\/+$/, "")
+        : `${configuredAccessUrl.replace(/\/+$/, "")}/rent`
+      : "https://tenureex-api-24pj6.ondigitalocean.app/rent";
+
+    await this.sendMail({
+      to: params.email,
+      subject: "Your TenureEx demo access is ready",
+      heading: "Your TenureEx demo access is ready",
+      greeting: "Hello,",
+      message: `
+Thank you for your interest in TenureEx.
+
+Your request to access our testing environment has been approved.
+
+TenureEx is currently in a testing and early-access period, so some features may continue to change while we improve the platform.
+      `.trim(),
+      buttonText: "Access TenureEx",
+      buttonUrl: accessUrl,
+      footer: "This temporary access process is being used during the TenureEx testing period.",
+    });
+
+    return { message: "Demo approval email sent successfully." };
+  }
+
   private async sendMail(
     params: {
       to: string;

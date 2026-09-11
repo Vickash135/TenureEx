@@ -1075,6 +1075,14 @@ export default function AdminDashboardScreen() {
             >
               <Button
                 mode="outlined"
+                icon="email-fast-outline"
+                onPress={() => router.push("/admin/demo-requests" as Href)}
+              >
+                Demo Requests
+              </Button>
+
+              <Button
+                mode="outlined"
                 icon="badge-account-outline"
                 onPress={() => router.push("/admin/council-inspectors" as Href)}
               >

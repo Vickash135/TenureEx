@@ -12,6 +12,7 @@ import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { AuthModule } from "./auth/auth.module";
 import { DatabaseModule } from "./database/database.module";
+import { DemoRequestsModule } from "./demo-requests/demo-requests.module";
 import { LandlordRegistrationModule } from "./landlord-registration/landlord-registration.module";
 import { PropertiesModule } from "./properties/properties.module";
 import { PropertyWorkflowsModule } from "./property-workflows/property-workflows.module";
@@ -26,6 +27,7 @@ import { UsersModule } from "./users/users.module";
     }),
 
     DatabaseModule,
+    DemoRequestsModule,
     UsersModule,
     AuthModule,
     AgentRegistrationModule,

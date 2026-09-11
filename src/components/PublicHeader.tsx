@@ -2,11 +2,11 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { useState } from "react";
 import {
-    Pressable,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import { Menu } from "react-native-paper";
 
@@ -60,7 +60,7 @@ export default function PublicHeader() {
     <View style={styles.header}>
       <View style={styles.inner}>
         <Pressable
-          onPress={() => router.push("/" as Href)}
+          onPress={() => router.push("/rent" as Href)}
           style={styles.brand}
           accessibilityRole="button"
           accessibilityLabel="TenureEx home"

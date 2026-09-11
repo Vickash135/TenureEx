@@ -865,6 +865,19 @@ model Notification {
   @@index([createdAt])
 }
 
+model DemoRequest {
+  id               String   @id @default(uuid())
+  email            String   @unique
+  status           String   @default("PENDING")
+  requestedAt      DateTime @default(now())
+  reviewedAt       DateTime?
+  reviewedByUserId String?
+
+  @@index([status])
+  @@index([requestedAt])
+}
+
+
 enum PropertyType {
   HOUSE
   FLAT
