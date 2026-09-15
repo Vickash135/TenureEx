@@ -989,7 +989,7 @@ Review the request in the TenureEx Admin Portal. Approving the request will auto
       ? configuredAccessUrl.replace(/\/+$/, "").endsWith("/rent")
         ? configuredAccessUrl.replace(/\/+$/, "")
         : `${configuredAccessUrl.replace(/\/+$/, "")}/rent`
-      : "https://tenureex-api-24pj6.ondigitalocean.app/rent";
+      : "https://tenureex.co.uk/rent";
 
     await this.sendMail({
       to: params.email,
