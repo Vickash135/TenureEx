@@ -198,9 +198,13 @@ export default function LandingPage() {
             ) : null}
 
             <View style={styles.navActions}>
-              <Pressable style={styles.demoNavBtn} onPress={openDemo}>
+              <Pressable style={styles.demoNavBtn}>
                 <Text style={styles.demoNavText}>{compact ? "Demo" : "Book a Demo"}</Text>
-                <MaterialCommunityIcons name="arrow-up-right" size={17} color="#fff" />
+                <MaterialCommunityIcons name="calendar-outline" size={17} color="#fff" />
+              </Pressable>
+              <Pressable style={styles.accessNavBtn} onPress={openDemo}>
+                <Text style={styles.accessNavText}>{compact ? "Access" : "Sign Up / Login"}</Text>
+                <MaterialCommunityIcons name="login" size={17} color={NAVY} />
               </Pressable>
             </View>
           </View>
@@ -222,7 +226,7 @@ export default function LandingPage() {
               </Text>
               <View style={styles.heroActions}>
                 <Pressable style={styles.primaryHeroBtn} onPress={openDemo}>
-                  <Text style={styles.primaryHeroText}>Request Demo Access</Text>
+                  <Text style={styles.primaryHeroText}>Sign Up / Login</Text>
                   <MaterialCommunityIcons name="arrow-right" size={20} color={NAVY} />
                 </Pressable>
                 <Pressable style={styles.secondaryHeroBtn} onPress={() => router.push("/rent" as Href)}>
@@ -428,7 +432,7 @@ export default function LandingPage() {
                 <View style={styles.priceRow}><Text style={styles.priceAmountGreen}>£0</Text><Text style={styles.pricePeriod}> / listing</Text></View>
                 <Text style={styles.priceDescription}>Property listing and rental discovery concept with no listing charge.</Text>
                 {["List approved properties", "Receive tenant enquiries", "Move into TenureEx workflows"].map((x) => <View key={x} style={styles.priceFeature}><MaterialCommunityIcons name="check" size={17} color="#198754" /><Text style={styles.priceFeatureText}>{x}</Text></View>)}
-                <Pressable style={styles.priceOutlineBtn} onPress={openDemo}><Text style={styles.priceOutlineText}>Request access</Text></Pressable>
+                <Pressable style={styles.priceOutlineBtn} onPress={openDemo}><Text style={styles.priceOutlineText}>Sign Up / Login</Text></Pressable>
               </View>
               <View style={[styles.priceCard, styles.priceFeatured, { width: desktop ? "31.8%" : tablet ? "48%" : "100%" }]}>
                 <Text style={styles.priceTagGold}>FULL PLATFORM</Text>
@@ -436,7 +440,8 @@ export default function LandingPage() {
                 <View style={styles.priceRow}><Text style={styles.priceAmountGold}>£10</Text><Text style={styles.pricePeriodLight}> / property / month</Text></View>
                 <Text style={styles.priceDescriptionLight}>Connected portals, property workflows, maintenance and operational visibility.</Text>
                 {["Estate Agent workspace", "Landlord & Tenant portals", "Maintenance workflow", "Council / inspection workflow"].map((x) => <View key={x} style={styles.priceFeature}><MaterialCommunityIcons name="check" size={17} color="#E0B958" /><Text style={styles.priceFeatureTextLight}>{x}</Text></View>)}
-                <Pressable style={styles.priceGoldBtn} onPress={openDemo}><Text style={styles.priceGoldText}>Book a Demo</Text></Pressable>
+                <Pressable style={styles.priceGoldBtn}><Text style={styles.priceGoldText}>Book a Demo</Text></Pressable>
+                <Pressable style={styles.priceOutlineLightBtn} onPress={openDemo}><Text style={styles.priceOutlineLightText}>Sign Up / Login</Text></Pressable>
               </View>
               <View style={[styles.priceCard, { width: desktop ? "31.8%" : tablet ? "48%" : "100%" }]}>
                 <Text style={styles.priceTag}>AI ROADMAP</Text>
@@ -444,7 +449,7 @@ export default function LandingPage() {
                 <Text style={styles.roadmapLabel}>COMING THROUGH THE ROADMAP</Text>
                 <Text style={styles.priceDescription}>AI-assisted screening, predictive maintenance, inspection support and carbon insights as the platform develops.</Text>
                 {["Viewing intelligence", "Predictive maintenance", "Remote inspection support", "Carbon insights"].map((x) => <View key={x} style={styles.priceFeature}><MaterialCommunityIcons name="check" size={17} color={TEAL} /><Text style={styles.priceFeatureText}>{x}</Text></View>)}
-                <Pressable style={styles.priceOutlineBtn} onPress={openDemo}><Text style={styles.priceOutlineText}>Join testing</Text></Pressable>
+                <Pressable style={styles.priceOutlineBtn} onPress={openDemo}><Text style={styles.priceOutlineText}>Sign Up / Login</Text></Pressable>
               </View>
             </View>
           </View>
@@ -456,7 +461,7 @@ export default function LandingPage() {
             <View style={styles.testBadge}><View style={styles.liveDot} /><Text style={styles.testBadgeText}>LIMITED TESTING ACCESS</Text></View>
             <Text style={styles.ctaTitle}>Want to see TenureEx before public launch?</Text>
             <Text style={styles.ctaText}>We are currently in a testing and early-access period. Leave your email and the TenureEx team will review your request.</Text>
-            <Pressable style={styles.primaryHeroBtn} onPress={openDemo}><Text style={styles.primaryHeroText}>Book a Demo</Text><MaterialCommunityIcons name="arrow-right" size={20} color={NAVY} /></Pressable>
+            <View style={styles.ctaActions}><Pressable style={styles.primaryHeroBtn}><Text style={styles.primaryHeroText}>Book a Demo</Text><MaterialCommunityIcons name="calendar-outline" size={20} color={NAVY} /></Pressable><Pressable style={styles.ctaAccessBtn} onPress={openDemo}><Text style={styles.ctaAccessText}>Sign Up / Login</Text><MaterialCommunityIcons name="login" size={20} color="#fff" /></Pressable></View>
           </View>
         </LinearGradient>
 
@@ -467,7 +472,7 @@ export default function LandingPage() {
               <Text style={styles.footerText}>A connected property-management platform for UK estate agents, landlords, tenants, maintenance providers and inspectors.</Text>
             </View>
             <View><Text style={styles.footerHeading}>Platform</Text><Text style={styles.footerLink}>Estate Agent</Text><Text style={styles.footerLink}>Landlord</Text><Text style={styles.footerLink}>Tenant</Text><Text style={styles.footerLink}>Maintenance</Text></View>
-            <View><Text style={styles.footerHeading}>Access</Text><Pressable onPress={openDemo}><Text style={styles.footerLink}>Book a Demo</Text></Pressable><Pressable onPress={() => router.push("/rent" as Href)}><Text style={styles.footerLink}>Find a Home</Text></Pressable><Text style={styles.footerLink}>Testing period</Text></View>
+            <View><Text style={styles.footerHeading}>Access</Text><Pressable><Text style={styles.footerLink}>Book a Demo</Text></Pressable><Pressable onPress={openDemo}><Text style={styles.footerLink}>Sign Up / Login</Text></Pressable><Pressable onPress={() => router.push("/rent" as Href)}><Text style={styles.footerLink}>Find a Home</Text></Pressable><Text style={styles.footerLink}>Testing period</Text></View>
           </View>
           <View style={styles.footerBottom}><Text style={styles.footerLegal}>© 2026 TenureEx. All rights reserved.</Text><Text style={styles.footerLegal}>United Kingdom</Text></View>
         </View>
@@ -482,16 +487,16 @@ export default function LandingPage() {
               <View style={styles.successWrap}>
                 <View style={styles.successIcon}><MaterialCommunityIcons name="check" size={34} color="#fff" /></View>
                 <Text style={styles.modalEyebrow}>REQUEST RECEIVED</Text>
-                <Text style={styles.modalTitle}>Thank you for your interest in TenureEx.</Text>
-                <Text style={styles.modalText}>Your email has been sent to the TenureEx Admin team. We are currently in our testing period, so access is reviewed manually. If approved, you will receive the testing link by email.</Text>
+                <Text style={styles.modalTitle}>Your access request has been received.</Text>
+                <Text style={styles.modalText}>Your email has been sent to the TenureEx Admin team. During the testing period, access is reviewed manually. If approved, you will receive the Sign Up / Login access link by email.</Text>
                 <Pressable style={styles.modalDoneBtn} onPress={() => setDemoOpen(false)}><Text style={styles.modalDoneText}>Done</Text></Pressable>
               </View>
             ) : (
               <>
                 <View style={styles.modalIcon}><MaterialCommunityIcons name="rocket-launch-outline" size={27} color={TEAL} /></View>
-                <Text style={styles.modalEyebrow}>TENUREEX EARLY ACCESS</Text>
-                <Text style={styles.modalTitle}>Book a demo during our testing period.</Text>
-                <Text style={styles.modalText}>TenureEx is currently being tested with selected users. Enter your email address and our Admin team will review your request and get back to you.</Text>
+                <Text style={styles.modalEyebrow}>TENUREEX SIGN UP / LOGIN</Text>
+                <Text style={styles.modalTitle}>Request Sign Up / Login access.</Text>
+                <Text style={styles.modalText}>TenureEx is currently in a testing period. Enter your email address and our Admin team will review your Sign Up / Login access request.</Text>
                 <View style={styles.testingNotice}><MaterialCommunityIcons name="flask-outline" size={20} color={TEAL} /><Text style={styles.testingNoticeText}>This is a temporary access process while TenureEx is in testing.</Text></View>
                 <Text style={styles.inputLabel}>Email address</Text>
                 <View style={[styles.emailInputWrap, !!error && styles.emailInputError]}>
@@ -500,9 +505,9 @@ export default function LandingPage() {
                 </View>
                 {error ? <Text style={styles.formError}>{error}</Text> : null}
                 <Pressable disabled={submitting} style={[styles.submitDemoBtn, submitting && styles.submitDisabled]} onPress={() => void submitDemo()}>
-                  {submitting ? <ActivityIndicator color="#fff" /> : <><Text style={styles.submitDemoText}>Request Demo Access</Text><MaterialCommunityIcons name="arrow-right" size={20} color="#fff" /></>}
+                  {submitting ? <ActivityIndicator color="#fff" /> : <><Text style={styles.submitDemoText}>Request Sign Up / Login Access</Text><MaterialCommunityIcons name="arrow-right" size={20} color="#fff" /></>}
                 </Pressable>
-                <Text style={styles.privacyNote}>We only use this email to review and respond to your TenureEx demo request.</Text>
+                <Text style={styles.privacyNote}>We only use this email to review and respond to your TenureEx access request.</Text>
               </>
             )}
           </Pressable>
@@ -527,6 +532,8 @@ const styles = StyleSheet.create({
   navActions: { flexDirection: "row", alignItems: "center", gap: 10 },
   demoNavBtn: { minHeight: 43, paddingHorizontal: 17, borderRadius: 11, backgroundColor: TEAL, flexDirection: "row", alignItems: "center", gap: 7 },
   demoNavText: { color: "#fff", fontWeight: "800", fontSize: 13 },
+  accessNavBtn: { minHeight: 43, paddingHorizontal: 17, borderRadius: 11, borderWidth: 1.5, borderColor: NAVY, backgroundColor: "#fff", flexDirection: "row", alignItems: "center", gap: 7 },
+  accessNavText: { color: NAVY, fontWeight: "800", fontSize: 13 },
   hero: { paddingTop: 76, paddingBottom: 0, overflow: "hidden" },
   heroGrid: { ...StyleSheet.absoluteFillObject, opacity: 0.08, backgroundColor: "transparent", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" },
   heroInner: { width: "100%", maxWidth: 1240, alignSelf: "center", minHeight: 600, paddingHorizontal: 28, paddingBottom: 56, flexDirection: "row", alignItems: "center", gap: 48 },
@@ -673,6 +680,8 @@ const styles = StyleSheet.create({
   priceOutlineText: { color: TEAL, fontSize: 12, fontWeight: "900" },
   priceGoldBtn: { marginTop: 23, minHeight: 46, borderRadius: 12, backgroundColor: "#D7AE50", alignItems: "center", justifyContent: "center" },
   priceGoldText: { color: NAVY, fontSize: 12, fontWeight: "900" },
+  priceOutlineLightBtn: { marginTop: 10, minHeight: 46, borderRadius: 12, borderWidth: 1.5, borderColor: "#D7AE50", alignItems: "center", justifyContent: "center" },
+  priceOutlineLightText: { color: "#E2B958", fontSize: 12, fontWeight: "900" },
   complianceSection: { paddingVertical: 82, paddingHorizontal: 20, backgroundColor: "#fff" },
   complianceGrid: { flexDirection: "row", flexWrap: "wrap", gap: 14, justifyContent: "center" },
   complianceItem: { minWidth: 160, flexGrow: 1, maxWidth: 190, padding: 18, borderRadius: 16, alignItems: "center", backgroundColor: ICE, borderWidth: 1, borderColor: "#DFEAEB" },
@@ -683,6 +692,9 @@ const styles = StyleSheet.create({
   ctaContent: { maxWidth: 760, alignItems: "center", zIndex: 2 },
   ctaTitle: { marginTop: 21, color: "#fff", fontSize: 38, lineHeight: 45, fontWeight: "900", textAlign: "center", letterSpacing: -0.8 },
   ctaText: { marginTop: 13, marginBottom: 25, color: "#C3D5D8", fontSize: 15, lineHeight: 25, textAlign: "center" },
+  ctaActions: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 12 },
+  ctaAccessBtn: { minHeight: 52, paddingHorizontal: 21, borderRadius: 13, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.65)", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  ctaAccessText: { color: "#fff", fontSize: 14, fontWeight: "900" },
   footer: { paddingTop: 54, paddingHorizontal: 24, paddingBottom: 28, backgroundColor: "#061F26" },
   footerTop: { width: "100%", maxWidth: 1200, alignSelf: "center", flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 38 },
   footerBrandCol: { maxWidth: 430 },

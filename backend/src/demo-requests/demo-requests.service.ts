@@ -40,14 +40,14 @@ export class DemoRequestsService {
         requestId: request.id,
       });
     } catch (error) {
-      console.error("Unable to send demo request admin notification:", error);
+      console.error("Unable to send access request admin notification:", error);
     }
 
     return {
       id: request.id,
       status: request.status,
       message:
-        "Thank you. Your TenureEx demo request has been received and is awaiting review.",
+        "Thank you. Your TenureEx Sign Up / Login access request has been received and is awaiting review.",
     };
   }
 
