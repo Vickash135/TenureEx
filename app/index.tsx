@@ -141,6 +141,12 @@ export default function LandingPage() {
   const heroShiftA = floatA.interpolate({ inputRange: [0, 1], outputRange: [0, -14] });
   const heroShiftB = floatB.interpolate({ inputRange: [0, 1], outputRange: [0, 18] });
 
+  const scrollToSection = (id: string) => {
+    if (Platform.OS === "web" && typeof document !== "undefined") {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
   const openDemo = () => {
     setError("");
     setSuccess(false);
@@ -190,15 +196,16 @@ export default function LandingPage() {
 
             {desktop ? (
               <View style={styles.navLinks}>
-                <Text style={styles.navLink}>Platform</Text>
-                <Text style={styles.navLink}>Workflows</Text>
-                <Text style={styles.navLink}>Compliance</Text>
-                <Text style={styles.navLink}>Early Access</Text>
+                <Pressable onPress={() => scrollToSection("platform")}><Text style={styles.navLink}>Platform</Text></Pressable>
+                <Pressable onPress={() => scrollToSection("why-tenureex")}><Text style={styles.navLink}>Why TenureEx</Text></Pressable>
+                <Pressable onPress={() => scrollToSection("intelligence")}><Text style={styles.navLink}>AI Roadmap</Text></Pressable>
+                <Pressable onPress={() => scrollToSection("compliance")}><Text style={styles.navLink}>Compliance</Text></Pressable>
+                <Pressable onPress={() => scrollToSection("pricing")}><Text style={styles.navLink}>Pricing</Text></Pressable>
               </View>
             ) : null}
 
             <View style={styles.navActions}>
-              <Pressable style={styles.demoNavBtn}>
+              <Pressable style={styles.demoNavBtn} onPress={() => router.push("/book-demo" as Href)}>
                 <Text style={styles.demoNavText}>{compact ? "Demo" : "Book a Demo"}</Text>
                 <MaterialCommunityIcons name="calendar-outline" size={17} color="#fff" />
               </Pressable>
@@ -285,7 +292,7 @@ export default function LandingPage() {
           </View>
         </LinearGradient>
 
-        <View style={styles.section}>
+        <View nativeID="platform" style={styles.section}>
           <SectionHeading eyebrow="THE PLATFORM" title="Six connected experiences. One TenureEx ecosystem." subtitle="Each stakeholder gets a focused workspace, while the underlying property workflow stays connected across the platform." />
           <View style={styles.cardGrid}>
             {portals.map((portal, index) => (
@@ -302,7 +309,7 @@ export default function LandingPage() {
           </View>
         </View>
 
-        <View style={styles.whySection}>
+        <View nativeID="why-tenureex" style={styles.whySection}>
           <View style={styles.sectionNarrow}>
             <SectionHeading eyebrow="WHY TENUREEX" title="Replace scattered handoffs with a shared workflow." subtitle="Instead of relying on separate emails, calls, spreadsheets and disconnected records, TenureEx gives each role a clear place to act." />
             <View style={styles.featureGrid}>
@@ -317,7 +324,7 @@ export default function LandingPage() {
           </View>
         </View>
 
-        <LinearGradient colors={[NAVY_2, NAVY]} style={styles.intelligenceSection}>
+        <LinearGradient nativeID="intelligence" colors={[NAVY_2, NAVY]} style={styles.intelligenceSection}>
           <View style={styles.sectionNarrow}>
             <SectionHeading light eyebrow="AUTOMATION & INTELLIGENCE" title="A platform designed to become smarter as the workflow grows." subtitle="The TenureEx roadmap includes AI-assisted screening, compliance intelligence, predictive maintenance, remote inspection support and sustainability insights — with human review remaining central to important decisions." />
             <View style={styles.darkGrid}>
@@ -406,7 +413,7 @@ export default function LandingPage() {
           </View>
         </View>
 
-        <View style={styles.complianceSection}>
+        <View nativeID="compliance" style={styles.complianceSection}>
           <View style={styles.sectionNarrow}>
             <SectionHeading eyebrow="COMPLIANCE & PROPERTY RECORDS" title="Keep the important property information visible." subtitle="TenureEx is designed around the day-to-day records and checks that matter across UK rental property workflows." />
             <View style={styles.complianceGrid}>
@@ -422,7 +429,7 @@ export default function LandingPage() {
           </View>
         </View>
 
-        <View style={styles.pricingSection}>
+        <View nativeID="pricing" style={styles.pricingSection}>
           <View style={styles.sectionNarrow}>
             <SectionHeading eyebrow="PRICING CONCEPT" title="Simple property-based pricing." subtitle="The original TenureEx landing-page proposal positions free property listing alongside a £10 per property / month full-platform model. During testing, final commercial terms can still change." />
             <View style={styles.pricingGrid}>
@@ -440,7 +447,7 @@ export default function LandingPage() {
                 <View style={styles.priceRow}><Text style={styles.priceAmountGold}>£10</Text><Text style={styles.pricePeriodLight}> / property / month</Text></View>
                 <Text style={styles.priceDescriptionLight}>Connected portals, property workflows, maintenance and operational visibility.</Text>
                 {["Estate Agent workspace", "Landlord & Tenant portals", "Maintenance workflow", "Council / inspection workflow"].map((x) => <View key={x} style={styles.priceFeature}><MaterialCommunityIcons name="check" size={17} color="#E0B958" /><Text style={styles.priceFeatureTextLight}>{x}</Text></View>)}
-                <Pressable style={styles.priceGoldBtn}><Text style={styles.priceGoldText}>Book a Demo</Text></Pressable>
+                <Pressable style={styles.priceGoldBtn} onPress={() => router.push("/book-demo" as Href)}><Text style={styles.priceGoldText}>Book a Demo</Text></Pressable>
                 <Pressable style={styles.priceOutlineLightBtn} onPress={openDemo}><Text style={styles.priceOutlineLightText}>Sign Up / Login</Text></Pressable>
               </View>
               <View style={[styles.priceCard, { width: desktop ? "31.8%" : tablet ? "48%" : "100%" }]}>
@@ -461,7 +468,7 @@ export default function LandingPage() {
             <View style={styles.testBadge}><View style={styles.liveDot} /><Text style={styles.testBadgeText}>LIMITED TESTING ACCESS</Text></View>
             <Text style={styles.ctaTitle}>Want to see TenureEx before public launch?</Text>
             <Text style={styles.ctaText}>We are currently in a testing and early-access period. Leave your email and the TenureEx team will review your request.</Text>
-            <View style={styles.ctaActions}><Pressable style={styles.primaryHeroBtn}><Text style={styles.primaryHeroText}>Book a Demo</Text><MaterialCommunityIcons name="calendar-outline" size={20} color={NAVY} /></Pressable><Pressable style={styles.ctaAccessBtn} onPress={openDemo}><Text style={styles.ctaAccessText}>Sign Up / Login</Text><MaterialCommunityIcons name="login" size={20} color="#fff" /></Pressable></View>
+            <View style={styles.ctaActions}><Pressable style={styles.primaryHeroBtn} onPress={() => router.push("/book-demo" as Href)}><Text style={styles.primaryHeroText}>Book a Demo</Text><MaterialCommunityIcons name="calendar-outline" size={20} color={NAVY} /></Pressable><Pressable style={styles.ctaAccessBtn} onPress={openDemo}><Text style={styles.ctaAccessText}>Sign Up / Login</Text><MaterialCommunityIcons name="login" size={20} color="#fff" /></Pressable></View>
           </View>
         </LinearGradient>
 
@@ -472,7 +479,7 @@ export default function LandingPage() {
               <Text style={styles.footerText}>A connected property-management platform for UK estate agents, landlords, tenants, maintenance providers and inspectors.</Text>
             </View>
             <View><Text style={styles.footerHeading}>Platform</Text><Text style={styles.footerLink}>Estate Agent</Text><Text style={styles.footerLink}>Landlord</Text><Text style={styles.footerLink}>Tenant</Text><Text style={styles.footerLink}>Maintenance</Text></View>
-            <View><Text style={styles.footerHeading}>Access</Text><Pressable><Text style={styles.footerLink}>Book a Demo</Text></Pressable><Pressable onPress={openDemo}><Text style={styles.footerLink}>Sign Up / Login</Text></Pressable><Pressable onPress={() => router.push("/rent" as Href)}><Text style={styles.footerLink}>Find a Home</Text></Pressable><Text style={styles.footerLink}>Testing period</Text></View>
+            <View><Text style={styles.footerHeading}>Access</Text><Pressable onPress={() => router.push("/book-demo" as Href)}><Text style={styles.footerLink}>Book a Demo</Text></Pressable><Pressable onPress={openDemo}><Text style={styles.footerLink}>Sign Up / Login</Text></Pressable><Pressable onPress={() => router.push("/rent" as Href)}><Text style={styles.footerLink}>Find a Home</Text></Pressable><Text style={styles.footerLink}>Testing period</Text></View>
           </View>
           <View style={styles.footerBottom}><Text style={styles.footerLegal}>© 2026 TenureEx. All rights reserved.</Text><Text style={styles.footerLegal}>United Kingdom</Text></View>
         </View>
@@ -527,8 +534,8 @@ const styles = StyleSheet.create({
   brandMark: { width: 40, height: 40, borderRadius: 12, backgroundColor: TEAL, alignItems: "center", justifyContent: "center" },
   brandName: { color: NAVY, fontSize: 18, fontWeight: "900", letterSpacing: 1.5 },
   brandSub: { marginTop: 1, color: "#759095", fontSize: 8, fontWeight: "800", letterSpacing: 1.5 },
-  navLinks: { flexDirection: "row", alignItems: "center", gap: 28 },
-  navLink: { color: "#4D686E", fontSize: 13, fontWeight: "700" },
+  navLinks: { flexDirection: "row", alignItems: "center", gap: 18 },
+  navLink: { color: "#4D686E", fontSize: 12, fontWeight: "700" },
   navActions: { flexDirection: "row", alignItems: "center", gap: 10 },
   demoNavBtn: { minHeight: 43, paddingHorizontal: 17, borderRadius: 11, backgroundColor: TEAL, flexDirection: "row", alignItems: "center", gap: 7 },
   demoNavText: { color: "#fff", fontWeight: "800", fontSize: 13 },

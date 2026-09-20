@@ -950,6 +950,31 @@ Enter this code on the Landlord registration page to continue. The code is valid
   // PUBLIC DEMO REQUESTS
   // =========================================================
 
+  async sendAdminDemoBookingNotification(
+    params: { id: string; firstName: string; lastName: string; email: string; role: string; demoDate: string; demoTime: string },
+  ) {
+    await this.sendMail({
+      to: this.adminEmail,
+      subject: `New TenureEx demo booking — ${params.firstName} ${params.lastName}`,
+      heading: "New demo booking",
+      greeting: "Hello TenureEx Admin,",
+      message: `
+A visitor has requested a TenureEx demo.
+
+First name: ${params.firstName}
+Last name: ${params.lastName}
+Email: ${params.email}
+Role: ${params.role}
+Preferred date: ${params.demoDate}
+Preferred time: ${params.demoTime}
+
+Please contact the visitor to confirm the demo appointment.
+      `.trim(),
+      footer: `Demo booking reference: ${params.id}`,
+    });
+    return { message: "Admin demo booking notification sent successfully." };
+  }
+
   async sendAdminDemoRequestNotification(
     params: {
       email: string;

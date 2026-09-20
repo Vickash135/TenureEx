@@ -877,6 +877,23 @@ model DemoRequest {
   @@index([requestedAt])
 }
 
+model DemoBooking {
+  id           String   @id @default(uuid())
+  firstName    String
+  lastName     String
+  email        String
+  role         String
+  demoDate     String
+  demoTime     String
+  scheduledFor DateTime
+  status       String   @default("REQUESTED")
+  createdAt    DateTime @default(now())
+
+  @@index([email])
+  @@index([scheduledFor])
+  @@index([status])
+}
+
 
 enum PropertyType {
   HOUSE
