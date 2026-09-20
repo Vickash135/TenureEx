@@ -989,12 +989,12 @@ Please contact the visitor to confirm the demo appointment.
       heading: "New demo request",
       greeting: "Hello TenureEx Admin,",
       message: `
-A new visitor has requested access to the TenureEx testing environment.
+A new visitor has requested access to TenureEx.
 
 Email:
 ${params.email}
 
-Review the request in the TenureEx Admin Portal. Approving the request will automatically email the visitor with the testing access link.
+Review the request in the TenureEx Admin Portal. Approving the request will automatically email the visitor with the TenureEx access link.
       `.trim(),
       buttonText: "Review demo request",
       buttonUrl: adminUrl,
@@ -1024,13 +1024,13 @@ Review the request in the TenureEx Admin Portal. Approving the request will auto
       message: `
 Thank you for your interest in TenureEx.
 
-Your request to access our testing environment has been approved.
+Your request to access TenureEx has been approved.
 
-TenureEx is currently in a testing and early-access period, so some features may continue to change while we improve the platform.
+You can now use the access link below to continue to TenureEx.
       `.trim(),
       buttonText: "Access TenureEx",
       buttonUrl: accessUrl,
-      footer: "This temporary access process is being used during the TenureEx testing period.",
+      footer: "Thank you for your interest in TenureEx.",
     });
 
     return { message: "Demo approval email sent successfully." };

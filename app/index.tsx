@@ -88,7 +88,7 @@ const featureCards = [
   ["wrench-clock-outline", "Maintenance coordination", "Move from tenant availability to provider selection, job progress and completion evidence."],
   ["account-group-outline", "Connected stakeholders", "Different portals, one shared operational system with permission-aware access."],
   ["file-document-check-outline", "Digital records", "Keep important workflow evidence and documents attached to the right property and user."],
-  ["chart-timeline-variant-shimmer", "Built to evolve", "TenureEx is currently in testing and continues to add automation and intelligence features."],
+  ["chart-timeline-variant-shimmer", "Built to evolve", "TenureEx continues to evolve with new automation and intelligence features."],
 ] as const;
 
 
@@ -142,9 +142,17 @@ export default function LandingPage() {
   const heroShiftB = floatB.interpolate({ inputRange: [0, 1], outputRange: [0, 18] });
 
   const scrollToSection = (id: string) => {
-    if (Platform.OS === "web" && typeof document !== "undefined") {
-      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+    if (Platform.OS !== "web" || typeof document === "undefined") return;
+
+    const target =
+      document.getElementById(id) ||
+      document.querySelector(`[data-testid="${id}"]`) ||
+      document.querySelector(`[nativeid="${id}"]`);
+
+    if (!target) return;
+
+    const top = target.getBoundingClientRect().top + window.scrollY - 76;
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
   };
 
   const openDemo = () => {
@@ -223,7 +231,7 @@ export default function LandingPage() {
             <View style={styles.heroCopy}>
               <View style={styles.testBadge}>
                 <View style={styles.liveDot} />
-                <Text style={styles.testBadgeText}>TENUREEX TESTING & EARLY ACCESS</Text>
+                <Text style={styles.testBadgeText}>TENUREEX PROPERTY PLATFORM</Text>
               </View>
               <Text style={[styles.heroTitle, compact && styles.heroTitleCompact]}>
                 Property management, connected from <Text style={styles.heroGold}>one place.</Text>
@@ -292,7 +300,7 @@ export default function LandingPage() {
           </View>
         </LinearGradient>
 
-        <View nativeID="platform" style={styles.section}>
+        <View nativeID="platform" testID="platform" style={styles.section}>
           <SectionHeading eyebrow="THE PLATFORM" title="Six connected experiences. One TenureEx ecosystem." subtitle="Each stakeholder gets a focused workspace, while the underlying property workflow stays connected across the platform." />
           <View style={styles.cardGrid}>
             {portals.map((portal, index) => (
@@ -309,7 +317,7 @@ export default function LandingPage() {
           </View>
         </View>
 
-        <View nativeID="why-tenureex" style={styles.whySection}>
+        <View nativeID="why-tenureex" testID="why-tenureex" style={styles.whySection}>
           <View style={styles.sectionNarrow}>
             <SectionHeading eyebrow="WHY TENUREEX" title="Replace scattered handoffs with a shared workflow." subtitle="Instead of relying on separate emails, calls, spreadsheets and disconnected records, TenureEx gives each role a clear place to act." />
             <View style={styles.featureGrid}>
@@ -324,7 +332,7 @@ export default function LandingPage() {
           </View>
         </View>
 
-        <LinearGradient nativeID="intelligence" colors={[NAVY_2, NAVY]} style={styles.intelligenceSection}>
+        <LinearGradient nativeID="intelligence" testID="intelligence" colors={[NAVY_2, NAVY]} style={styles.intelligenceSection}>
           <View style={styles.sectionNarrow}>
             <SectionHeading light eyebrow="AUTOMATION & INTELLIGENCE" title="A platform designed to become smarter as the workflow grows." subtitle="The TenureEx roadmap includes AI-assisted screening, compliance intelligence, predictive maintenance, remote inspection support and sustainability insights — with human review remaining central to important decisions." />
             <View style={styles.darkGrid}>
@@ -413,7 +421,7 @@ export default function LandingPage() {
           </View>
         </View>
 
-        <View nativeID="compliance" style={styles.complianceSection}>
+        <View nativeID="compliance" testID="compliance" style={styles.complianceSection}>
           <View style={styles.sectionNarrow}>
             <SectionHeading eyebrow="COMPLIANCE & PROPERTY RECORDS" title="Keep the important property information visible." subtitle="TenureEx is designed around the day-to-day records and checks that matter across UK rental property workflows." />
             <View style={styles.complianceGrid}>
@@ -429,9 +437,9 @@ export default function LandingPage() {
           </View>
         </View>
 
-        <View nativeID="pricing" style={styles.pricingSection}>
+        <View nativeID="pricing" testID="pricing" style={styles.pricingSection}>
           <View style={styles.sectionNarrow}>
-            <SectionHeading eyebrow="PRICING CONCEPT" title="Simple property-based pricing." subtitle="The original TenureEx landing-page proposal positions free property listing alongside a £10 per property / month full-platform model. During testing, final commercial terms can still change." />
+            <SectionHeading eyebrow="PRICING CONCEPT" title="Simple property-based pricing." subtitle="Choose the TenureEx option that fits your property workflow, from property listing to the connected full-platform experience." />
             <View style={styles.pricingGrid}>
               <View style={[styles.priceCard, { width: desktop ? "31.8%" : tablet ? "48%" : "100%" }]}>
                 <Text style={styles.priceTagGreen}>FREE LISTING</Text>
@@ -465,9 +473,9 @@ export default function LandingPage() {
         <LinearGradient colors={["#0A5D61", NAVY]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.ctaSection}>
           <View style={styles.ctaGlow} />
           <View style={styles.ctaContent}>
-            <View style={styles.testBadge}><View style={styles.liveDot} /><Text style={styles.testBadgeText}>LIMITED TESTING ACCESS</Text></View>
+            <View style={styles.testBadge}><View style={styles.liveDot} /><Text style={styles.testBadgeText}>TENUREEX ACCESS</Text></View>
             <Text style={styles.ctaTitle}>Want to see TenureEx before public launch?</Text>
-            <Text style={styles.ctaText}>We are currently in a testing and early-access period. Leave your email and the TenureEx team will review your request.</Text>
+            <Text style={styles.ctaText}>Request access to TenureEx. Leave your email and the TenureEx team will review your request.</Text>
             <View style={styles.ctaActions}><Pressable style={styles.primaryHeroBtn} onPress={() => router.push("/book-demo" as Href)}><Text style={styles.primaryHeroText}>Book a Demo</Text><MaterialCommunityIcons name="calendar-outline" size={20} color={NAVY} /></Pressable><Pressable style={styles.ctaAccessBtn} onPress={openDemo}><Text style={styles.ctaAccessText}>Sign Up / Login</Text><MaterialCommunityIcons name="login" size={20} color="#fff" /></Pressable></View>
           </View>
         </LinearGradient>
@@ -479,7 +487,7 @@ export default function LandingPage() {
               <Text style={styles.footerText}>A connected property-management platform for UK estate agents, landlords, tenants, maintenance providers and inspectors.</Text>
             </View>
             <View><Text style={styles.footerHeading}>Platform</Text><Text style={styles.footerLink}>Estate Agent</Text><Text style={styles.footerLink}>Landlord</Text><Text style={styles.footerLink}>Tenant</Text><Text style={styles.footerLink}>Maintenance</Text></View>
-            <View><Text style={styles.footerHeading}>Access</Text><Pressable onPress={() => router.push("/book-demo" as Href)}><Text style={styles.footerLink}>Book a Demo</Text></Pressable><Pressable onPress={openDemo}><Text style={styles.footerLink}>Sign Up / Login</Text></Pressable><Pressable onPress={() => router.push("/rent" as Href)}><Text style={styles.footerLink}>Find a Home</Text></Pressable><Text style={styles.footerLink}>Testing period</Text></View>
+            <View><Text style={styles.footerHeading}>Access</Text><Pressable onPress={() => router.push("/book-demo" as Href)}><Text style={styles.footerLink}>Book a Demo</Text></Pressable><Pressable onPress={openDemo}><Text style={styles.footerLink}>Sign Up / Login</Text></Pressable><Pressable onPress={() => router.push("/rent" as Href)}><Text style={styles.footerLink}>Find a Home</Text></Pressable><Text style={styles.footerLink}>TenureEx access</Text></View>
           </View>
           <View style={styles.footerBottom}><Text style={styles.footerLegal}>© 2026 TenureEx. All rights reserved.</Text><Text style={styles.footerLegal}>United Kingdom</Text></View>
         </View>
@@ -495,7 +503,7 @@ export default function LandingPage() {
                 <View style={styles.successIcon}><MaterialCommunityIcons name="check" size={34} color="#fff" /></View>
                 <Text style={styles.modalEyebrow}>REQUEST RECEIVED</Text>
                 <Text style={styles.modalTitle}>Your access request has been received.</Text>
-                <Text style={styles.modalText}>Your email has been sent to the TenureEx Admin team. During the testing period, access is reviewed manually. If approved, you will receive the Sign Up / Login access link by email.</Text>
+                <Text style={styles.modalText}>Your email has been sent to the TenureEx Admin team. Access requests are reviewed by the team. If approved, you will receive the Sign Up / Login access link by email.</Text>
                 <Pressable style={styles.modalDoneBtn} onPress={() => setDemoOpen(false)}><Text style={styles.modalDoneText}>Done</Text></Pressable>
               </View>
             ) : (
@@ -503,8 +511,8 @@ export default function LandingPage() {
                 <View style={styles.modalIcon}><MaterialCommunityIcons name="rocket-launch-outline" size={27} color={TEAL} /></View>
                 <Text style={styles.modalEyebrow}>TENUREEX SIGN UP / LOGIN</Text>
                 <Text style={styles.modalTitle}>Request Sign Up / Login access.</Text>
-                <Text style={styles.modalText}>TenureEx is currently in a testing period. Enter your email address and our Admin team will review your Sign Up / Login access request.</Text>
-                <View style={styles.testingNotice}><MaterialCommunityIcons name="flask-outline" size={20} color={TEAL} /><Text style={styles.testingNoticeText}>This is a temporary access process while TenureEx is in testing.</Text></View>
+                <Text style={styles.modalText}>Enter your email address and our Admin team will review your Sign Up / Login access request.</Text>
+                <View style={styles.testingNotice}><MaterialCommunityIcons name="shield-check-outline" size={20} color={TEAL} /><Text style={styles.testingNoticeText}>Access requests are reviewed by the TenureEx Admin team.</Text></View>
                 <Text style={styles.inputLabel}>Email address</Text>
                 <View style={[styles.emailInputWrap, !!error && styles.emailInputError]}>
                   <MaterialCommunityIcons name="email-outline" size={20} color="#789095" />

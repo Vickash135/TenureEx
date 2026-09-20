@@ -114,7 +114,7 @@ export default function AdminDemoRequestsScreen() {
         <Text style={styles.eyebrow}>TENUREEX ADMIN</Text>
         <Text style={styles.title}>Demo Access Requests</Text>
         <Text style={styles.subtitle}>
-          Temporary testing-period requests submitted from the public TenureEx landing website. Approving a request automatically emails the visitor with the TenureEx testing access link.
+          Access requests submitted from the public TenureEx landing website. Approving a request automatically emails the visitor with the TenureEx access link.
         </Text>
 
         <View style={styles.statsRow}>
