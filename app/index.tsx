@@ -28,14 +28,14 @@ type Portal = {
   features: string[];
 };
 
-const NAVY = "#0A2F38";
-const NAVY_2 = "#08272F";
-const TEAL = "#087C78";
-const TEAL_2 = "#1F9B96";
-const GOLD = "#C89B3C";
-const ICE = "#F3F8F8";
-const TEXT = "#123A42";
-const MUTED = "#61777D";
+const NAVY = "#0F2A5F";
+const NAVY_2 = "#071A3D";
+const TEAL = "#1D4ED8";
+const TEAL_2 = "#2563EB";
+const GOLD = "#93C5FD";
+const ICE = "#EFF6FF";
+const TEXT = "#0F172A";
+const MUTED = "#475569";
 
 const portals: Portal[] = [
   {
@@ -198,7 +198,7 @@ export default function LandingPage() {
       <ScrollView ref={scrollRef} contentContainerStyle={styles.page} stickyHeaderIndices={[0]} showsVerticalScrollIndicator={false}>
         <View style={styles.navWrap}>
           <View style={[styles.nav, !desktop && styles.navCompact]}>
-            <Pressable style={styles.brand} onPress={() => Platform.OS === "web" && typeof window !== "undefined" ? window.scrollTo({ top: 0, behavior: "smooth" }) : null}>
+            <Pressable style={styles.brand} onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}>
               <View style={styles.brandMark}><MaterialCommunityIcons name="home-city-outline" size={25} color="#fff" /></View>
               <View>
                 <Text style={styles.brandName}>TENUREEX</Text>
@@ -229,7 +229,7 @@ export default function LandingPage() {
           </View>
         </View>
 
-        <LinearGradient colors={[NAVY_2, NAVY, "#0A5D61"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+        <LinearGradient colors={[NAVY_2, NAVY, "#1D4ED8"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
           <View style={styles.heroGrid} pointerEvents="none" />
           <View style={[styles.heroInner, !desktop && styles.heroInnerStack]}>
             <View style={styles.heroCopy}>
@@ -237,26 +237,26 @@ export default function LandingPage() {
                 <View style={styles.liveDot} />
                 <Text style={styles.testBadgeText}>TENUREEX PROPERTY PLATFORM</Text>
               </View>
-              <Text style={[styles.heroTitle, compact && styles.heroTitleCompact]}>
-                Property management, connected from <Text style={styles.heroGold}>one place.</Text>
-              </Text>
+              <Text style={styles.heroKicker}>SMART PROPERTY MANAGEMENT</Text>
+              <Text style={[styles.heroTitle, compact && styles.heroTitleCompact]}>Property management.</Text>
+              <Text style={[styles.heroTitleSecond, compact && styles.heroTitleSecondCompact]}>Connected.</Text>
               <Text style={styles.heroSub}>
-                TenureEx brings estate agents, landlords, tenants, maintenance providers and council inspectors into one connected property workflow — designed for clearer communication, fewer handoffs and better visibility.
+                One platform connecting estate agents, landlords, tenants, maintenance providers and council inspectors — with every property workflow in one place.
               </Text>
               <View style={styles.heroActions}>
-                <Pressable style={styles.primaryHeroBtn} onPress={openDemo}>
-                  <Text style={styles.primaryHeroText}>Sign Up / Login</Text>
+                <Pressable style={styles.primaryHeroBtn} onPress={() => router.push("/book-demo" as Href)}>
+                  <Text style={styles.primaryHeroText}>Book a Demo</Text>
                   <MaterialCommunityIcons name="arrow-right" size={20} color={NAVY} />
                 </Pressable>
-                <Pressable style={styles.secondaryHeroBtn} onPress={() => router.push("/rent" as Href)}>
-                  <MaterialCommunityIcons name="home-search-outline" size={20} color="#fff" />
-                  <Text style={styles.secondaryHeroText}>Explore Rentals</Text>
+                <Pressable style={styles.secondaryHeroBtn} onPress={() => scrollToSection("platform")}>
+                  <MaterialCommunityIcons name="view-dashboard-outline" size={20} color="#fff" />
+                  <Text style={styles.secondaryHeroText}>Explore Platform</Text>
                 </Pressable>
               </View>
               <View style={styles.heroTrustRow}>
-                <View style={styles.heroTrust}><MaterialCommunityIcons name="shield-lock-outline" size={18} color="#8BD9D5" /><Text style={styles.heroTrustText}>Role-based access</Text></View>
-                <View style={styles.heroTrust}><MaterialCommunityIcons name="database-outline" size={18} color="#8BD9D5" /><Text style={styles.heroTrustText}>Connected records</Text></View>
-                <View style={styles.heroTrust}><MaterialCommunityIcons name="map-marker-outline" size={18} color="#8BD9D5" /><Text style={styles.heroTrustText}>Built for UK workflows</Text></View>
+                <View style={styles.heroTrust}><MaterialCommunityIcons name="shield-lock-outline" size={18} color="#BFDBFE" /><Text style={styles.heroTrustText}>Role-based access</Text></View>
+                <View style={styles.heroTrust}><MaterialCommunityIcons name="database-outline" size={18} color="#BFDBFE" /><Text style={styles.heroTrustText}>Connected records</Text></View>
+                <View style={styles.heroTrust}><MaterialCommunityIcons name="map-marker-outline" size={18} color="#BFDBFE" /><Text style={styles.heroTrustText}>Built for UK workflows</Text></View>
               </View>
             </View>
 
@@ -270,7 +270,7 @@ export default function LandingPage() {
                 <View style={styles.mockBody}>
                   <View style={styles.mockSidebar}>
                     {["view-dashboard-outline", "home-outline", "account-group-outline", "tools", "clipboard-check-outline"].map((icon, i) => (
-                      <View key={icon} style={[styles.mockSideItem, i === 0 && styles.mockSideActive]}><MaterialCommunityIcons name={icon as IconName} size={16} color={i === 0 ? "#fff" : "#7CA0A6"} /></View>
+                      <View key={icon} style={[styles.mockSideItem, i === 0 && styles.mockSideActive]}><MaterialCommunityIcons name={icon as IconName} size={16} color={i === 0 ? "#fff" : "#94A3B8"} /></View>
                     ))}
                   </View>
                   <View style={styles.mockContent}>
@@ -401,7 +401,7 @@ export default function LandingPage() {
           <View style={styles.sectionNarrow}>
             <SectionHeading eyebrow="ESG & CARBON" title="Digital property operations can reduce unnecessary travel." subtitle="The original TenureEx proposal also explores carbon tracking as an ESG feature, including estimated savings from fewer property-viewing journeys." />
             <View style={[styles.twoCol, !desktop && styles.twoColStack]}>
-              <LinearGradient colors={[NAVY, "#0B5F63"]} style={styles.carbonFeature}>
+              <LinearGradient colors={[NAVY, "#1D4ED8"]} style={styles.carbonFeature}>
                 <Text style={styles.carbonKicker}>ILLUSTRATIVE 150-PROPERTY AGENCY</Text>
                 <Text style={styles.carbonBig}>≈ 4.1 tonnes</Text>
                 <Text style={styles.carbonBigSub}>combined CO₂ reduction / year</Text>
@@ -450,7 +450,7 @@ export default function LandingPage() {
                 <Text style={styles.priceName}>Marketplace</Text>
                 <View style={styles.priceRow}><Text style={styles.priceAmountGreen}>£0</Text><Text style={styles.pricePeriod}> / listing</Text></View>
                 <Text style={styles.priceDescription}>Property listing and rental discovery concept with no listing charge.</Text>
-                {["List approved properties", "Receive tenant enquiries", "Move into TenureEx workflows"].map((x) => <View key={x} style={styles.priceFeature}><MaterialCommunityIcons name="check" size={17} color="#198754" /><Text style={styles.priceFeatureText}>{x}</Text></View>)}
+                {["List approved properties", "Receive tenant enquiries", "Move into TenureEx workflows"].map((x) => <View key={x} style={styles.priceFeature}><MaterialCommunityIcons name="check" size={17} color={TEAL} /><Text style={styles.priceFeatureText}>{x}</Text></View>)}
                 <Pressable style={styles.priceOutlineBtn} onPress={openDemo}><Text style={styles.priceOutlineText}>Sign Up / Login</Text></Pressable>
               </View>
               <View style={[styles.priceCard, styles.priceFeatured, { width: desktop ? "31.8%" : tablet ? "48%" : "100%" }]}>
@@ -458,7 +458,7 @@ export default function LandingPage() {
                 <Text style={styles.priceNameLight}>Estate Agent</Text>
                 <View style={styles.priceRow}><Text style={styles.priceAmountGold}>£10</Text><Text style={styles.pricePeriodLight}> / property / month</Text></View>
                 <Text style={styles.priceDescriptionLight}>Connected portals, property workflows, maintenance and operational visibility.</Text>
-                {["Estate Agent workspace", "Landlord & Tenant portals", "Maintenance workflow", "Council / inspection workflow"].map((x) => <View key={x} style={styles.priceFeature}><MaterialCommunityIcons name="check" size={17} color="#E0B958" /><Text style={styles.priceFeatureTextLight}>{x}</Text></View>)}
+                {["Estate Agent workspace", "Landlord & Tenant portals", "Maintenance workflow", "Council / inspection workflow"].map((x) => <View key={x} style={styles.priceFeature}><MaterialCommunityIcons name="check" size={17} color="#93C5FD" /><Text style={styles.priceFeatureTextLight}>{x}</Text></View>)}
                 <Pressable style={styles.priceGoldBtn} onPress={() => router.push("/book-demo" as Href)}><Text style={styles.priceGoldText}>Book a Demo</Text></Pressable>
                 <Pressable style={styles.priceOutlineLightBtn} onPress={openDemo}><Text style={styles.priceOutlineLightText}>Sign Up / Login</Text></Pressable>
               </View>
@@ -474,13 +474,13 @@ export default function LandingPage() {
           </View>
         </View>
 
-        <LinearGradient colors={["#0A5D61", NAVY]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.ctaSection}>
+        <LinearGradient colors={["#1D4ED8", NAVY]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.ctaSection}>
           <View style={styles.ctaGlow} />
           <View style={styles.ctaContent}>
             <View style={styles.testBadge}><View style={styles.liveDot} /><Text style={styles.testBadgeText}>TENUREEX ACCESS</Text></View>
-            <Text style={styles.ctaTitle}>Want to see TenureEx before public launch?</Text>
+            <Text style={styles.ctaTitle}>Ready to experience TenureEx?</Text>
             <Text style={styles.ctaText}>Request access to TenureEx. Leave your email and the TenureEx team will review your request.</Text>
-            <View style={styles.ctaActions}><Pressable style={styles.primaryHeroBtn} onPress={() => router.push("/book-demo" as Href)}><Text style={styles.primaryHeroText}>Book a Demo</Text><MaterialCommunityIcons name="calendar-outline" size={20} color={NAVY} /></Pressable><Pressable style={styles.ctaAccessBtn} onPress={openDemo}><Text style={styles.ctaAccessText}>Sign Up / Login</Text><MaterialCommunityIcons name="login" size={20} color="#fff" /></Pressable></View>
+            <View style={styles.ctaActions}><Pressable style={styles.primaryHeroBtn} onPress={() => router.push("/book-demo" as Href)}><Text style={styles.primaryHeroText}>Book a Demo</Text><MaterialCommunityIcons name="calendar-outline" size={20} color="#fff" /></Pressable><Pressable style={styles.ctaAccessBtn} onPress={openDemo}><Text style={styles.ctaAccessText}>Sign Up / Login</Text><MaterialCommunityIcons name="login" size={20} color="#fff" /></Pressable></View>
           </View>
         </LinearGradient>
 
@@ -539,15 +539,15 @@ export default function LandingPage() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#fff" },
   page: { backgroundColor: "#fff" },
-  navWrap: { backgroundColor: "rgba(255,255,255,0.98)", borderBottomWidth: 1, borderBottomColor: "#E2EBEC", zIndex: 100 },
+  navWrap: { backgroundColor: "rgba(255,255,255,0.98)", borderBottomWidth: 1, borderBottomColor: "#DBEAFE", zIndex: 100 },
   nav: { minHeight: 76, width: "100%", maxWidth: 1240, alignSelf: "center", paddingHorizontal: 28, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 24 },
   navCompact: { paddingHorizontal: 16, minHeight: 70 },
   brand: { flexDirection: "row", alignItems: "center", gap: 10 },
   brandMark: { width: 40, height: 40, borderRadius: 12, backgroundColor: TEAL, alignItems: "center", justifyContent: "center" },
   brandName: { color: NAVY, fontSize: 18, fontWeight: "900", letterSpacing: 1.5 },
-  brandSub: { marginTop: 1, color: "#759095", fontSize: 8, fontWeight: "800", letterSpacing: 1.5 },
+  brandSub: { marginTop: 1, color: "#64748B", fontSize: 8, fontWeight: "800", letterSpacing: 1.5 },
   navLinks: { flexDirection: "row", alignItems: "center", gap: 18 },
-  navLink: { color: "#4D686E", fontSize: 12, fontWeight: "700" },
+  navLink: { color: "#334155", fontSize: 12, fontWeight: "700" },
   navActions: { flexDirection: "row", alignItems: "center", gap: 10 },
   demoNavBtn: { minHeight: 43, paddingHorizontal: 17, borderRadius: 11, backgroundColor: TEAL, flexDirection: "row", alignItems: "center", gap: 7 },
   demoNavText: { color: "#fff", fontWeight: "800", fontSize: 13 },
@@ -558,16 +558,19 @@ const styles = StyleSheet.create({
   heroInner: { width: "100%", maxWidth: 1240, alignSelf: "center", minHeight: 600, paddingHorizontal: 28, paddingBottom: 56, flexDirection: "row", alignItems: "center", gap: 48 },
   heroInnerStack: { flexDirection: "column", alignItems: "stretch", paddingHorizontal: 20, paddingTop: 24 },
   heroCopy: { flex: 1.02, zIndex: 3 },
-  testBadge: { alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: "rgba(200,155,60,0.46)", backgroundColor: "rgba(200,155,60,0.12)", flexDirection: "row", alignItems: "center", gap: 7 },
+  heroKicker: { color: "#BFDBFE", fontSize: 12, fontWeight: "900", letterSpacing: 2.1, marginTop: 18, marginBottom: 14 },
+  heroTitleSecond: { marginTop: -8, color: "#93C5FD", fontSize: 64, lineHeight: 68, fontWeight: "500", letterSpacing: -2.4, maxWidth: 720 },
+  heroTitleSecondCompact: { fontSize: 42, lineHeight: 46, letterSpacing: -1.2, marginTop: -4 },
+  testBadge: { alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: "rgba(147,197,253,0.46)", backgroundColor: "rgba(37,99,235,0.16)", flexDirection: "row", alignItems: "center", gap: 7 },
   liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: GOLD },
   testBadgeText: { color: "#E8C16C", fontSize: 10, fontWeight: "900", letterSpacing: 1.1 },
-  heroTitle: { marginTop: 24, color: "#fff", fontSize: 56, lineHeight: 62, fontWeight: "900", letterSpacing: -1.8, maxWidth: 680 },
+  heroTitle: { marginTop: 24, color: "#fff", fontSize: 56, lineHeight: 62, fontWeight: "500", letterSpacing: -2.2, maxWidth: 720 },
   heroTitleCompact: { fontSize: 38, lineHeight: 44, letterSpacing: -1 },
-  heroGold: { color: "#E1B958" },
-  heroSub: { marginTop: 22, maxWidth: 650, color: "#C7D8DA", fontSize: 17, lineHeight: 28 },
+  heroGold: { color: "#93C5FD" },
+  heroSub: { marginTop: 22, maxWidth: 650, color: "#DBEAFE", fontSize: 17, lineHeight: 28 },
   heroActions: { marginTop: 30, flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  primaryHeroBtn: { minHeight: 52, paddingHorizontal: 21, borderRadius: 13, backgroundColor: "#D7AE50", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-  primaryHeroText: { color: NAVY, fontSize: 14, fontWeight: "900" },
+  primaryHeroBtn: { minHeight: 52, paddingHorizontal: 21, borderRadius: 13, backgroundColor: TEAL_2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  primaryHeroText: { color: "#fff", fontSize: 14, fontWeight: "900" },
   secondaryHeroBtn: { minHeight: 52, paddingHorizontal: 20, borderRadius: 13, borderWidth: 1, borderColor: "rgba(255,255,255,0.24)", backgroundColor: "rgba(255,255,255,0.07)", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   secondaryHeroText: { color: "#fff", fontSize: 14, fontWeight: "800" },
   heroTrustRow: { marginTop: 27, flexDirection: "row", flexWrap: "wrap", gap: 18 },
@@ -575,7 +578,7 @@ const styles = StyleSheet.create({
   heroTrustText: { color: "#AFC6C9", fontSize: 11, fontWeight: "600" },
   heroVisual: { flex: 0.98, minHeight: 500, alignItems: "center", justifyContent: "center", position: "relative" },
   heroVisualMobile: { width: "100%", minHeight: 410 },
-  glowOrb: { position: "absolute", width: 330, height: 330, borderRadius: 180, backgroundColor: "rgba(57,201,195,0.14)" },
+  glowOrb: { position: "absolute", width: 330, height: 330, borderRadius: 180, backgroundColor: "rgba(96,165,250,0.18)" },
   dashboardMock: { width: "92%", maxWidth: 520, minHeight: 350, borderRadius: 23, backgroundColor: "#F8FBFB", shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 32, shadowOffset: { width: 0, height: 18 }, elevation: 16, overflow: "hidden", borderWidth: 1, borderColor: "rgba(255,255,255,0.5)" },
   mockTopbar: { height: 55, paddingHorizontal: 17, backgroundColor: "#fff", flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: "#E5ECEC" },
   mockLogoRow: { flexDirection: "row", alignItems: "center", gap: 7 },
@@ -612,13 +615,13 @@ const styles = StyleSheet.create({
   floatSub: { marginTop: 2, color: "#809296", fontSize: 7 },
   statsBar: { width: "100%", borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.12)", backgroundColor: "rgba(0,0,0,0.08)", paddingVertical: 20, paddingHorizontal: 20, flexDirection: "row", flexWrap: "wrap", justifyContent: "center" },
   stat: { minWidth: 180, paddingHorizontal: 28, paddingVertical: 8, alignItems: "center", borderRightWidth: 1, borderRightColor: "rgba(255,255,255,0.10)" },
-  statValueHero: { color: "#E2B958", fontSize: 25, fontWeight: "900" },
+  statValueHero: { color: "#93C5FD", fontSize: 25, fontWeight: "900" },
   statLabelHero: { marginTop: 3, color: "#B7CBCE", fontSize: 10, fontWeight: "700" },
   section: { paddingVertical: 88, paddingHorizontal: 20, backgroundColor: "#fff" },
   sectionNarrow: { width: "100%", maxWidth: 1200, alignSelf: "center" },
   headingWrap: { width: "100%", maxWidth: 760, alignSelf: "center", alignItems: "center", marginBottom: 44 },
   eyebrow: { color: TEAL, fontSize: 11, fontWeight: "900", letterSpacing: 1.8, textAlign: "center" },
-  eyebrowLight: { color: "#E2B958" },
+  eyebrowLight: { color: "#93C5FD" },
   sectionTitle: { marginTop: 10, color: NAVY, fontSize: 36, lineHeight: 43, fontWeight: "900", letterSpacing: -0.8, textAlign: "center" },
   sectionSubtitle: { marginTop: 13, color: MUTED, fontSize: 15, lineHeight: 25, textAlign: "center", maxWidth: 720 },
   lightText: { color: "#fff" },
@@ -652,7 +655,7 @@ const styles = StyleSheet.create({
   panelHeading: { marginTop: 7, marginBottom: 18, color: TEXT, fontSize: 20, lineHeight: 26, fontWeight: "900" },
   funnelRow: { minHeight: 40, flexDirection: "row", alignItems: "center", gap: 9 },
   funnelValue: { width: 42 },
-  funnelValueText: { color: NAVY, fontSize: 14, fontWeight: "900" },
+  funnelValueText: { color: "#fff", fontSize: 14, fontWeight: "900" },
   funnelTrack: { width: "36%", maxWidth: 180, height: 9, borderRadius: 999, backgroundColor: "#DCE8E8", overflow: "hidden" },
   funnelFill: { height: "100%", borderRadius: 999, backgroundColor: TEAL_2 },
   funnelLabel: { flex: 1, color: "#60777C", fontSize: 11, fontWeight: "600" },
@@ -664,8 +667,8 @@ const styles = StyleSheet.create({
   benefitText: { marginTop: 4, color: MUTED, fontSize: 11, lineHeight: 18 },
   carbonSection: { paddingVertical: 88, paddingHorizontal: 20, backgroundColor: ICE },
   carbonFeature: { flex: 1, borderRadius: 20, padding: 25, overflow: "hidden" },
-  carbonKicker: { color: "#8BD9D5", fontSize: 9, fontWeight: "900", letterSpacing: 1.2 },
-  carbonBig: { marginTop: 15, color: "#E2B958", fontSize: 40, fontWeight: "900", letterSpacing: -1 },
+  carbonKicker: { color: "#BFDBFE", fontSize: 9, fontWeight: "900", letterSpacing: 1.2 },
+  carbonBig: { marginTop: 15, color: "#93C5FD", fontSize: 40, fontWeight: "900", letterSpacing: -1 },
   carbonBigSub: { color: "#C1D4D6", fontSize: 12, fontWeight: "700" },
   carbonDivider: { marginVertical: 21, height: 1, backgroundColor: "rgba(255,255,255,0.13)" },
   carbonMetric: { paddingVertical: 9, flexDirection: "row", justifyContent: "space-between", gap: 10 },
@@ -680,13 +683,13 @@ const styles = StyleSheet.create({
   priceCard: { padding: 24, borderRadius: 20, backgroundColor: "#fff", borderWidth: 1, borderColor: "#DCE8E9" },
   priceFeatured: { backgroundColor: NAVY, borderColor: NAVY },
   priceTag: { color: TEAL, fontSize: 9, fontWeight: "900", letterSpacing: 1.3 },
-  priceTagGreen: { color: "#198754", fontSize: 9, fontWeight: "900", letterSpacing: 1.3 },
-  priceTagGold: { color: "#E2B958", fontSize: 9, fontWeight: "900", letterSpacing: 1.3 },
+  priceTagGreen: { color: "#2563EB", fontSize: 9, fontWeight: "900", letterSpacing: 1.3 },
+  priceTagGold: { color: "#93C5FD", fontSize: 9, fontWeight: "900", letterSpacing: 1.3 },
   priceName: { marginTop: 8, color: TEXT, fontSize: 21, fontWeight: "900" },
   priceNameLight: { marginTop: 8, color: "#fff", fontSize: 21, fontWeight: "900" },
   priceRow: { marginTop: 16, flexDirection: "row", alignItems: "flex-end" },
-  priceAmountGreen: { color: "#198754", fontSize: 36, fontWeight: "900" },
-  priceAmountGold: { color: "#E2B958", fontSize: 36, fontWeight: "900" },
+  priceAmountGreen: { color: "#2563EB", fontSize: 36, fontWeight: "900" },
+  priceAmountGold: { color: "#93C5FD", fontSize: 36, fontWeight: "900" },
   pricePeriod: { paddingBottom: 6, color: "#7B9095", fontSize: 10, fontWeight: "700" },
   pricePeriodLight: { paddingBottom: 6, color: "#ACC2C5", fontSize: 10, fontWeight: "700" },
   roadmapLabel: { marginTop: 16, color: TEAL, fontSize: 11, fontWeight: "900" },
@@ -697,14 +700,14 @@ const styles = StyleSheet.create({
   priceFeatureTextLight: { color: "#D0DDDF", fontSize: 11, fontWeight: "600" },
   priceOutlineBtn: { marginTop: 23, minHeight: 46, borderRadius: 12, borderWidth: 1.5, borderColor: TEAL, alignItems: "center", justifyContent: "center" },
   priceOutlineText: { color: TEAL, fontSize: 12, fontWeight: "900" },
-  priceGoldBtn: { marginTop: 23, minHeight: 46, borderRadius: 12, backgroundColor: "#D7AE50", alignItems: "center", justifyContent: "center" },
-  priceGoldText: { color: NAVY, fontSize: 12, fontWeight: "900" },
-  priceOutlineLightBtn: { marginTop: 10, minHeight: 46, borderRadius: 12, borderWidth: 1.5, borderColor: "#D7AE50", alignItems: "center", justifyContent: "center" },
-  priceOutlineLightText: { color: "#E2B958", fontSize: 12, fontWeight: "900" },
+  priceGoldBtn: { marginTop: 23, minHeight: 46, borderRadius: 12, backgroundColor: TEAL_2, alignItems: "center", justifyContent: "center" },
+  priceGoldText: { color: "#fff", fontSize: 12, fontWeight: "900" },
+  priceOutlineLightBtn: { marginTop: 10, minHeight: 46, borderRadius: 12, borderWidth: 1.5, borderColor: "#2563EB", alignItems: "center", justifyContent: "center" },
+  priceOutlineLightText: { color: "#93C5FD", fontSize: 12, fontWeight: "900" },
   complianceSection: { paddingVertical: 82, paddingHorizontal: 20, backgroundColor: "#fff" },
   complianceGrid: { flexDirection: "row", flexWrap: "wrap", gap: 14, justifyContent: "center" },
-  complianceItem: { minWidth: 160, flexGrow: 1, maxWidth: 190, padding: 18, borderRadius: 16, alignItems: "center", backgroundColor: ICE, borderWidth: 1, borderColor: "#DFEAEB" },
-  complianceIcon: { width: 44, height: 44, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: "#E5F4F3" },
+  complianceItem: { minWidth: 160, flexGrow: 1, maxWidth: 190, padding: 18, borderRadius: 16, alignItems: "center", backgroundColor: ICE, borderWidth: 1, borderColor: "#DBEAFE" },
+  complianceIcon: { width: 44, height: 44, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: "#DBEAFE" },
   complianceTitle: { marginTop: 11, color: TEXT, fontSize: 12, fontWeight: "800", textAlign: "center" },
   ctaSection: { paddingVertical: 82, paddingHorizontal: 20, overflow: "hidden", alignItems: "center" },
   ctaGlow: { position: "absolute", width: 420, height: 420, borderRadius: 220, backgroundColor: "rgba(49,193,187,0.10)", right: -80, top: -150 },
