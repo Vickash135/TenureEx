@@ -116,6 +116,8 @@ export default function LandingPage() {
 
   const floatA = useRef(new Animated.Value(0)).current;
   const floatB = useRef(new Animated.Value(0)).current;
+  const scrollRef = useRef<ScrollView>(null);
+  const sectionPositions = useRef<Record<string, number>>({});
 
   useEffect(() => {
     const a = Animated.loop(
@@ -141,18 +143,20 @@ export default function LandingPage() {
   const heroShiftA = floatA.interpolate({ inputRange: [0, 1], outputRange: [0, -14] });
   const heroShiftB = floatB.interpolate({ inputRange: [0, 1], outputRange: [0, 18] });
 
+  const rememberSection = (id: string, y: number) => {
+    sectionPositions.current[id] = y;
+  };
+
   const scrollToSection = (id: string) => {
-    if (Platform.OS !== "web" || typeof document === "undefined") return;
+    const y = sectionPositions.current[id];
+    if (typeof y !== "number") return;
 
-    const target =
-      document.getElementById(id) ||
-      document.querySelector(`[data-testid="${id}"]`) ||
-      document.querySelector(`[nativeid="${id}"]`);
-
-    if (!target) return;
-
-    const top = target.getBoundingClientRect().top + window.scrollY - 76;
-    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    // The page itself is a React Native ScrollView, so scroll that container
+    // instead of the browser window. Subtract the sticky navigation height.
+    scrollRef.current?.scrollTo({
+      y: Math.max(0, y - 76),
+      animated: true,
+    });
   };
 
   const openDemo = () => {
@@ -191,7 +195,7 @@ export default function LandingPage() {
 
   return (
     <View style={styles.root}>
-      <ScrollView contentContainerStyle={styles.page} stickyHeaderIndices={[0]} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.page} stickyHeaderIndices={[0]} showsVerticalScrollIndicator={false}>
         <View style={styles.navWrap}>
           <View style={[styles.nav, !desktop && styles.navCompact]}>
             <Pressable style={styles.brand} onPress={() => Platform.OS === "web" && typeof window !== "undefined" ? window.scrollTo({ top: 0, behavior: "smooth" }) : null}>
@@ -300,7 +304,7 @@ export default function LandingPage() {
           </View>
         </LinearGradient>
 
-        <View nativeID="platform" testID="platform" style={styles.section}>
+        <View nativeID="platform" testID="platform" style={styles.section} onLayout={(event) => rememberSection("platform", event.nativeEvent.layout.y)}>
           <SectionHeading eyebrow="THE PLATFORM" title="Six connected experiences. One TenureEx ecosystem." subtitle="Each stakeholder gets a focused workspace, while the underlying property workflow stays connected across the platform." />
           <View style={styles.cardGrid}>
             {portals.map((portal, index) => (
@@ -317,7 +321,7 @@ export default function LandingPage() {
           </View>
         </View>
 
-        <View nativeID="why-tenureex" testID="why-tenureex" style={styles.whySection}>
+        <View nativeID="why-tenureex" testID="why-tenureex" style={styles.whySection} onLayout={(event) => rememberSection("why-tenureex", event.nativeEvent.layout.y)}>
           <View style={styles.sectionNarrow}>
             <SectionHeading eyebrow="WHY TENUREEX" title="Replace scattered handoffs with a shared workflow." subtitle="Instead of relying on separate emails, calls, spreadsheets and disconnected records, TenureEx gives each role a clear place to act." />
             <View style={styles.featureGrid}>
@@ -332,7 +336,7 @@ export default function LandingPage() {
           </View>
         </View>
 
-        <LinearGradient nativeID="intelligence" testID="intelligence" colors={[NAVY_2, NAVY]} style={styles.intelligenceSection}>
+        <LinearGradient nativeID="intelligence" testID="intelligence" colors={[NAVY_2, NAVY]} style={styles.intelligenceSection} onLayout={(event) => rememberSection("intelligence", event.nativeEvent.layout.y)}>
           <View style={styles.sectionNarrow}>
             <SectionHeading light eyebrow="AUTOMATION & INTELLIGENCE" title="A platform designed to become smarter as the workflow grows." subtitle="The TenureEx roadmap includes AI-assisted screening, compliance intelligence, predictive maintenance, remote inspection support and sustainability insights — with human review remaining central to important decisions." />
             <View style={styles.darkGrid}>
@@ -421,7 +425,7 @@ export default function LandingPage() {
           </View>
         </View>
 
-        <View nativeID="compliance" testID="compliance" style={styles.complianceSection}>
+        <View nativeID="compliance" testID="compliance" style={styles.complianceSection} onLayout={(event) => rememberSection("compliance", event.nativeEvent.layout.y)}>
           <View style={styles.sectionNarrow}>
             <SectionHeading eyebrow="COMPLIANCE & PROPERTY RECORDS" title="Keep the important property information visible." subtitle="TenureEx is designed around the day-to-day records and checks that matter across UK rental property workflows." />
             <View style={styles.complianceGrid}>
@@ -437,7 +441,7 @@ export default function LandingPage() {
           </View>
         </View>
 
-        <View nativeID="pricing" testID="pricing" style={styles.pricingSection}>
+        <View nativeID="pricing" testID="pricing" style={styles.pricingSection} onLayout={(event) => rememberSection("pricing", event.nativeEvent.layout.y)}>
           <View style={styles.sectionNarrow}>
             <SectionHeading eyebrow="PRICING CONCEPT" title="Simple property-based pricing." subtitle="Choose the TenureEx option that fits your property workflow, from property listing to the connected full-platform experience." />
             <View style={styles.pricingGrid}>
