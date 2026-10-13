@@ -52,3 +52,5 @@ backend/.env
 backend/.env.*
 # User uploaded files
 backend/uploads/
+
+/backend/certs/
