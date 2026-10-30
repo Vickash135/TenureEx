@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import {
     Image,
     Pressable,
@@ -24,6 +24,7 @@ import {
     Switch
 } from "react-native-paper";
 
+import { api } from "../../src/api/client";
 import ScreenContainer from "../../src/components/ScreenContainer";
 import {
     colors,
@@ -92,6 +93,8 @@ type Property = {
     description: string;
     image: string;
     agentName: string;
+    contactEmail?: string;
+    contactPhone?: string;
     verified: boolean;
 };
 
@@ -152,375 +155,48 @@ const sortOptions: SortOption[] = [
     "Available soonest",
 ];
 
-const properties: Property[] = [
-    {
-        id: "PROP-001",
-        title: "Modern Two-Bedroom City Apartment",
-        address: "42 King Street",
-        city: "Leeds",
-        postcode: "LS1 2HQ",
 
-        monthlyRent: 1325,
-        deposit: 1528,
-
-        propertyType: "Flat",
-        furnishing: "Furnished",
-
-        bedrooms: 2,
-        bathrooms: 2,
-        kitchens: 1,
-        receptionRooms: 1,
-
-        availableDate: "15 August 2026",
-        availableTimestamp: new Date(
-            "2026-08-15",
-        ).getTime(),
-
-        petsAllowed: true,
-        parking: true,
-        garden: false,
-        billsIncluded: false,
-        accessible: true,
-        nearPublicTransport: true,
-
-        epcRating: "B",
-        councilTaxBand: "C",
-
-        matchScore: 97,
-
-        matchedRequirements: [
-            "Within your monthly budget",
-            "Preferred location",
-            "Correct number of bedrooms",
-            "Correct number of bathrooms",
-            "Pets are accepted",
-            "Parking is available",
-            "Close to public transport",
-            "Accessibility features available",
-        ],
-
-        unmatchedRequirements: [
-            "No private garden",
-            "Bills are not included",
-        ],
-
-        description:
-            "A bright and modern city apartment with two spacious bedrooms, two bathrooms, secure parking and excellent access to public transport.",
-
-        image:
-            "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80",
-
-        agentName: "TenureEx Leeds",
-        verified: true,
-    },
-
-    {
-        id: "PROP-002",
-        title: "Three-Bedroom Family Home",
-        address: "18 Victoria Road",
-        city: "Manchester",
-        postcode: "M14 6BT",
-
-        monthlyRent: 1450,
-        deposit: 1673,
-
-        propertyType: "House",
-        furnishing: "Part-furnished",
-
-        bedrooms: 3,
-        bathrooms: 2,
-        kitchens: 1,
-        receptionRooms: 2,
-
-        availableDate: "1 September 2026",
-        availableTimestamp: new Date(
-            "2026-09-01",
-        ).getTime(),
-
-        petsAllowed: true,
-        parking: true,
-        garden: true,
-        billsIncluded: false,
-        accessible: false,
-        nearPublicTransport: true,
-
-        epcRating: "C",
-        councilTaxBand: "D",
-
-        matchScore: 93,
-
-        matchedRequirements: [
-            "Within your monthly budget",
-            "Suitable household occupancy",
-            "More than the required bedrooms",
-            "Correct number of bathrooms",
-            "Pets are accepted",
-            "Private parking",
-            "Private garden",
-            "Close to public transport",
-        ],
-
-        unmatchedRequirements: [
-            "Limited accessibility features",
-            "Bills are not included",
-        ],
-
-        description:
-            "A spacious family property with three bedrooms, two reception rooms, private garden and off-street parking.",
-
-        image:
-            "https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=1200&q=80",
-
-        agentName: "TenureEx Manchester",
-        verified: true,
-    },
-
-    {
-        id: "PROP-003",
-        title: "City Centre One-Bedroom Flat",
-        address: "91 High Street",
-        city: "Birmingham",
-        postcode: "B4 7SL",
-
-        monthlyRent: 1100,
-        deposit: 1269,
-
-        propertyType: "Flat",
-        furnishing: "Furnished",
-
-        bedrooms: 1,
-        bathrooms: 1,
-        kitchens: 1,
-        receptionRooms: 1,
-
-        availableDate: "5 August 2026",
-        availableTimestamp: new Date(
-            "2026-08-05",
-        ).getTime(),
-
-        petsAllowed: false,
-        parking: false,
-        garden: false,
-        billsIncluded: true,
-        accessible: true,
-        nearPublicTransport: true,
-
-        epcRating: "B",
-        councilTaxBand: "B",
-
-        matchScore: 86,
-
-        matchedRequirements: [
-            "Below your maximum monthly rent",
-            "Furnished",
-            "Bills are included",
-            "Accessible entrance",
-            "Close to public transport",
-            "Available soon",
-        ],
-
-        unmatchedRequirements: [
-            "Pets are not accepted",
-            "No allocated parking",
-            "No private garden",
-        ],
-
-        description:
-            "A furnished city-centre flat with an open-plan living area, excellent transport connections and selected bills included.",
-
-        image:
-            "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1200&q=80",
-
-        agentName: "TenureEx Birmingham",
-        verified: true,
-    },
-
-    {
-        id: "PROP-004",
-        title: "Accessible Two-Bedroom Bungalow",
-        address: "7 Meadow Close",
-        city: "Sheffield",
-        postcode: "S11 8RT",
-
-        monthlyRent: 1250,
-        deposit: 1442,
-
-        propertyType: "Bungalow",
-        furnishing: "Unfurnished",
-
-        bedrooms: 2,
-        bathrooms: 1,
-        kitchens: 1,
-        receptionRooms: 1,
-
-        availableDate: "20 August 2026",
-        availableTimestamp: new Date(
-            "2026-08-20",
-        ).getTime(),
-
-        petsAllowed: true,
-        parking: true,
-        garden: true,
-        billsIncluded: false,
-        accessible: true,
-        nearPublicTransport: false,
-
-        epcRating: "C",
-        councilTaxBand: "C",
-
-        matchScore: 91,
-
-        matchedRequirements: [
-            "Within your monthly budget",
-            "Correct number of bedrooms",
-            "Pets are accepted",
-            "Private parking",
-            "Private garden",
-            "Step-free access",
-            "Accessible bathroom",
-        ],
-
-        unmatchedRequirements: [
-            "Not close to the preferred area",
-            "Limited public transport nearby",
-            "Bills are not included",
-        ],
-
-        description:
-            "A well-presented accessible bungalow with step-free access, a private garden, parking and a modern accessible bathroom.",
-
-        image:
-            "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=1200&q=80",
-
-        agentName: "TenureEx Sheffield",
-        verified: true,
-    },
-
-    {
-        id: "PROP-005",
-        title: "Luxury Riverside Apartment",
-        address: "12 Riverside Walk",
-        city: "Leeds",
-        postcode: "LS10 1PL",
-
-        monthlyRent: 1750,
-        deposit: 2019,
-
-        propertyType: "Flat",
-        furnishing: "Furnished",
-
-        bedrooms: 2,
-        bathrooms: 2,
-        kitchens: 1,
-        receptionRooms: 1,
-
-        availableDate: "10 September 2026",
-        availableTimestamp: new Date(
-            "2026-09-10",
-        ).getTime(),
-
-        petsAllowed: false,
-        parking: true,
-        garden: false,
-        billsIncluded: true,
-        accessible: true,
-        nearPublicTransport: true,
-
-        epcRating: "A",
-        councilTaxBand: "E",
-
-        matchScore: 82,
-
-        matchedRequirements: [
-            "Preferred city",
-            "Correct number of bedrooms",
-            "Correct number of bathrooms",
-            "Allocated parking",
-            "Bills are included",
-            "Close to public transport",
-            "Excellent EPC rating",
-        ],
-
-        unmatchedRequirements: [
-            "Above your preferred monthly budget",
-            "Pets are not accepted",
-            "No private garden",
-        ],
-
-        description:
-            "A premium riverside apartment with concierge service, secure allocated parking, modern furnishings and excellent energy efficiency.",
-
-        image:
-            "https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=1200&q=80",
-
-        agentName: "TenureEx Leeds",
-        verified: true,
-    },
-
-    {
-        id: "PROP-006",
-        title: "Affordable Furnished Studio",
-        address: "25 New Market Lane",
-        city: "Leeds",
-        postcode: "LS2 7HH",
-
-        monthlyRent: 850,
-        deposit: 980,
-
-        propertyType: "Studio",
-        furnishing: "Furnished",
-
-        bedrooms: 0,
-        bathrooms: 1,
-        kitchens: 1,
-        receptionRooms: 0,
-
-        availableDate: "30 July 2026",
-        availableTimestamp: new Date(
-            "2026-07-30",
-        ).getTime(),
-
-        petsAllowed: false,
-        parking: false,
-        garden: false,
-        billsIncluded: true,
-        accessible: false,
-        nearPublicTransport: true,
-
-        epcRating: "C",
-        councilTaxBand: "A",
-
-        matchScore: 74,
-
-        matchedRequirements: [
-            "Well below your monthly budget",
-            "Preferred city",
-            "Furnished",
-            "Bills are included",
-            "Close to public transport",
-            "Available immediately",
-        ],
-
-        unmatchedRequirements: [
-            "Does not meet bedroom preference",
-            "Pets are not accepted",
-            "No parking",
-            "No garden",
-        ],
-
-        description:
-            "A compact furnished studio suitable for one person, located close to the city centre and major transport links.",
-
-        image:
-            "https://images.unsplash.com/photo-1536376072261-38c75010e6c9?auto=format&fit=crop&w=1200&q=80",
-
-        agentName: "TenureEx Leeds",
-        verified: true,
-    },
-];
+function resolveListingPhoto(photoUrl: string): string {
+    if (/^https?:\/\//i.test(photoUrl)) return photoUrl;
+    const base = String(api.defaults.baseURL || "").replace(/\/+$/, "");
+    try {
+        const origin = new URL(base).origin;
+        return `${origin}${photoUrl.startsWith("/") ? photoUrl : `/${photoUrl}`}`;
+    } catch {
+        return photoUrl;
+    }
+}
 
 export default function TenantPropertiesScreen() {
     const { width } = useWindowDimensions();
+    const [properties, setProperties] = useState<Property[]>([]);
+    useFocusEffect(useCallback(() => {
+        let active = true;
+        const load = async () => {
+            try {
+                const result = await api.get("/properties");
+                const items = Array.isArray(result.data) ? result.data : [];
+                if (!active) return;
+                setProperties(items.map((v: any): Property => ({
+                    id: v.id, title: v.title || "Rental property", address: v.addressLine1 || "",
+                    city: v.townCity || "", postcode: v.postcode || "", monthlyRent: Number(v.monthlyRent || 0),
+                    deposit: Number(v.depositAmount || 0), propertyType: ({HOUSE:"House",FLAT:"Flat",STUDIO:"Studio",BUNGALOW:"Bungalow",MAISONETTE:"House",OTHER:"House"} as any)[v.propertyType] || "House",
+                    furnishing: ({FURNISHED:"Furnished",PART_FURNISHED:"Part-furnished",UNFURNISHED:"Unfurnished"} as any)[v.furnishingStatus] || "Unfurnished",
+                    bedrooms: v.bedrooms || 0, bathrooms:v.bathrooms || 0, kitchens:1, receptionRooms:v.receptionRooms || 0,
+                    availableDate:v.availableFrom ? new Date(v.availableFrom).toLocaleDateString("en-GB") : "Available now",
+                    availableTimestamp:v.availableFrom ? new Date(v.availableFrom).getTime() : Date.now(),
+                    petsAllowed:!!v.petsAllowed, parking:!!v.hasParking, garden:!!v.hasGarden, billsIncluded:false,
+                    accessible:!!v.hasWheelchairAccess, nearPublicTransport:false, epcRating:"Not provided", councilTaxBand:v.councilTaxBand || "Not provided",
+                    matchScore:0,matchedRequirements:[],unmatchedRequirements:[],description:v.description || "",
+                    image: v.photoUrls?.[0] ? resolveListingPhoto(v.photoUrls[0]) : "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80",
+                    agentName:v.listingSource === "NORMAL_USER" ? (v.contactName || "Property owner") : (v.agency?.name || "Property contact"),contactEmail:v.contactEmail,contactPhone:v.contactPhone,verified:v.listingSource !== "NORMAL_USER",
+                })));
+            } catch (error) { console.warn("Could not load property listings", error); }
+        };
+        load();
+        return () => { active = false; };
+    }, []));
+
 
     const isDesktop = width >= 1100;
     const isTablet = width >= 720;
@@ -677,10 +353,7 @@ export default function TenantPropertiesScreen() {
 
                 case "Best match":
                 default:
-                    return (
-                        second.matchScore -
-                        first.matchScore
-                    );
+                    return second.availableTimestamp - first.availableTimestamp;
             }
         });
     }, [filters, searchQuery, sortOption]);
@@ -828,7 +501,7 @@ export default function TenantPropertiesScreen() {
                     `${property.address}, ${property.city}, ${property.postcode}\n` +
                     `${formatCurrency(property.monthlyRent)} per month\n` +
                     `${property.bedrooms} bedroom(s), ${property.bathrooms} bathroom(s)\n` +
-                    `${property.matchScore}% property match`,
+                    property.matchScore ? `${property.matchScore}% property match` : "Rental listing",
             });
         } catch {
             setSnackbarMessage(
@@ -958,7 +631,7 @@ export default function TenantPropertiesScreen() {
                 <View style={styles.hero}>
                     <View style={styles.heroInformation}>
                         <Text style={styles.heroLabel}>
-                            PERSONALISED PROPERTY MATCHING
+                            AVAILABLE RENTAL PROPERTIES
                         </Text>
 
                         <Text
@@ -968,14 +641,11 @@ export default function TenantPropertiesScreen() {
                                 styles.heroTitleSmall,
                             ]}
                         >
-                            Properties selected for you
+                            Find your next home
                         </Text>
 
                         <Text style={styles.heroDescription}>
-                            These properties have been compared
-                            with your location, budget, household
-                            and property preferences. The strongest
-                            matches appear first.
+                            Browse available rental properties. Use search and filters to find listings that meet your needs.
                         </Text>
 
                         <View style={styles.heroStatistics}>
@@ -991,7 +661,7 @@ export default function TenantPropertiesScreen() {
                                 icon="star-circle-outline"
                                 value={
                                     recommendedProperty
-                                        ? `${recommendedProperty.matchScore}%`
+                                        ? recommendedProperty.matchScore ? `${recommendedProperty.matchScore ? `${recommendedProperty.matchScore}%` : "New"}` : "New"
                                         : "0%"
                                 }
                                 label="Best match"
@@ -1039,7 +709,7 @@ export default function TenantPropertiesScreen() {
                                 <Text
                                     style={styles.recommendedTitle}
                                 >
-                                    Your strongest property match
+                                    Recently listed property
                                 </Text>
                             </View>
 
@@ -1047,7 +717,7 @@ export default function TenantPropertiesScreen() {
                                 <Text
                                     style={styles.matchBadgeLargeValue}
                                 >
-                                    {recommendedProperty.matchScore}%
+                                    {recommendedProperty.matchScore ? `${recommendedProperty.matchScore}%` : "New"}
                                 </Text>
 
                                 <Text
@@ -1626,7 +1296,7 @@ function PropertyCard({
                         <Text
                             style={styles.matchBadgeText}
                         >
-                            {property.matchScore}% match
+                            {property.matchScore ? `${property.matchScore}% match` : "Available"}
                         </Text>
                     </View>
 
@@ -1776,7 +1446,7 @@ function PropertyCard({
 
                 <View style={styles.matchAnalysis}>
                     <Text style={styles.matchAnalysisTitle}>
-                        Why this property matches
+                        Property details
                     </Text>
 
                     {property.matchedRequirements
@@ -2209,7 +1879,7 @@ function PropertyDetailsModal({
                             <Text
                                 style={styles.matchBadgeText}
                             >
-                                {property.matchScore}% match
+                                {property.matchScore ? `${property.matchScore}% match` : "Available"}
                             </Text>
                         </View>
 
@@ -2344,9 +2014,11 @@ function PropertyDetailsModal({
 
                         <DetailItem
                             icon="account-tie-outline"
-                            label="Estate agent"
+                            label="Property contact"
                             value={property.agentName}
                         />
+                        {property.contactEmail ? <DetailItem icon="email-outline" label="Contact email" value={property.contactEmail} /> : null}
+                        {property.contactPhone ? <DetailItem icon="phone-outline" label="Contact phone" value={property.contactPhone} /> : null}
                     </View>
 
                     <Text style={styles.detailsSectionTitle}>
@@ -2520,7 +2192,7 @@ function ComparisonModal({
                             <Text
                                 style={styles.comparisonMatch}
                             >
-                                {property.matchScore}% match
+                                {property.matchScore ? `${property.matchScore}% match` : "Available"}
                             </Text>
 
                             <Text

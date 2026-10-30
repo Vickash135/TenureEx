@@ -93,6 +93,16 @@ export class MailService {
     }
   }
 
+  async sendMarketplaceVerification(email: string, firstName: string, verificationCode: string) {
+    await this.sendMail({
+      to: email,
+      subject: "Verify your TenureEx property account",
+      heading: "Verify your email address",
+      greeting: `Hello ${firstName},`,
+      message: `Your TenureEx property account verification code is ${verificationCode}. This code expires in 10 minutes. Do not share it.`,
+    });
+  }
+
   // =========================================================
   // ESTATE AGENT EMAIL VERIFICATION
   // =========================================================

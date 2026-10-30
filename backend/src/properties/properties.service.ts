@@ -144,6 +144,10 @@ export class PropertiesService {
         id: property.landlordProfile.agency.id,
         name: property.landlordProfile.agency.name,
       } : null,
+      contactName: property.contactName || null,
+      contactEmail: property.contactEmail || null,
+      contactPhone: property.contactPhone || null,
+      listingSource: property.marketplaceOwnerId ? "NORMAL_USER" : "AGENT_OR_LANDLORD",
       photoUrls:
         (property.photoNames ?? []).map(
           (name: string) =>

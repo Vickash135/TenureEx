@@ -86,10 +86,10 @@ export class PropertyWorkflowsService {
       },
     });
     if (!property) throw new NotFoundException("Property was not found.");
-    if (!property.landlordProfile.agencyId || !property.landlordProfile.agency) {
+    if (!property.landlordProfile?.agencyId || !property.landlordProfile.agency) {
       throw new BadRequestException("This property is not currently linked to an estate agency.");
     }
-    return property;
+    return { ...property, landlordProfile: property.landlordProfile };
   }
 
   private async agentForProperty(userId: string, propertyId: string) {

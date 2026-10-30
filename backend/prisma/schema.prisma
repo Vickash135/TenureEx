@@ -43,6 +43,7 @@ model User {
   phoneOtps                PhoneOtp[]
   refreshTokens            RefreshToken[]
   tenantProfile            TenantProfile?
+  marketplaceProperties    Property[]                  @relation("MarketplacePropertyOwner")
   globalRoles              UserRole[]
 
   @@index([userType])
@@ -75,7 +76,11 @@ model LandlordProfile {
 
 model Property {
   id                String       @id @default(uuid())
-  landlordProfileId String
+  landlordProfileId String?
+  marketplaceOwnerId String?
+  contactName String?
+  contactEmail String?
+  contactPhone String?
   addressLine1      String
   addressLine2      String?
   townCity          String
@@ -136,9 +141,11 @@ model Property {
   createdAt                 DateTime               @default(now())
   updatedAt                 DateTime               @updatedAt
 
-  landlordProfile LandlordProfile @relation(fields: [landlordProfileId], references: [id], onDelete: Cascade)
+  landlordProfile LandlordProfile? @relation(fields: [landlordProfileId], references: [id], onDelete: Cascade)
+  marketplaceOwner User? @relation("MarketplacePropertyOwner", fields: [marketplaceOwnerId], references: [id], onDelete: Cascade)
 
   @@index([landlordProfileId])
+  @@index([marketplaceOwnerId])
   @@index([postcode])
   @@index([propertyStatus])
   @@index([approvalStatus])
@@ -934,6 +941,7 @@ enum MaintenanceRoute {
 }
 
 enum UserType {
+  NORMAL_USER
   TENUREEX_ADMIN
   TENUREEX_STAFF
   ESTATE_AGENT

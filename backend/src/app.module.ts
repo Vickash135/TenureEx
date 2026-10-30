@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { CouncilInspectionsModule } from "./council-inspections/council-inspections.module";
+import { MarketplaceModule } from "./marketplace/marketplace.module";
 
 import { AddressLookupModule } from "./address-lookup/address-lookup.module";
 import { AdminAgentApplicationsModule } from "./admin-agent-applications/admin-agent-applications.module";
@@ -40,6 +41,7 @@ import { UsersModule } from "./users/users.module";
     LandlordRegistrationModule,
     AddressLookupModule,
     PropertiesModule,
+    MarketplaceModule,
     TenantRegistrationModule,
     PropertyWorkflowsModule,
     CouncilInspectionsModule,

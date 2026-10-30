@@ -498,6 +498,12 @@ export class AgencyLandlordsService {
       );
     }
 
+    if (!property.landlordProfile) {
+      throw new BadRequestException(
+        "This operation requires an agency-managed property with a landlord profile.",
+      );
+    }
+
     return this.presentProperty(
       property,
     );
@@ -544,6 +550,12 @@ export class AgencyLandlordsService {
     if (!property) {
       throw new NotFoundException(
         "Property was not found for this agency.",
+      );
+    }
+
+    if (!property.landlordProfile) {
+      throw new BadRequestException(
+        "This operation requires an agency-managed property with a landlord profile.",
       );
     }
 
@@ -768,6 +780,12 @@ export class AgencyLandlordsService {
     if (!property) {
       throw new NotFoundException(
         "Property was not found for this agency.",
+      );
+    }
+
+    if (!property.landlordProfile) {
+      throw new BadRequestException(
+        "This operation requires an agency-managed property with a landlord profile.",
       );
     }
 

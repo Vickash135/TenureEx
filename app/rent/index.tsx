@@ -42,6 +42,13 @@ const signInOptions: SignInOption[] = [
     route: "/auth/landlord/login" as Href,
   },
   {
+    id: "property-owner",
+    title: "Property Owner",
+    subtitle: "List and manage your properties",
+    icon: "home-plus-outline",
+    route: "/marketplace" as Href,
+  },
+  {
     id: "tenant",
     title: "Tenant",
     subtitle: "Access your TenureEx account",
@@ -357,10 +364,9 @@ export default function Index() {
             </Text>
 
             <Text style={styles.heroDescription}>
-              Search rental homes managed through
-              TenureEx. Properties shown to renters have
-              been reviewed and approved by the linked
-              estate agent.
+              Explore rental homes listed on TenureEx by
+              estate agents and individual property owners.
+              Find a home that suits your needs.
             </Text>
 
             {/* Search */}
@@ -412,7 +418,7 @@ export default function Index() {
             <View style={styles.quickInfoRow}>
               <QuickInfo
                 icon="shield-check-outline"
-                text="Agent-approved properties"
+                text="Available rental properties"
               />
 
               <QuickInfo
